@@ -171,6 +171,24 @@
     transform:translate(-50%,-50%);
   }
 
+  /* contador de cenouras abaixo do botão FORGE */
+  #arenaCarrotsBelow{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    bottom:64px;
+    z-index:6;
+    display:none;
+    color:#ff9b3a;
+    font-size:13px;
+    font-weight:bold;
+    letter-spacing:1px;
+    text-shadow:0 1px 2px rgba(0,0,0,.7);
+    pointer-events:none;
+    white-space:nowrap;
+  }
+  #arenaCarrotsBelow.show{display:block;}
+
   /* arena forge row: spacer invisível + FORGE (centro) + LV + AUTO (direita) */
   #arenaForgeRow{
     position:absolute;
@@ -455,6 +473,9 @@
       </button>
       <button id="arenaForgeAutoBtn" title="Auto-forge (desabilitado temporariamente)" disabled>AUTO</button>
     </div>
+
+    <!-- contador de cenouras logo abaixo do FORGE -->
+    <div id="arenaCarrotsBelow"><span id="arenaCarrotsCount">🥕 50</span></div>
 
     <!-- arena bottom tab bar (COMBAT no meio) -->
     <div id="arenaTabBar">
@@ -4281,9 +4302,7 @@ function drawArenaHUD(){
   ctx.textAlign = 'right';
   ctx.fillStyle = '#ff5252';
   ctx.font = 'bold 12px monospace';
-  ctx.fillText(`💀${arena.killCount}`, W-58, 34);
-  ctx.fillStyle = '#ff9b3a';
-  ctx.fillText(`🥕${arena.carrots}`, W-10, 34);
+  ctx.fillText(`💀${arena.killCount}`, W-10, 34);
   ctx.textAlign = 'left';
 
   // separator
@@ -4863,8 +4882,12 @@ function loop(now){
   const forgeBtn = document.getElementById('arenaForgeBtn');
   const forgeLvBtn = document.getElementById('arenaForgeLevelBtn');
   const forgeLvNum = document.getElementById('forgeLevelNum');
+  const carrotsBelow = document.getElementById('arenaCarrotsBelow');
+  const carrotsCount = document.getElementById('arenaCarrotsCount');
   if(state === STATE.ARENA_PLAY){
     forgeRow.classList.add('show');
+    carrotsBelow.classList.add('show');
+    if(carrotsCount) carrotsCount.textContent = `🥕 ${arena.carrots}`;
     // estado do FORGE: só depende de cenouras agora
     if(arena.carrots < FORGE_COST){
       forgeBtn.classList.add('cooldown');
@@ -4879,6 +4902,7 @@ function loop(now){
     else forgeLvBtn.classList.remove('upgradable');
   } else {
     forgeRow.classList.remove('show');
+    carrotsBelow.classList.remove('show');
   }
 
   if(state === STATE.CAVE_PLAY || state === STATE.CAVE_GAMEOVER){
