@@ -132,7 +132,7 @@
   #pauseBtn{
     position:absolute;
     left:6px;
-    bottom:7%;
+    bottom:10px;
     width:42px;height:42px;
     z-index:6;
     border:0;cursor:pointer;
@@ -321,8 +321,8 @@
 
 // ============ CONFIG ============
 const W = 360, H = 640; // logical portrait resolution
-const HUD_TOP = 56;
-const HUD_BOT = 96;
+const HUD_TOP = 96;
+const HUD_BOT = 56;
 const PLAY_TOP = HUD_TOP;
 const PLAY_BOT = H - HUD_BOT;
 
@@ -1456,6 +1456,29 @@ function drawHUDTop(){
   ctx.textAlign = 'right';
   ctx.fillText(`SCORE ${game.score}`, W-10, 30);
   ctx.textAlign = 'left';
+
+  // dice slots (movidos pro HUD de cima, 10% menores)
+  const slotW = 45, slotH = 45, gap = 6;
+  const totalW = 5*slotW + 4*gap;
+  let dsx = (W-totalW)/2;
+  const dsy = 47;
+  for(let i=0;i<5;i++){
+    const has = i < dice.length;
+    ctx.fillStyle = has ? '#fff7e0' : '#241a44';
+    ctx.fillRect(dsx, dsy, slotW, slotH);
+    ctx.fillStyle = has ? '#ffcc3d' : '#3b2a70';
+    ctx.fillRect(dsx, dsy, slotW, 3);
+    if(has){
+      drawDieFace(dsx, dsy, slotW, slotH, dice[i].value);
+    } else {
+      ctx.fillStyle = '#3b2a70';
+      ctx.font = 'bold 20px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('?', dsx+slotW/2, dsy+slotH/2-9);
+      ctx.textAlign = 'left';
+    }
+    dsx += slotW+gap;
+  }
 }
 
 function drawHUDBottom(){
@@ -1463,36 +1486,7 @@ function drawHUDBottom(){
   ctx.fillRect(0, H-HUD_BOT, W, HUD_BOT);
   ctx.fillStyle = '#5a4499';
   ctx.fillRect(0, H-HUD_BOT, W, 2);
-
-  // dice slots
-  const slotW = 50, slotH = 50, gap = 8;
-  const total = 5*slotW + 4*gap;
-  let sx = (W-total)/2;
-  const sy = H-HUD_BOT + 12;
-  for(let i=0;i<5;i++){
-    const has = i < dice.length;
-    ctx.fillStyle = has ? '#fff7e0' : '#241a44';
-    ctx.fillRect(sx, sy, slotW, slotH);
-    ctx.fillStyle = has ? '#ffcc3d' : '#3b2a70';
-    ctx.fillRect(sx, sy, slotW, 4);
-    if(has){
-      drawDieFace(sx, sy, slotW, slotH, dice[i].value);
-    } else {
-      ctx.fillStyle = '#3b2a70';
-      ctx.font = 'bold 22px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('?', sx+slotW/2, sy+slotH/2-10);
-      ctx.textAlign = 'left';
-    }
-    sx += slotW+gap;
-  }
-
-  // label
-  ctx.fillStyle = '#9b8fc4';
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('DICE LOADOUT', W/2, H-12);
-  ctx.textAlign = 'left';
+  // dados foram pro HUD de cima; aqui sobra só o anchor pro botão de pause
 }
 
 function drawDieFace(x,y,w,h,value){
