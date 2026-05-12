@@ -171,39 +171,71 @@
     transform:translate(-50%,-50%);
   }
 
-  /* arena forge row (3 botões: level / forge / auto) */
+  /* arena forge row: spacer invisível + FORGE (centro) + LV + AUTO (direita) */
   #arenaForgeRow{
     position:absolute;
     left:50%;
     transform:translateX(-50%);
     bottom:72px;
-    width:min(94%, 340px);
+    width:min(94%, 360px);
     display:none;
-    gap:6px;
+    gap:4px;
     align-items:stretch;
     z-index:6;
   }
   #arenaForgeRow.show{display:flex;}
 
+  /* spacer esquerdo invisível, do mesmo tamanho do grupo direito,
+     pra deixar o FORGE visualmente centralizado */
+  .forge-spacer{
+    width:88px; /* 42 + 4 + 42 = mesmo que LV + gap + AUTO */
+    flex-shrink:0;
+  }
+
+  /* FORGE central (20% maior: 42→50px altura, full flex width até 240) */
+  #arenaForgeBtn{
+    flex:1;
+    height:50px;
+    max-width:240px;
+    border:0;cursor:pointer;
+    border-radius:10px;
+    background:linear-gradient(180deg,#ff7a1a,#c04a0a);
+    border:2px solid #ffcc3d;
+    color:#3a230b;
+    font-size:14px;font-weight:bold;
+    letter-spacing:2px;
+    box-shadow:0 3px 0 #6b2a05, 0 0 18px rgba(255,140,40,.4);
+  }
+  #arenaForgeBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #6b2a05;}
+  #arenaForgeBtn.cooldown{
+    background:linear-gradient(180deg,#5a4499,#3b2a70);
+    color:#9b8fc4;
+    border-color:#5a4499;
+    cursor:not-allowed;
+    box-shadow:0 3px 0 #2a1a55;
+  }
+
+  /* LV e AUTO compactos na direita (42x50, mesma altura que FORGE) */
   #arenaForgeLevelBtn, #arenaForgeAutoBtn{
+    width:42px;
+    height:50px;
     border:0;cursor:pointer;
     border-radius:8px;
-    font-weight:bold;letter-spacing:1px;
-    height:42px;padding:0 6px;
-    font-size:10px;
+    font-weight:bold;letter-spacing:.5px;
+    padding:2px;font-size:8px;
     display:flex;flex-direction:column;
     align-items:center;justify-content:center;
     line-height:1.1;
+    flex-shrink:0;
   }
   #arenaForgeLevelBtn{
-    width:74px;
     background:linear-gradient(180deg,#5fb0d8,#2a6f95);
     border:2px solid #88daf0;
     color:#0d2a3a;
     box-shadow:0 3px 0 #1a4a6a, 0 0 10px rgba(95,176,216,.3);
   }
   #arenaForgeLevelBtn:active{transform:translateY(1px);}
-  #arenaForgeLevelBtn .lvNum{font-size:14px;color:#0d2a3a;}
+  #arenaForgeLevelBtn .lvNum{font-size:15px;color:#0d2a3a;line-height:1;}
   #arenaForgeLevelBtn.upgradable{
     animation:forgePulse 1s infinite;
     border-color:#ffcc3d;
@@ -214,7 +246,6 @@
   }
 
   #arenaForgeAutoBtn{
-    width:54px;
     background:linear-gradient(180deg,#5a4499,#3b2a70);
     color:var(--ink);
     border:2px solid #7a5fc4;
@@ -227,28 +258,6 @@
     box-shadow:0 3px 0 #1a6a3a;
   }
   #arenaForgeAutoBtn:active{transform:translateY(1px);}
-
-  /* arena forge button (centro) */
-  #arenaForgeBtn{
-    flex:1;
-    height:42px;
-    border:0;cursor:pointer;
-    border-radius:10px;
-    background:linear-gradient(180deg,#ff7a1a,#c04a0a);
-    border:2px solid #ffcc3d;
-    color:#3a230b;
-    font-size:13px;font-weight:bold;
-    letter-spacing:2px;
-    box-shadow:0 3px 0 #6b2a05, 0 0 18px rgba(255,140,40,.4);
-  }
-  #arenaForgeBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #6b2a05;}
-  #arenaForgeBtn.cooldown{
-    background:linear-gradient(180deg,#5a4499,#3b2a70);
-    color:#9b8fc4;
-    border-color:#5a4499;
-    cursor:not-allowed;
-    box-shadow:0 3px 0 #2a1a55;
-  }
 
   /* forge comparison popup */
   #forgeCompare h2{color:#ff7a1a;text-shadow:0 2px 0 #6b2a05;}
@@ -430,12 +439,13 @@
     <!-- arena AUTO toggle -->
     <button id="arenaAutoBtn" title="Auto-movimento">AUTO</button>
 
-    <!-- arena forge row: LV (popup) / FORGE / AUTO -->
+    <!-- arena forge row: spacer + FORGE (centro) + LV + AUTO (direita) -->
     <div id="arenaForgeRow">
-      <button id="arenaForgeLevelBtn" title="Upgrade da forja">
-        <span>FORGE LV</span><span class="lvNum" id="forgeLevelNum">1</span>
-      </button>
+      <span class="forge-spacer" aria-hidden="true"></span>
       <button id="arenaForgeBtn" title="Forjar item">⚒ FORGE</button>
+      <button id="arenaForgeLevelBtn" title="Upgrade da forja">
+        <span>LV</span><span class="lvNum" id="forgeLevelNum">1</span>
+      </button>
       <button id="arenaForgeAutoBtn" title="Auto-forge">AUTO</button>
     </div>
 
