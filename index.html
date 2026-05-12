@@ -1840,18 +1840,88 @@ function genCaveRow(idx){
   const row = new Array(CAVE.COLS).fill(null);
   if(idx < 6) return row; // safe start
   const difficulty = Math.min(0.6, idx / 200);
-  for(let c=0;c<CAVE.COLS;c++){
-    const r = Math.random();
-    if(r < 0.13 + difficulty*0.08) row[c] = {type:'rock'};
-    else if(r < 0.18 + difficulty*0.05) row[c] = {type:'coin'};
-    else if(r < 0.24 + difficulty*0.08) row[c] = {type:'enemy', hp: 2, hurtTimer:0};
+
+  // ---- formações especiais (raro) ----
+
+  // RIO: 3-5 células de água contíguas com gap pra passar
+  if(idx > 18 && Math.random() < 0.05 + difficulty*0.04){
+    const len = 3 + ((Math.random()*3)|0);
+    const start = (Math.random()*(CAVE.COLS - len + 1))|0;
+    for(let c=start; c<start+len; c++) row[c] = {type:'water'};
+    // abre 1 gap dentro do rio pra passar (pedra-ponte)
+    const gap = start + ((Math.random()*len)|0);
+    row[gap] = {type:'stepstone'};
+    return ensurePassable(row);
   }
-  // garante pelo menos 2 colunas livres pra player passar
-  let passable = row.filter(c => c === null || (c && c.type === 'coin')).length;
+
+  // PAREDE DE PEDRAS: 4-5 rocks contíguos
+  if(idx > 25 && Math.random() < 0.04 + difficulty*0.03){
+    const len = 4 + ((Math.random()*2)|0);
+    const start = (Math.random()*(CAVE.COLS - len + 1))|0;
+    for(let c=start; c<start+len; c++) row[c] = {type:'rock'};
+    return ensurePassable(row);
+  }
+
+  // ESQUADRÃO DE INIMIGOS: 2-3 enemies próximos
+  if(idx > 30 && Math.random() < 0.045 + difficulty*0.03){
+    const n = 2 + ((Math.random()*2)|0);
+    for(let i=0;i<n;i++){
+      const c = (Math.random()*CAVE.COLS)|0;
+      if(!row[c]) row[c] = {type:'enemy', hp:2, hurtTimer:0};
+    }
+    return ensurePassable(row);
+  }
+
+  // CAMPO DE SPIKES: 2-3 spikes no row
+  if(idx > 40 && Math.random() < 0.04 + difficulty*0.03){
+    const n = 2 + ((Math.random()*2)|0);
+    for(let i=0;i<n;i++){
+      const c = (Math.random()*CAVE.COLS)|0;
+      if(!row[c]) row[c] = {type:'spike'};
+    }
+    return ensurePassable(row);
+  }
+
+  // ---- distribuição célula-a-célula ----
+
+  for(let c=0;c<CAVE.COLS;c++){
+    if(row[c] !== null) continue;
+    const r = Math.random();
+    let acc = 0;
+
+    acc += 0.10 + difficulty*0.05;
+    if(r < acc){ row[c] = {type:'rock'}; continue; }
+
+    acc += 0.05 + difficulty*0.04;
+    if(r < acc){ row[c] = {type:'crystal', hp:2, hurtTimer:0}; continue; }
+
+    acc += 0.05;
+    if(r < acc){ row[c] = {type:'coin'}; continue; }
+
+    acc += 0.05 + difficulty*0.04;
+    if(r < acc){ row[c] = {type:'enemy', hp:2, hurtTimer:0}; continue; }
+
+    if(idx > 22){
+      acc += 0.03 + difficulty*0.03;
+      if(r < acc){ row[c] = {type:'spike'}; continue; }
+    }
+
+    // coração raro (idx > 30)
+    if(idx > 30 && Math.random() < 0.012){
+      row[c] = {type:'heart'};
+    }
+  }
+
+  return ensurePassable(row);
+}
+
+function ensurePassable(row){
+  const passOk = c => c === null || (c && (c.type === 'coin' || c.type === 'heart' || c.type === 'stepstone'));
+  let passable = row.filter(passOk).length;
   let tries = 0;
-  while(passable < 2 && tries < 5){
+  while(passable < 2 && tries < 6){
     row[(Math.random()*CAVE.COLS)|0] = null;
-    passable = row.filter(c => c === null || (c && c.type === 'coin')).length;
+    passable = row.filter(passOk).length;
     tries++;
   }
   return row;
@@ -1917,24 +1987,30 @@ function updateCave(){
     // colisão na linha do coelho (a célula que agora ficou em cima do coelho)
     const cell = cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol];
     if(cell){
-      if(cell.type === 'rock'){
+      const cx = (cave.bunnyCol+0.5)*CAVE.COL_W;
+      const cy = caveBunnyY()+CAVE.ROW_H/2;
+      const dmg = (color)=>{
         if(cave.bunnyHurtTimer<=0){
           cave.hp--;
           cave.bunnyHurtTimer = 50;
-          spawnCaveParticle((cave.bunnyCol+0.5)*CAVE.COL_W, caveBunnyY()+CAVE.ROW_H/2, '#ff5252', 10);
+          spawnCaveParticle(cx, cy, color, 10);
         }
-        cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
-      } else if(cell.type === 'coin'){
+      };
+      if(cell.type === 'rock'){ dmg('#ff5252'); cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null; }
+      else if(cell.type === 'crystal'){ dmg('#5fb0d8'); cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null; }
+      else if(cell.type === 'enemy'){ dmg('#ff5252'); cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null; }
+      else if(cell.type === 'spike'){ dmg('#ff5252'); /* spike NÃO some, persiste */ }
+      else if(cell.type === 'water'){ dmg('#5fb0d8'); /* água NÃO some, persiste */ }
+      else if(cell.type === 'coin'){
         cave.coins++;
-        spawnCaveParticle((cave.bunnyCol+0.5)*CAVE.COL_W, caveBunnyY()+CAVE.ROW_H/2, '#ffcc3d', 8);
+        spawnCaveParticle(cx, cy, '#ffcc3d', 8);
         cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
-      } else if(cell.type === 'enemy'){
-        if(cave.bunnyHurtTimer<=0){
-          cave.hp--;
-          cave.bunnyHurtTimer = 50;
-          spawnCaveParticle((cave.bunnyCol+0.5)*CAVE.COL_W, caveBunnyY()+CAVE.ROW_H/2, '#ff5252', 10);
-        }
+      } else if(cell.type === 'heart'){
+        if(cave.hp < cave.maxHp) cave.hp++;
+        spawnCaveParticle(cx, cy, '#ff5fa2', 14);
         cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
+      } else if(cell.type === 'stepstone'){
+        // passa por cima sem dano
       }
     }
     // ajusta projéteis (mundo desceu 1 row, projétil também precisa "descer" 1 row visual pra ficar coerente)
@@ -1968,22 +2044,25 @@ function updateCave(){
     const rowIdx = Math.floor((p.y - CAVE.TOP_Y - cave.scrollOffset) / CAVE.ROW_H) + 1;
     if(rowIdx >= 0 && rowIdx < cave.rows.length){
       const cell = cave.rows[rowIdx][p.col];
-      if(cell && (cell.type === 'enemy' || cell.type === 'rock')){
-        if(cell.type === 'enemy'){
+      if(cell){
+        if(cell.type === 'enemy' || cell.type === 'crystal'){
           cell.hp--;
           cell.hurtTimer = 6;
-          spawnCaveParticle(p.x, p.y, '#ff5252', 5);
+          spawnCaveParticle(p.x, p.y, cell.type==='crystal' ? '#5fb0d8' : '#ff5252', 5);
           if(cell.hp <= 0){
             cave.rows[rowIdx][p.col] = null;
-            cave.coins++; // bônus por matar inimigo
-            spawnCaveParticle((p.col+0.5)*CAVE.COL_W, p.y, '#ffcc3d', 10);
+            if(cell.type === 'enemy'){
+              cave.coins++; // bônus por matar inimigo
+              spawnCaveParticle((p.col+0.5)*CAVE.COL_W, p.y, '#ffcc3d', 10);
+            }
           }
-        } else {
-          // rock: 1 hit
+          cave.projectiles.splice(i,1);
+        } else if(cell.type === 'rock'){
           cave.rows[rowIdx][p.col] = null;
           spawnCaveParticle(p.x, p.y, '#888', 6);
+          cave.projectiles.splice(i,1);
         }
-        cave.projectiles.splice(i,1);
+        // spike, water, stepstone, coin, heart: projétil passa direto
       }
     }
   }
@@ -2036,6 +2115,97 @@ function drawCaveCoin(x,y){
     ctx.fillStyle = '#b3791f';
     ctx.fillRect(cx-1, cy-h/2+3, 2, h-6);
   }
+}
+
+function drawCaveCrystal(x,y,cell){
+  const m = 4;
+  const flash = cell.hurtTimer > 0;
+  // base
+  ctx.fillStyle = flash ? '#fff' : '#2a6090';
+  ctx.fillRect(x+m, y+m, CAVE.COL_W-m*2, CAVE.ROW_H-m*2);
+  // diamond facets
+  ctx.fillStyle = flash ? '#fff' : '#5fb0d8';
+  ctx.fillRect(x+m+3, y+m+3, CAVE.COL_W-m*2-6, CAVE.ROW_H-m*2-8);
+  ctx.fillStyle = flash ? '#fff' : '#8ad8f0';
+  ctx.fillRect(x+m+5, y+m+5, 5, 5);
+  ctx.fillRect(x+CAVE.COL_W-m-12, y+m+8, 4, 4);
+  if(!flash){
+    ctx.fillStyle = '#bfe8f7';
+    ctx.fillRect(x+m+6, y+m+6, 2, 2);
+  }
+}
+
+function drawCaveSpike(x,y){
+  const m = 4;
+  // base dark plate
+  ctx.fillStyle = '#3a1414';
+  ctx.fillRect(x+m, y+CAVE.ROW_H-m-6, CAVE.COL_W-m*2, 4);
+  // spike triangles (pixelated)
+  ctx.fillStyle = '#aaa';
+  const sw = (CAVE.COL_W-m*2);
+  const baseY = y+CAVE.ROW_H-m-6;
+  // 3 picos
+  for(let i=0;i<3;i++){
+    const sx = x+m + i*Math.floor(sw/3);
+    const w = Math.floor(sw/3);
+    ctx.fillRect(sx+w/2-1, baseY-8, 2, 8);
+    ctx.fillRect(sx+w/2-2, baseY-5, 4, 5);
+    ctx.fillRect(sx+w/2-3, baseY-2, 6, 2);
+  }
+  // red glow
+  ctx.fillStyle = 'rgba(255,82,82,0.35)';
+  ctx.fillRect(x+m, baseY-12, CAVE.COL_W-m*2, 6);
+}
+
+function drawCaveWater(x,y){
+  // água com onda animada
+  const t = performance.now()/300;
+  ctx.fillStyle = '#1a4a7a';
+  ctx.fillRect(x+1, y+1, CAVE.COL_W-2, CAVE.ROW_H-2);
+  ctx.fillStyle = '#2a6fa8';
+  for(let i=0;i<3;i++){
+    const wy = y + 8 + i*12 + Math.sin(t + x/40 + i)*2;
+    ctx.fillRect(x+4, wy, CAVE.COL_W-8, 2);
+  }
+  // brilho/reflexo
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillRect(x+CAVE.COL_W/2-2 + Math.sin(t)*3, y+10, 2, 8);
+}
+
+function drawCaveStepstone(x,y){
+  // pedra-ponte: rocha menor com gradient verde por cima (musgo)
+  const m = 6;
+  ctx.fillStyle = '#3a3a3a';
+  ctx.fillRect(x+m, y+m+CAVE.ROW_H-m*2-4, CAVE.COL_W-m*2, 4);
+  ctx.fillStyle = '#6a6a6a';
+  ctx.fillRect(x+m, y+m+4, CAVE.COL_W-m*2, CAVE.ROW_H-m*2-4);
+  // musgo
+  ctx.fillStyle = '#4cf08e';
+  ctx.fillRect(x+m, y+m+2, CAVE.COL_W-m*2, 4);
+  ctx.fillStyle = '#2aa860';
+  ctx.fillRect(x+m+2, y+m+5, 3, 2);
+  ctx.fillRect(x+CAVE.COL_W-m-6, y+m+5, 3, 2);
+}
+
+function drawCaveHeart(x,y){
+  const t = performance.now()/250;
+  const scale = 1 + Math.sin(t)*0.15;
+  const cx = x + CAVE.COL_W/2;
+  const cy = y + CAVE.ROW_H/2;
+  const sz = 8 * scale;
+  // pulsar glow
+  ctx.fillStyle = 'rgba(255,95,162,0.25)';
+  ctx.fillRect(cx-sz-2, cy-sz-1, sz*2+4, sz*2+4);
+  // heart pixelado
+  ctx.fillStyle = '#ff5fa2';
+  ctx.fillRect(cx-6, cy-4, 5, 5);
+  ctx.fillRect(cx+1, cy-4, 5, 5);
+  ctx.fillRect(cx-7, cy-2, 14, 5);
+  ctx.fillRect(cx-5, cy+3, 10, 2);
+  ctx.fillRect(cx-3, cy+5, 6, 2);
+  ctx.fillRect(cx-1, cy+7, 2, 1);
+  ctx.fillStyle = '#ff9bc7';
+  ctx.fillRect(cx-5, cy-3, 2, 2);
 }
 
 function drawCaveEnemy(x,y,cell){
@@ -2168,9 +2338,16 @@ function renderCave(){
 
       const cell = cave.rows[r][c];
       if(!cell) continue;
-      if(cell.type === 'rock') drawCaveRock(x, y);
-      else if(cell.type === 'coin') drawCaveCoin(x, y);
-      else if(cell.type === 'enemy') drawCaveEnemy(x, y, cell);
+      switch(cell.type){
+        case 'rock':     drawCaveRock(x, y); break;
+        case 'crystal':  drawCaveCrystal(x, y, cell); break;
+        case 'spike':    drawCaveSpike(x, y); break;
+        case 'water':    drawCaveWater(x, y); break;
+        case 'stepstone':drawCaveStepstone(x, y); break;
+        case 'coin':     drawCaveCoin(x, y); break;
+        case 'enemy':    drawCaveEnemy(x, y, cell); break;
+        case 'heart':    drawCaveHeart(x, y); break;
+      }
     }
   }
 
