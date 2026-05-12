@@ -2871,7 +2871,7 @@ const arena = {
   particles:[],
   items:{ weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null },
   // base stats (modificados por items + upgrades)
-  baseDmg:5, baseAtkSpeed:1.0, baseMoveSpeed:1.54, baseMaxHp:100,
+  baseDmg:5, baseAtkSpeed:1.0, baseMoveSpeed:0.616, baseMaxHp:100,
   baseProjectiles:1, baseCrit:0, baseDodge:0, baseXpMult:1, basePickupRange:50,
   spawnTimer:60,
   difficulty:1,
@@ -2918,7 +2918,7 @@ function initArena(){
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null };
-  arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 1.54;
+  arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
   arena.baseDodge = 0; arena.baseXpMult = 1; arena.basePickupRange = 50;
   arena.spawnTimer = 60; arena.difficulty = 1;
