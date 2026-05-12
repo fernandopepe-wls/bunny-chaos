@@ -578,7 +578,7 @@
     <!-- forge LEVEL upgrade popup -->
     <div class="layer" id="forgeLevelLayer">
       <h2 style="color:#5fb0d8;text-shadow:0 2px 0 #1a4a6a">⚙ FORGE LEVEL</h2>
-      <p>Upgrades reduzem o cooldown da forja. Custo: kills acumulados.</p>
+      <p>Cada nível destrava uma raridade superior nos drops da forja. Custo: kills acumulados.</p>
       <div id="forgeLevelInfo" style="margin-top:14px;"></div>
       <div class="forge-actions">
         <button class="btn secondary" id="forgeLevelCloseBtn">Voltar</button>
@@ -3847,12 +3847,11 @@ function updateArena(){
   }
   if(arena.comboTextTimer > 0) arena.comboTextTimer--;
   if(arena.maxRollBuffFrames > 0) arena.maxRollBuffFrames--;
-  if(arena.forgeCooldown > 0) arena.forgeCooldown--;
   if(arena.powerDeltaTimer > 0) arena.powerDeltaTimer--;
   if(arena.powerPulseTimer > 0) arena.powerPulseTimer--;
   bumpArenaPower();
-  // auto-forge: rola item silenciosamente e auto-equipa se for melhor
-  if(arena.autoForge && arena.forgeCooldown <= 0 && arena.carrots >= FORGE_COST){
+  // auto-forge: rola e auto-equipa se for melhor; só limitado por cenouras
+  if(arena.autoForge && arena.carrots >= FORGE_COST){
     autoForgeStep();
   }
 
@@ -4535,19 +4534,15 @@ function canUpgradeForge(){
 function buildForgeLevelInfo(){
   const lvl = arena.forgeLevel;
   const atMax = lvl >= FORGE_MAX_LEVEL;
-  const curCd = (arena.forgeInterval/60).toFixed(1);
   const curMaxTier = FORGE_LEVEL_MAX_TIER[lvl] || 'common';
   let html = `<div class="stats">
     <div class="row"><span>Nível</span><span style="color:#5fb0d8">${lvl} / ${FORGE_MAX_LEVEL}</span></div>
-    <div class="row"><span>Cooldown</span><span>${curCd}s</span></div>
     <div class="row"><span>Raridade máx</span><span style="color:${RARITY[curMaxTier].color}">${RARITY[curMaxTier].name}</span></div>`;
   if(!atMax){
-    const nextCd = (forgeIntervalAtLevel(lvl+1)/60).toFixed(1);
     const nextMaxTier = FORGE_LEVEL_MAX_TIER[lvl+1];
     const reqKills = FORGE_THRESHOLDS[lvl];
     const enough = arena.killCount >= reqKills;
     html += `
-      <div class="row"><span>Próximo cooldown</span><span style="color:#4cf08e">${nextCd}s</span></div>
       <div class="row"><span>Próxima raridade</span><span style="color:${RARITY[nextMaxTier].color}">${RARITY[nextMaxTier].name}</span></div>
       <div class="row"><span>Kills necessárias</span><span style="color:${enough?'#4cf08e':'#ff5252'}">${arena.killCount} / ${reqKills}</span></div>`;
   } else {
@@ -4592,7 +4587,6 @@ function autoForgeStep(){
   } else {
     spawnArenaParticle(arena.bx, arena.by, '#5a4499', 4);
   }
-  arena.forgeCooldown = arena.forgeInterval;
 }
 
 document.getElementById('arenaForgeLevelBtn').addEventListener('click', ()=>{
@@ -4621,10 +4615,8 @@ function forgeItemCardInner(item){
 
 function tryForge(){
   if(state !== STATE.ARENA_PLAY) return;
-  if(arena.forgeCooldown > 0) return;
   if(arena.carrots < FORGE_COST) return; // sem cenoura, sem forja
   arena.carrots -= FORGE_COST;
-  arena.forgeCooldown = arena.forgeInterval;
   arena.pendingForgeItem = rollItem();
   openForgeCompare();
 }
@@ -4867,11 +4859,8 @@ function loop(now){
   const forgeLvNum = document.getElementById('forgeLevelNum');
   if(state === STATE.ARENA_PLAY){
     forgeRow.classList.add('show');
-    // estado do FORGE: cooldown > sem cenouras > pronto
-    if(arena.forgeCooldown > 0){
-      forgeBtn.classList.add('cooldown');
-      forgeBtn.textContent = `⚒ ${Math.ceil(arena.forgeCooldown/60)}s`;
-    } else if(arena.carrots < FORGE_COST){
+    // estado do FORGE: só depende de cenouras agora
+    if(arena.carrots < FORGE_COST){
       forgeBtn.classList.add('cooldown');
       forgeBtn.textContent = `⚒ ${arena.carrots}/${FORGE_COST}🥕`;
     } else {
