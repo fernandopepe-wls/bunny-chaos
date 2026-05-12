@@ -2940,12 +2940,26 @@ function arenaSwing(){
     arc:   Math.PI * 0.85 + (bladeStat-1) * 0.20, // arco mais largo com upgrade
     range: 38 + bladeStat * 6,                    // alcance maior
     frame: 0,
-    lifeFrames: 14,
+    lifeFrames: 6,                                // swish rápido (~100ms)
     dmg: arenaTotalStat('dmg'),
     crit: arenaTotalStat('crit'),
-    dir: Math.random()<0.5 ? -1 : 1, // swing alterna esquerda/direita
+    dir: Math.random()<0.5 ? -1 : 1,
     hit: new Set(),
   });
+  // "swish blast" — burst de partículas no início pra venda velocidade
+  const startAngle = targetAngle - 0.4 * (Math.random()<0.5?-1:1);
+  for(let i=0;i<6;i++){
+    const a = startAngle + (Math.random()-0.5)*0.6;
+    const sp = 3 + Math.random()*3;
+    arena.particles.push({
+      x: arena.bx + Math.cos(a)*12,
+      y: arena.by + Math.sin(a)*12,
+      vx: Math.cos(a)*sp,
+      vy: Math.sin(a)*sp,
+      life: 8 + ((Math.random()*4)|0),
+      color: i%2===0 ? '#ffcc3d' : '#ff9b3a',
+    });
+  }
 }
 
 function updateArena(){
@@ -3214,10 +3228,17 @@ function drawCarrotSword(x, y, angle, range, t){
   ctx.rotate(angle);
 
   const len = range;
-  // trail: arco semi-transparente "fantasma" atrás da lâmina (só nos primeiros frames)
-  if(t < 0.7){
-    ctx.fillStyle = `rgba(255,180,80,${0.18*(1-t)})`;
-    ctx.fillRect(6, -8, len-6, 16);
+  // SWISH BLAST: trail vivo e amplo, decai rápido
+  // banda externa amarela (mais larga, mais transparente)
+  ctx.fillStyle = `rgba(255,220,90,${0.35*(1-t)})`;
+  ctx.fillRect(4, -14, len-4, 28);
+  // banda intermediária laranja
+  ctx.fillStyle = `rgba(255,140,40,${0.55*(1-t)})`;
+  ctx.fillRect(6, -9, len-4, 18);
+  // núcleo branco-quente (só no início pra parecer "flash")
+  if(t < 0.4){
+    ctx.fillStyle = `rgba(255,247,224,${0.6*(1 - t/0.4)})`;
+    ctx.fillRect(8, -3, len-8, 6);
   }
 
   // hilt (folhas verdes da cenoura)
