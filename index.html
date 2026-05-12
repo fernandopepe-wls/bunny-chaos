@@ -329,7 +329,7 @@ const PLAY_BOT = H - HUD_BOT;
 const BUNNY_W = 22, BUNNY_H = 26;
 const GRAVITY = 0.38;
 const JUMP_VY = -9.12;         // +20% jump distance/airtime
-const MOVE_SPEED = 2.04; // +20%
+const MOVE_SPEED = 2.244; // +20% +10%
 const SHOOT_INTERVAL = 36;     // frames between shots
 const PROJECTILE_SPEED = 4.5;
 const LAND_SHOOT_BUFFER = 12;  // 0.2s @ 60fps before shooting after landing
@@ -867,8 +867,8 @@ function updatePlay(){
   if(bunny.grounded){
     bunny.vx = input.axisX * MOVE_SPEED;
   } else if(Math.abs(input.axisX) > 0.05 && bunny.wallJumpLock <= 0){
-    // controle no ar com 63.25% da velocidade (57.5% + 10%)
-    bunny.vx = input.axisX * MOVE_SPEED * 0.6325;
+    // controle no ar com 72.7% da velocidade (63.25% + 15%)
+    bunny.vx = input.axisX * MOVE_SPEED * 0.727375;
   }
   // senão (no ar sem input ou em lock pós wall jump): mantém a velocidade do lançamento
   if(bunny.wallJumpLock > 0) bunny.wallJumpLock--;
