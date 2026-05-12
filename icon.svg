@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2a1a55"/>
+      <stop offset="100%" stop-color="#0d0a1a"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)" rx="64"/>
+
+  <!-- stars -->
+  <g fill="#fff7e0" opacity="0.7">
+    <rect x="60"  y="80"  width="6" height="6"/>
+    <rect x="430" y="60"  width="5" height="5"/>
+    <rect x="100" y="180" width="4" height="4"/>
+    <rect x="420" y="200" width="6" height="6"/>
+    <rect x="50"  y="280" width="4" height="4"/>
+  </g>
+
+  <!-- bunny ears -->
+  <rect x="180" y="100" width="38" height="120" fill="#fff7e0" rx="14"/>
+  <rect x="294" y="100" width="38" height="120" fill="#fff7e0" rx="14"/>
+  <rect x="192" y="118" width="16" height="84"  fill="#ff5fa2" rx="6"/>
+  <rect x="306" y="118" width="16" height="84"  fill="#ff5fa2" rx="6"/>
+
+  <!-- bunny head -->
+  <rect x="156" y="180" width="200" height="150" fill="#fff7e0" rx="40"/>
+
+  <!-- eyes -->
+  <rect x="200" y="240" width="22" height="22" fill="#0d0a1a"/>
+  <rect x="290" y="240" width="22" height="22" fill="#0d0a1a"/>
+  <rect x="208" y="246" width="6"  height="6"  fill="#fff7e0"/>
+  <rect x="298" y="246" width="6"  height="6"  fill="#fff7e0"/>
+
+  <!-- nose -->
+  <rect x="246" y="284" width="20" height="12" fill="#ff5fa2" rx="3"/>
+
+  <!-- body -->
+  <rect x="180" y="320" width="152" height="100" fill="#fff7e0" rx="30"/>
+
+  <!-- die -->
+  <rect x="350" y="350" width="100" height="100" fill="#ffcc3d" rx="14" stroke="#b3791f" stroke-width="6"/>
+  <circle cx="380" cy="380" r="9" fill="#0d0a1a"/>
+  <circle cx="420" cy="420" r="9" fill="#0d0a1a"/>
+  <circle cx="400" cy="400" r="9" fill="#0d0a1a"/>
+</svg>

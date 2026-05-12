@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="mobile-web-app-capable" content="yes" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
 <title>Bunny Chaos! Jump Jump! — MVP</title>
 <style>
   :root{
@@ -1658,7 +1661,20 @@ function showLayer(id){
   document.getElementById(id).classList.add('show');
 }
 
+function tryFullscreen(){
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if(req){
+    try { req.call(el).catch(()=>{}); } catch(e){}
+  }
+  // tenta travar em portrait (suportado em Chrome Android)
+  if(screen.orientation && screen.orientation.lock){
+    try { screen.orientation.lock('portrait').catch(()=>{}); } catch(e){}
+  }
+}
+
 document.getElementById('playBtn').addEventListener('click', ()=>{
+  tryFullscreen();
   enterPlay(true);
 });
 document.getElementById('retryBtn').addEventListener('click', ()=>{

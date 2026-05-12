@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2a1a55"/>
+      <stop offset="100%" stop-color="#0d0a1a"/>
+    </radialGradient>
+  </defs>
+  <!-- safe zone p/ maskable: conteúdo nos 80% centrais (offset ~52px) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- bunny ears (escaladas pra dentro da safe zone) -->
+  <rect x="210" y="148" width="30" height="92" fill="#fff7e0" rx="10"/>
+  <rect x="272" y="148" width="30" height="92" fill="#fff7e0" rx="10"/>
+  <rect x="219" y="160" width="12" height="68" fill="#ff5fa2" rx="4"/>
+  <rect x="281" y="160" width="12" height="68" fill="#ff5fa2" rx="4"/>
+
+  <!-- bunny head -->
+  <rect x="186" y="208" width="140" height="116" fill="#fff7e0" rx="32"/>
+
+  <!-- eyes -->
+  <rect x="218" y="250" width="18" height="18" fill="#0d0a1a"/>
+  <rect x="276" y="250" width="18" height="18" fill="#0d0a1a"/>
+
+  <!-- nose -->
+  <rect x="246" y="290" width="20" height="10" fill="#ff5fa2" rx="3"/>
+
+  <!-- body -->
+  <rect x="204" y="316" width="104" height="78" fill="#fff7e0" rx="22"/>
+
+  <!-- die -->
+  <rect x="318" y="328" width="68" height="68" fill="#ffcc3d" rx="10" stroke="#b3791f" stroke-width="4"/>
+  <circle cx="338" cy="348" r="6" fill="#0d0a1a"/>
+  <circle cx="366" cy="376" r="6" fill="#0d0a1a"/>
+  <circle cx="352" cy="362" r="6" fill="#0d0a1a"/>
+</svg>
