@@ -4080,33 +4080,36 @@ function drawArenaHUD(){
   ctx.fillStyle = '#5a4499';
   ctx.fillRect(0, ARENA.BOT_Y+4, W, 2);
 
-  // 8 slots — slotsize menor pra caber
-  const slotSize = 30, gap = 4;
+  // 8 slots ocupando quase a tela toda (edge-to-edge)
+  const slotSize = 42, gap = 2;
   const totalW = ARENA_SLOTS.length*slotSize + (ARENA_SLOTS.length-1)*gap;
-  let sx = (W-totalW)/2;
-  const sy = ARENA.BOT_Y + 14;
-  ctx.font = 'bold 14px monospace';
+  let sx = (W-totalW)/2; // ~5px de margem cada lado
+  const sy = ARENA.BOT_Y + 8;
   for(const slot of ARENA_SLOTS){
     const it = arena.items[slot];
     const col = it ? RARITY[it.rarity].color : '#241a44';
+    // borda
     ctx.fillStyle = col;
     ctx.fillRect(sx, sy, slotSize, slotSize);
+    // miolo escuro
     ctx.fillStyle = '#0d0a1a';
     ctx.fillRect(sx+2, sy+2, slotSize-4, slotSize-4);
+    // ícone bem maior centralizado
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     if(it){
       ctx.fillStyle = col;
-      ctx.font = 'bold 16px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(it.icon, sx+slotSize/2, sy+3);
+      ctx.font = 'bold 26px monospace';
+      ctx.fillText(it.icon, sx+slotSize/2, sy+slotSize/2);
     } else {
       ctx.fillStyle = '#3b2a70';
-      ctx.font = '15px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(ARENA_SLOT_ICONS[slot], sx+slotSize/2, sy+3);
+      ctx.font = '24px monospace';
+      ctx.fillText(ARENA_SLOT_ICONS[slot], sx+slotSize/2, sy+slotSize/2);
     }
-    ctx.textAlign = 'left';
     sx += slotSize + gap;
   }
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
 
   // regions counter (hook 4x)
   if(arena.regions > 0){
