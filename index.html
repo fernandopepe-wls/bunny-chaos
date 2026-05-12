@@ -398,11 +398,13 @@ function moveJoy(x,y){
   if(!joyOrigin) return;
   let dx = x - joyOrigin.x;
   let dy = y - joyOrigin.y;
+  const rawDx = dx; // antes de clampar, pra avaliar ângulo do gesto
   const len = Math.abs(dx);
   if(len > JOY_RADIUS) dx = (dx/len) * JOY_RADIUS;
 
-  // arrastar pra baixo trava o coelho na posição (active continua true → não auto-pula)
-  if(dy > JOY_RADIUS * 0.45){
+  // down-hold SÓ no cone estreito (~±25° da vertical). Diagonais andam normal.
+  // tan(25°) ≈ 0.466
+  if(dy > JOY_RADIUS * 0.45 && Math.abs(rawDx) < dy * 0.466){
     input.axisX = 0;
     input.downHold = true;
   } else {
@@ -457,47 +459,53 @@ window.addEventListener('mouseup', ()=>{ if(mouseDown){ mouseDown=false; endJoy(
 
 // keyboard fallback
 const keys = {};
+function syncKeyboardInput(){
+  if(state !== STATE.PLAY) return;
+  const down  = keys['ArrowDown']  || keys['s'];
+  const left  = keys['ArrowLeft']  || keys['a'];
+  const right = keys['ArrowRight'] || keys['d'];
+
+  if(left && !right) input.axisX = -1;
+  else if(right && !left) input.axisX = 1;
+  else input.axisX = 0;
+
+  // downHold só quando ↓ é a única direcional (sem horizontais)
+  input.downHold = down && !left && !right;
+}
+
 window.addEventListener('keydown', e=>{
   keys[e.key]=true;
-  if(state===STATE.PLAY){
-    if(e.key==='ArrowDown'||e.key==='s'){
-      // simula puxar joystick pra baixo: trava na posição
-      input.axisX = 0;
-      input.downHold = true;
-    } else if(e.key==='ArrowLeft'||e.key==='a'){
-      if(!input.downHold) input.axisX = -1;
-    } else if(e.key==='ArrowRight'||e.key==='d'){
-      if(!input.downHold) input.axisX = 1;
-    }
-  }
+  syncKeyboardInput();
 });
 window.addEventListener('keyup', e=>{
   keys[e.key]=false;
-  if((e.key==='ArrowLeft'||e.key==='a'||e.key==='ArrowRight'||e.key==='d')){
-    if(!keys['ArrowLeft']&&!keys['a']&&!keys['ArrowRight']&&!keys['d']){
-      // só queue do pulo se NÃO estiver em down-hold
-      if(state===STATE.PLAY && !input.downHold){
-        input.jumpQueued = true;
-        input.releaseAxis = input.axisX; // captura direção pra pulo diagonal
-      }
-      if(!input.downHold) input.axisX = 0;
-    }
-  }
-  if(e.key==='ArrowDown'||e.key==='s'){
-    if(!keys['ArrowDown'] && !keys['s']){
-      // se carregou (3s), dispara charged jump na soltura
-      if(state===STATE.PLAY && bunny.charged){
+
+  const isLeft  = (e.key==='ArrowLeft' ||e.key==='a');
+  const isRight = (e.key==='ArrowRight'||e.key==='d');
+  const isDown  = (e.key==='ArrowDown' ||e.key==='s');
+
+  const anyLeft  = keys['ArrowLeft'] ||keys['a'];
+  const anyRight = keys['ArrowRight']||keys['d'];
+  const anyDown  = keys['ArrowDown'] ||keys['s'];
+  const anyHoriz = anyLeft || anyRight;
+
+  if(state === STATE.PLAY){
+    if(isDown && !anyDown && !anyHoriz){
+      // soltou ↓ sozinho: charged jump se carregou
+      if(bunny.charged){
         input.jumpQueued = true;
         input.chargedJump = true;
         input.releaseAxis = 0;
       }
-      input.downHold = false;
-      // restaura axisX pelas teclas horizontais que ainda estão pressionadas
-      if(keys['ArrowLeft']||keys['a']) input.axisX = -1;
-      else if(keys['ArrowRight']||keys['d']) input.axisX = 1;
-      else input.axisX = 0;
+    } else if((isLeft || isRight) && !anyHoriz && !anyDown){
+      // soltou horizontal sem ↓ segurado: release-jump normal
+      input.jumpQueued = true;
+      input.releaseAxis = isLeft ? -1 : 1;
     }
+    // demais combinações: sem jump (down-hold em vigor ou outra horizontal segurando)
   }
+
+  syncKeyboardInput();
 });
 
 // ============ ENTITIES ============
