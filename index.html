@@ -2986,18 +2986,30 @@ const ARENA_SLOT_LABELS = {
 };
 const RARITY = {
   common:    { color:'#9b8fc4', mult:1.0,  name:'Comum'    },
-  uncommon:  { color:'#4cf08e', mult:1.6,  name:'Incomum'  },
-  rare:      { color:'#5fb0d8', mult:2.4,  name:'Raro'     },
-  epic:      { color:'#a86bff', mult:3.6,  name:'Épico'    },
-  legendary: { color:'#ffcc3d', mult:5.5,  name:'Lendário' },
+  uncommon:  { color:'#4cf08e', mult:1.5,  name:'Incomum'  },
+  rare:      { color:'#5fb0d8', mult:2.2,  name:'Raro'     },
+  epic:      { color:'#a86bff', mult:3.2,  name:'Épico'    },
+  legendary: { color:'#ffcc3d', mult:4.6,  name:'Lendário' },
+  mythic:    { color:'#ff5fa2', mult:6.5,  name:'Mítico'   },
+  divine:    { color:'#88f0ff', mult:9.5,  name:'Divino'   },
 };
+const RARITY_KEYS = Object.keys(RARITY); // ordem ascendente dos tiers
 const RARITY_WEIGHTS = [
-  ['common',    60],
+  ['common',    50],
   ['uncommon',  25],
-  ['rare',      10],
-  ['epic',       4],
-  ['legendary',  1],
+  ['rare',      12],
+  ['epic',       7],
+  ['legendary',  4],
+  ['mythic',     1.5],
+  ['divine',     0.5],
 ];
+// Forge level destrava raridade máxima dos drops
+const FORGE_LEVEL_MAX_TIER = {
+  1:'common', 2:'uncommon', 3:'rare', 4:'epic',
+  5:'legendary', 6:'mythic', 7:'divine',
+};
+// Custo de cenouras por forja (mesmo independente de raridade)
+const FORGE_COST = 5;
 // stats por slot
 const ARENA_ITEM_POOL = [
   // weapon
@@ -3052,6 +3064,7 @@ const arena = {
   pendingForgeItem: null,
   forgeLevel: 1,
   autoForge: false,
+  carrots: 0, // moeda da forja (cenouras)
   particles:[],
   items:{ weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null },
   // base stats (modificados por items + upgrades)
@@ -3110,6 +3123,7 @@ function initArena(){
   arena.forgeLevel = 1;
   arena.forgeInterval = 900;
   arena.autoForge = false;
+  arena.carrots = 0;
   const afb = document.getElementById('arenaForgeAutoBtn');
   if(afb) afb.classList.remove('active');
   const ab = document.getElementById('arenaAutoBtn');
@@ -3176,13 +3190,17 @@ function spawnArenaBoss(){
 }
 
 function rollRarity(){
-  const totalW = RARITY_WEIGHTS.reduce((s,[,w])=>s+w, 0);
+  // gate por forge level — só dropa até a raridade destravada
+  const maxTier = FORGE_LEVEL_MAX_TIER[arena.forgeLevel] || 'common';
+  const maxIdx = RARITY_KEYS.indexOf(maxTier);
+  const allowed = RARITY_WEIGHTS.filter(([k,_])=> RARITY_KEYS.indexOf(k) <= maxIdx);
+  const totalW = allowed.reduce((s,[,w])=>s+w, 0);
   let r = Math.random()*totalW;
-  for(const [name,w] of RARITY_WEIGHTS){
+  for(const [name,w] of allowed){
     r -= w;
     if(r<=0) return name;
   }
-  return 'common';
+  return allowed[allowed.length-1][0];
 }
 
 function rollItem(){
@@ -3222,7 +3240,6 @@ function arenaEquipItem(item){
 }
 
 function killArenaEnemy(idx, e){
-  // idx pode ser -1: encontra pelo ref
   if(idx < 0){
     idx = arena.enemies.indexOf(e);
     if(idx < 0) return;
@@ -3232,6 +3249,9 @@ function killArenaEnemy(idx, e){
   if(Math.random() < dropChance){
     arena.gems.push({ x:e.x+8, y:e.y+8, vx:0, vy:0, item: rollItem(), isItem:true, age:0 });
   }
+  // dropa cenouras como gem coletável
+  const carrotAmt = e.isBoss ? 10 : 1;
+  arena.gems.push({ x:e.x-6, y:e.y-6, vx:0, vy:0, carrot:carrotAmt, isCarrot:true, age:0 });
   arena.killCount++;
   if(e.isBoss){
     arena.regions++;
@@ -3683,7 +3703,7 @@ function updateArena(){
   if(arena.maxRollBuffFrames > 0) arena.maxRollBuffFrames--;
   if(arena.forgeCooldown > 0) arena.forgeCooldown--;
   // auto-forge: rola item silenciosamente e auto-equipa se for melhor
-  if(arena.autoForge && arena.forgeCooldown <= 0){
+  if(arena.autoForge && arena.forgeCooldown <= 0 && arena.carrots >= FORGE_COST){
     autoForgeStep();
   }
 
@@ -3804,10 +3824,12 @@ function updateArena(){
         if(equipped){
           spawnArenaParticle(arena.bx, arena.by, RARITY[g.item.rarity].color, 20);
         } else {
-          // converte item descartado em xp
           arena.xp += 1;
           spawnArenaParticle(arena.bx, arena.by, '#9b8fc4', 6);
         }
+      } else if(g.isCarrot){
+        arena.carrots += g.carrot || 1;
+        spawnArenaParticle(arena.bx, arena.by, '#ff7a1a', 5);
       } else {
         const xpGain = g.xp * arenaTotalStat('xpMult');
         arena.xp += xpGain;
@@ -4046,6 +4068,20 @@ function drawArenaEnemy(e){
 }
 
 function drawArenaGem(g){
+  if(g.isCarrot){
+    const t = performance.now()/200;
+    const bob = Math.sin(t + g.age*0.05)*1.5;
+    // corpo da cenoura
+    ctx.fillStyle = '#ff7a1a';
+    ctx.fillRect(g.x-3, g.y-3+bob, 6, 7);
+    ctx.fillStyle = '#ff9b3a';
+    ctx.fillRect(g.x-2, g.y-2+bob, 4, 5);
+    // folhas verdes
+    ctx.fillStyle = '#4cf08e';
+    ctx.fillRect(g.x-2, g.y-6+bob, 4, 2);
+    ctx.fillRect(g.x-1, g.y-7+bob, 2, 1);
+    return;
+  }
   if(g.isItem){
     const t = performance.now()/250;
     const bob = Math.sin(t + g.age*0.05)*2;
@@ -4105,7 +4141,9 @@ function drawArenaHUD(){
   ctx.fillText(`${mm}:${ss}`, W/2, 34);
   ctx.textAlign = 'right';
   ctx.fillStyle = '#ff5252';
-  ctx.fillText(`💀 ${arena.killCount}`, W-10, 34);
+  ctx.fillText(`💀${arena.killCount}`, W-58, 34);
+  ctx.fillStyle = '#ff9b3a';
+  ctx.fillText(`🥕${arena.carrots}`, W-10, 34);
   ctx.textAlign = 'left';
 
   // separator
@@ -4348,15 +4386,19 @@ function buildForgeLevelInfo(){
   const lvl = arena.forgeLevel;
   const atMax = lvl >= FORGE_MAX_LEVEL;
   const curCd = (arena.forgeInterval/60).toFixed(1);
+  const curMaxTier = FORGE_LEVEL_MAX_TIER[lvl] || 'common';
   let html = `<div class="stats">
     <div class="row"><span>Nível</span><span style="color:#5fb0d8">${lvl} / ${FORGE_MAX_LEVEL}</span></div>
-    <div class="row"><span>Cooldown</span><span>${curCd}s</span></div>`;
+    <div class="row"><span>Cooldown</span><span>${curCd}s</span></div>
+    <div class="row"><span>Raridade máx</span><span style="color:${RARITY[curMaxTier].color}">${RARITY[curMaxTier].name}</span></div>`;
   if(!atMax){
     const nextCd = (forgeIntervalAtLevel(lvl+1)/60).toFixed(1);
+    const nextMaxTier = FORGE_LEVEL_MAX_TIER[lvl+1];
     const reqKills = FORGE_THRESHOLDS[lvl];
     const enough = arena.killCount >= reqKills;
     html += `
       <div class="row"><span>Próximo cooldown</span><span style="color:#4cf08e">${nextCd}s</span></div>
+      <div class="row"><span>Próxima raridade</span><span style="color:${RARITY[nextMaxTier].color}">${RARITY[nextMaxTier].name}</span></div>
       <div class="row"><span>Kills necessárias</span><span style="color:${enough?'#4cf08e':'#ff5252'}">${arena.killCount} / ${reqKills}</span></div>`;
   } else {
     html += `<div class="row"><span style="color:#ffcc3d">NÍVEL MÁXIMO</span><span></span></div>`;
@@ -4391,6 +4433,8 @@ function upgradeForgeLevel(){
 }
 
 function autoForgeStep(){
+  if(arena.carrots < FORGE_COST) return; // não auto-forja sem cenoura
+  arena.carrots -= FORGE_COST;
   const newItem = rollItem();
   const equipped = arenaEquipItem(newItem);
   if(equipped){
@@ -4428,6 +4472,8 @@ function forgeItemCardInner(item){
 function tryForge(){
   if(state !== STATE.ARENA_PLAY) return;
   if(arena.forgeCooldown > 0) return;
+  if(arena.carrots < FORGE_COST) return; // sem cenoura, sem forja
+  arena.carrots -= FORGE_COST;
   arena.forgeCooldown = arena.forgeInterval;
   arena.pendingForgeItem = rollItem();
   openForgeCompare();
@@ -4542,10 +4588,13 @@ function buildArenaTabContent(key){
     <p class="em-breve">Mapa estratégico 4X — em breve.<br/>Conquiste regiões matando bosses pra desbloquear.</p>`;
   }
   if(key === 'shop'){
+    const maxTier = FORGE_LEVEL_MAX_TIER[arena.forgeLevel] || 'common';
     return `<div class="stats">
-      <div class="row"><span>🪙 Cenouras</span><span style="color:#ffcc3d">—</span></div>
+      <div class="row"><span>🥕 Cenouras</span><span style="color:#ff9b3a">${arena.carrots}</span></div>
+      <div class="row"><span>Custo por forja</span><span style="color:#ffcc3d">${FORGE_COST} 🥕</span></div>
+      <div class="row"><span>Raridade máx (forge lv ${arena.forgeLevel})</span><span style="color:${RARITY[maxTier].color}">${RARITY[maxTier].name}</span></div>
     </div>
-    <p class="em-breve">Loja em breve.<br/>Por enquanto, itens dropam dos inimigos.</p>`;
+    <p class="em-breve">Cenouras dropam de cada inimigo (bosses dão +10).<br/>Use no botão FORGE pra criar itens.</p>`;
   }
   if(key === 'growth'){
     return `<p class="em-breve">Meta-progressão permanente em breve.<br/>Upgrades persistentes entre runs (skill tree).</p>`;
@@ -4655,13 +4704,16 @@ function loop(now){
   const forgeLvNum = document.getElementById('forgeLevelNum');
   if(state === STATE.ARENA_PLAY){
     forgeRow.classList.add('show');
-    // cooldown / texto do FORGE
+    // estado do FORGE: cooldown > sem cenouras > pronto
     if(arena.forgeCooldown > 0){
       forgeBtn.classList.add('cooldown');
       forgeBtn.textContent = `⚒ ${Math.ceil(arena.forgeCooldown/60)}s`;
+    } else if(arena.carrots < FORGE_COST){
+      forgeBtn.classList.add('cooldown');
+      forgeBtn.textContent = `⚒ ${arena.carrots}/${FORGE_COST}🥕`;
     } else {
       forgeBtn.classList.remove('cooldown');
-      forgeBtn.textContent = '⚒ FORGE';
+      forgeBtn.textContent = `⚒ FORGE (${FORGE_COST}🥕)`;
     }
     // FORGE LV: atualiza número e pisca se pode upgrade
     if(forgeLvNum) forgeLvNum.textContent = arena.forgeLevel;
