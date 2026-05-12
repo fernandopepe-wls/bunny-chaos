@@ -3253,17 +3253,16 @@ function startNewWave(){
 
 function onWaveClear(){
   if(arena.wave >= WAVES_PER_STAGE){
-    // stage clear → próxima
+    // era a wave do boss → stage clear
     arena.waveState = 'stage_clear';
     arena.stageClearBannerTimer = 120; // 2s banner
-    // bônus de clear
     arena.carrots += 5 + arena.stage;
     spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 36);
     arena.regions++;
   } else {
+    // próxima wave (chama startNewWave pra spawnar inimigos / boss corretamente)
     arena.wave++;
-    arena.waveSpawnTimer = 30; // pequena pausa entre waves (0.5s)
-    arena.waveState = 'spawning';
+    startNewWave();
   }
 }
 
