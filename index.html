@@ -3183,6 +3183,8 @@ const arena = {
   waveTransitionTimer: 0,
   stageClearBannerTimer: 0,
   deathBannerTimer: 0,
+  // se já perdeu pro boss da stage atual, pode tentar de novo via botão
+  failedBossCurrentStage: false,
   // hook 4X: regiões "conquistadas" — só counter por enquanto, expansível
   regions:0,
 };
@@ -3290,6 +3292,7 @@ function initArena(){
   arena.waveTransitionTimer = 0;
   arena.stageClearBannerTimer = 0;
   arena.deathBannerTimer = 0;
+  arena.failedBossCurrentStage = false;
   arena.regions = 0;
 }
 
@@ -3354,11 +3357,17 @@ function onWaveClear(){
     arena.carrots += 5 + arena.stage;
     spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 36);
     arena.regions++;
-  } else if(arena.wave >= 4){
-    // wave 4 cleared → NÃO avança pro boss automaticamente
-    // volta pra wave 1 e fica em loop até o player clicar "DESAFIAR BOSS"
-    arena.wave = 1;
-    startNewWave();
+  } else if(arena.wave === 4){
+    // wave 4 limpa: avança pro boss automaticamente NA PRIMEIRA TENTATIVA.
+    // Se já tinha perdido pra esse boss, entra em loop e espera o player
+    // clicar "DESAFIAR BOSS".
+    if(arena.failedBossCurrentStage){
+      arena.wave = 1;
+      startNewWave();
+    } else {
+      arena.wave = WAVES_PER_STAGE;
+      startNewWave();
+    }
   } else {
     // waves 1-3 → próxima
     arena.wave++;
@@ -3380,6 +3389,10 @@ function challengeBoss(){
 
 function onArenaDeath(){
   // sem game over — volta pra wave 1 do stage atual com HP cheio
+  // se morreu lutando o boss, marca pra desbloquear o botão "DESAFIAR BOSS"
+  if(arena.wave === WAVES_PER_STAGE){
+    arena.failedBossCurrentStage = true;
+  }
   arena.hp = arena.maxHp;
   arena.enemies = [];
   arena.swings = [];
@@ -3402,6 +3415,7 @@ function tickArenaWave(){
       arena.stage++;
       arena.maxStageReached = Math.max(arena.maxStageReached, arena.stage);
       arena.wave = 1;
+      arena.failedBossCurrentStage = false; // novo stage, sem fail registrado
       startNewWave();
     }
     return;
@@ -5146,9 +5160,12 @@ function loop(now){
   if(state === STATE.ARENA_PLAY) autoEl.classList.add('show');
   else autoEl.classList.remove('show');
 
-  // BOSS challenge button: visível em ARENA_PLAY quando NÃO está na wave do boss
+  // BOSS challenge button: só aparece DEPOIS que o player perdeu pra esse boss pelo menos uma vez
   const bossBtn = document.getElementById('arenaBossBtn');
-  if(state === STATE.ARENA_PLAY && arena.wave < WAVES_PER_STAGE && arena.waveState !== 'stage_clear'){
+  if(state === STATE.ARENA_PLAY
+     && arena.failedBossCurrentStage
+     && arena.wave < WAVES_PER_STAGE
+     && arena.waveState !== 'stage_clear'){
     bossBtn.classList.add('show');
   } else {
     bossBtn.classList.remove('show');
