@@ -3044,10 +3044,10 @@ const FORGE_LEVEL_MAX_TIER = {
 const FORGE_COST = 5;
 // stats por slot
 const ARENA_ITEM_POOL = [
-  // weapon
-  { slot:'weapon', name:'Espada',     stat:'dmg',         base:3,    icon:'🗡️' },
-  { slot:'weapon', name:'Arco',       stat:'atkSpeed',    base:0.12, icon:'🏹' },
-  { slot:'weapon', name:'Cajado',     stat:'projectiles', base:1,    icon:'🪄' },
+  // weapon (com tipo melee/ranged)
+  { slot:'weapon', name:'Espada',     stat:'dmg',         base:3,    icon:'🗡️', weaponType:'melee'  },
+  { slot:'weapon', name:'Arco',       stat:'atkSpeed',    base:0.12, icon:'🏹', weaponType:'ranged' },
+  { slot:'weapon', name:'Cajado',     stat:'projectiles', base:1,    icon:'🪄', weaponType:'ranged' },
   // helmet
   { slot:'helmet', name:'Capacete',   stat:'maxHp',       base:12,   icon:'⛑️' },
   { slot:'helmet', name:'Coroa',      stat:'xpMult',      base:0.15, icon:'👑' },
@@ -3204,10 +3204,10 @@ function initArena(){
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null };
-  // arma inicial: galho (a pior arma do jogo)
+  // arma inicial: galho (a pior arma do jogo, melee)
   arena.items.weapon = {
     slot:'weapon', name:'Galho', stat:'dmg', base:1, value:1,
-    icon:'🌿', rarity:'common',
+    icon:'🌿', rarity:'common', weaponType:'melee',
   };
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
@@ -3590,6 +3590,31 @@ function updateArenaEffects(){
         }
       }
     }
+    else if(ef.kind === 'rangedProj'){
+      ef.x += ef.vx; ef.y += ef.vy;
+      // colisão: para no primeiro inimigo, gasta o projétil
+      for(let j=arena.enemies.length-1;j>=0;j--){
+        const e = arena.enemies[j];
+        if(ef.hit.has(e)) continue;
+        const d = Math.hypot(e.x-ef.x, e.y-ef.y);
+        if(d < e.r + 4){
+          const isCrit = Math.random() < ef.crit;
+          const dmg = isCrit ? Math.round(ef.dmg*2) : ef.dmg;
+          e.hp -= dmg;
+          e.hurtTimer = 6;
+          ef.hit.add(e);
+          spawnArenaParticle(e.x, e.y, isCrit ? '#ff5fa2' : '#ff7a1a', 6);
+          ef.frame = ef.lifeFrames; // marca pra remover
+          if(e.hp <= 0) killArenaEnemy(j, e);
+          break;
+        }
+      }
+      // remove se sair da arena
+      if(ef.x < ARENA.LEFT_X-20 || ef.x > ARENA.RIGHT_X+20 ||
+         ef.y < ARENA.TOP_Y-20 || ef.y > ARENA.BOT_Y+20){
+        ef.frame = ef.lifeFrames;
+      }
+    }
     else if(ef.kind === 'orbiter'){
       ef.angle += 0.15;
       ef.x = arena.bx + Math.cos(ef.angle) * ef.radius;
@@ -3649,31 +3674,48 @@ function updateArenaEffects(){
   }
 }
 
-function arenaSwing(){
-  // mira no inimigo mais próximo (auto-aim igual antes); se não houver, mira pra frente
+// Ranges por tipo de arma
+const MELEE_RANGE = 56;
+const RANGED_RANGE = 200;
+
+function getWeaponType(){
+  const w = arena.items.weapon;
+  return (w && w.weaponType) || 'melee';
+}
+
+function arenaAttack(){
+  // checa se tem inimigo no range; retorna true se atacou
+  const type = getWeaponType();
+  const maxRange = type === 'ranged' ? RANGED_RANGE : MELEE_RANGE;
   let best=null, bestD=Infinity;
   for(const e of arena.enemies){
     const dx = e.x - arena.bx, dy = e.y - arena.by;
-    const d = dx*dx+dy*dy;
-    if(d < bestD){ bestD=d; best=e; }
+    const d = Math.hypot(dx, dy);
+    if(d > maxRange) continue; // fora do range, não conta
+    if(d < bestD){ bestD = d; best = e; }
   }
-  if(!best) return;
-  const targetAngle = Math.atan2(best.y-arena.by, best.x-arena.bx);
-  // "projéteis" agora viram tamanho/arco da espada
+  if(!best) return false;
+
+  if(type === 'ranged') arenaRangedShot(best);
+  else arenaMeleeSwing(best);
+  return true;
+}
+
+function arenaMeleeSwing(target){
+  const targetAngle = Math.atan2(target.y-arena.by, target.x-arena.bx);
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
   const rangeBoost = arena.maxRollBuffFrames > 0 ? 1.5 : 1;
   arena.swings.push({
     centerAngle: targetAngle,
     arc:   Math.PI * 0.85 + (bladeStat-1) * 0.20,
     range: (38 + bladeStat * 6) * rangeBoost,
-    frame: 0,
-    lifeFrames: 6,
+    frame: 0, lifeFrames: 6,
     dmg: arenaTotalStat('dmg'),
     crit: arenaTotalStat('crit'),
     dir: Math.random()<0.5 ? -1 : 1,
     hit: new Set(),
   });
-  // "swish blast" — burst de partículas no início pra venda velocidade
+  // swish blast
   const startAngle = targetAngle - 0.4 * (Math.random()<0.5?-1:1);
   for(let i=0;i<6;i++){
     const a = startAngle + (Math.random()-0.5)*0.6;
@@ -3685,6 +3727,37 @@ function arenaSwing(){
       vy: Math.sin(a)*sp,
       life: 8 + ((Math.random()*4)|0),
       color: i%2===0 ? '#ffcc3d' : '#ff9b3a',
+    });
+  }
+}
+
+function arenaRangedShot(target){
+  const angle = Math.atan2(target.y-arena.by, target.x-arena.bx);
+  const projCount = Math.max(1, Math.round(arenaTotalStat('projectiles')));
+  const dmg = arenaTotalStat('dmg');
+  const crit = arenaTotalStat('crit');
+  for(let i=0;i<projCount;i++){
+    const spread = (i - (projCount-1)/2) * 0.18;
+    const a = angle + spread;
+    arena.effects.push({
+      kind:'rangedProj',
+      x: arena.bx, y: arena.by,
+      vx: Math.cos(a) * 6.5,
+      vy: Math.sin(a) * 6.5,
+      angle: a,
+      dmg, crit,
+      frame:0, lifeFrames: 45,
+      hit: new Set(),
+    });
+  }
+  // muzzle flash leve
+  for(let i=0;i<3;i++){
+    arena.particles.push({
+      x: arena.bx + Math.cos(angle)*10,
+      y: arena.by + Math.sin(angle)*10,
+      vx: Math.cos(angle)*(2+Math.random()),
+      vy: Math.sin(angle)*(2+Math.random()),
+      life: 8, color:'#ffcc3d',
     });
   }
 }
@@ -3852,12 +3925,15 @@ function updateArena(){
   // hurt timer
   if(arena.hurtTimer>0) arena.hurtTimer--;
 
-  // auto-swing (espada de cenoura)
+  // auto-attack (melee swing OU ranged shot, depende da arma)
+  // só ativa se houver inimigo no range; senão segura o cooldown
   const atkSpeed = 1 + arenaTotalStat('atkSpeed');
   arena.shootTimer -= atkSpeed;
   if(arena.shootTimer <= 0){
-    arenaSwing();
-    arena.shootTimer = 50;
+    if(arenaAttack()){
+      arena.shootTimer = 50;
+    }
+    // se nada no range, shootTimer continua <= 0 → tenta de novo no próximo frame
   }
 
   // dice roll: rola todos os dados periodicamente e dispara habilidade pelo combo
@@ -4492,6 +4568,29 @@ function renderArena(){
       ctx.fillRect(-12, -6, 24, 12);
       ctx.fillStyle = `rgba(255,247,224,${a})`;
       ctx.fillRect(-10, -2, 20, 4);
+      ctx.restore();
+    }
+    else if(ef.kind === 'rangedProj'){
+      // flecha-cenoura pixel-art apontando na direção do tiro
+      ctx.save();
+      ctx.translate(ef.x, ef.y);
+      ctx.rotate(ef.angle);
+      // haste laranja
+      ctx.fillStyle = '#cc4a0a';
+      ctx.fillRect(-8, -2, 14, 4);
+      ctx.fillStyle = '#ff7a1a';
+      ctx.fillRect(-8, -1, 14, 2);
+      // ponta
+      ctx.fillStyle = '#ffcc3d';
+      ctx.fillRect(6, -3, 4, 6);
+      ctx.fillRect(10, -2, 2, 4);
+      ctx.fillStyle = '#fff7e0';
+      ctx.fillRect(8, -2, 2, 2);
+      // empenagem verde
+      ctx.fillStyle = '#2aa860';
+      ctx.fillRect(-10, -4, 4, 8);
+      ctx.fillStyle = '#4cf08e';
+      ctx.fillRect(-9, -3, 2, 6);
       ctx.restore();
     }
     else if(ef.kind === 'orbiter'){
