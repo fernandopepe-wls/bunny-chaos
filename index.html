@@ -3078,11 +3078,17 @@ const arena = {
   // base stats (modificados por items + upgrades)
   baseDmg:5, baseAtkSpeed:1.0, baseMoveSpeed:0.616, baseMaxHp:100,
   baseProjectiles:1, baseCrit:0, baseDodge:0, baseXpMult:1, basePickupRange:50,
-  spawnTimer:60,
-  difficulty:1,
   startTime:0,
   killCount:0,
-  bossTimer: 30*60, // primeiro mini-boss em ~30s
+  // wave/stage system (estilo LoM + Forge Master)
+  stage: 1,
+  wave: 1,
+  maxStageReached: 1,
+  waveState: 'spawning', // 'spawning' | 'fighting' | 'transitioning' | 'stage_clear'
+  waveEnemiesToSpawn: 0,
+  waveSpawnTimer: 0,
+  waveTransitionTimer: 0,
+  stageClearBannerTimer: 0,
   // hook 4X: regiões "conquistadas" — só counter por enquanto, expansível
   regions:0,
 };
@@ -3173,10 +3179,17 @@ function initArena(){
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
   arena.baseDodge = 0; arena.baseXpMult = 1; arena.basePickupRange = 50;
-  arena.spawnTimer = 60; arena.difficulty = 1;
   arena.startTime = performance.now();
   arena.killCount = 0;
-  arena.bossTimer = 30*60;
+  // wave/stage reset
+  arena.stage = 1;
+  arena.wave = 1;
+  arena.maxStageReached = 1;
+  arena.waveState = 'spawning';
+  arena.waveEnemiesToSpawn = enemiesPerWave(1);
+  arena.waveSpawnTimer = 60; // 1s antes da primeira leva
+  arena.waveTransitionTimer = 0;
+  arena.stageClearBannerTimer = 0;
   arena.regions = 0;
 }
 
@@ -3188,13 +3201,100 @@ const ARENA_ENEMY_DEFS = {
   boss:     { color:'#ff5252', r:18, hp:120,speed:0.35, dmg:22, xp:10 },
 };
 
+// ====== WAVE / STAGE SYSTEM ======
+const WAVES_PER_STAGE = 5; // 4 normais + 1 boss
+function enemiesPerWave(stage){
+  // cresce levemente conforme stage; piso de 4 e teto de 12
+  return Math.min(12, 4 + Math.floor((stage-1)/2));
+}
+function waveSpawnInterval(stage){
+  // intervalo entre spawns dentro de uma wave; mais rápido em stages altos
+  return Math.max(18, 50 - stage*2);
+}
+function stageScale(stage){
+  // HP/dano dos inimigos escala 15% por stage
+  return Math.pow(1.15, stage-1);
+}
+function stagePool(stage){
+  // tier de inimigos por stage
+  const pool = ['slime','slime'];
+  if(stage >= 2) pool.push('slime','bat');
+  if(stage >= 3) pool.push('bat');
+  if(stage >= 5) pool.push('skeleton');
+  if(stage >= 8) pool.push('skeleton','knight');
+  if(stage >= 12) pool.push('knight','skeleton');
+  if(stage >= 16) pool.push('knight','knight');
+  return pool;
+}
+function stageLabel(s){
+  // formato X-Y (chapter-stage), 5 stages por chapter
+  const chapter = Math.ceil(s / 5);
+  const within = ((s-1) % 5) + 1;
+  return `${chapter}-${within}`;
+}
+
+function startNewWave(){
+  arena.waveState = 'spawning';
+  if(arena.wave === WAVES_PER_STAGE){
+    // wave de boss
+    spawnArenaBoss();
+    arena.waveEnemiesToSpawn = 0;
+    arena.waveState = 'fighting';
+  } else {
+    arena.waveEnemiesToSpawn = enemiesPerWave(arena.stage);
+    arena.waveSpawnTimer = 20;
+  }
+}
+
+function onWaveClear(){
+  if(arena.wave >= WAVES_PER_STAGE){
+    // stage clear → próxima
+    arena.waveState = 'stage_clear';
+    arena.stageClearBannerTimer = 120; // 2s banner
+    // bônus de clear
+    arena.carrots += 5 + arena.stage;
+    spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 36);
+    arena.regions++;
+  } else {
+    arena.wave++;
+    arena.waveSpawnTimer = 30; // pequena pausa entre waves (0.5s)
+    arena.waveState = 'spawning';
+  }
+}
+
+function tickArenaWave(){
+  if(arena.waveState === 'stage_clear'){
+    arena.stageClearBannerTimer--;
+    if(arena.stageClearBannerTimer <= 0){
+      arena.stage++;
+      arena.maxStageReached = Math.max(arena.maxStageReached, arena.stage);
+      arena.wave = 1;
+      startNewWave();
+    }
+    return;
+  }
+  if(arena.waveState === 'spawning'){
+    if(arena.waveEnemiesToSpawn > 0){
+      arena.waveSpawnTimer--;
+      if(arena.waveSpawnTimer <= 0){
+        spawnArenaEnemy();
+        arena.waveEnemiesToSpawn--;
+        arena.waveSpawnTimer = waveSpawnInterval(arena.stage);
+      }
+    } else {
+      arena.waveState = 'fighting';
+    }
+    return;
+  }
+  if(arena.waveState === 'fighting'){
+    if(arena.enemies.length === 0){
+      onWaveClear();
+    }
+  }
+}
+
 function spawnArenaEnemy(){
-  const t = (performance.now()-arena.startTime)/1000;
-  // pool baseado no tempo
-  const pool = ['slime','slime','slime'];
-  if(t > 15) pool.push('bat','bat');
-  if(t > 45) pool.push('skeleton');
-  if(t > 90) pool.push('knight','skeleton');
+  const pool = stagePool(arena.stage);
   const kind = pool[(Math.random()*pool.length)|0];
   const def = ARENA_ENEMY_DEFS[kind];
   // spawna em borda aleatória
@@ -3204,13 +3304,13 @@ function spawnArenaEnemy(){
   else if(side===1){ x = ARENA.RIGHT_X+10; y = ARENA.TOP_Y + Math.random()*(ARENA.BOT_Y-ARENA.TOP_Y); }
   else if(side===2){ x = ARENA.LEFT_X + Math.random()*(ARENA.RIGHT_X-ARENA.LEFT_X); y = ARENA.TOP_Y-10; }
   else { x = ARENA.LEFT_X + Math.random()*(ARENA.RIGHT_X-ARENA.LEFT_X); y = ARENA.BOT_Y+10; }
-  const scale = 1 + arena.difficulty*0.05;
+  const scale = stageScale(arena.stage);
   arena.enemies.push({
     kind, x, y, r:def.r,
     hp: Math.round(def.hp*scale), maxHp: Math.round(def.hp*scale),
     speed: def.speed,
     dmg: Math.round(def.dmg*scale*0.8),
-    xp: def.xp,
+    xp: Math.round(def.xp * (1 + (arena.stage-1)*0.1)),
     color: def.color,
     hurtTimer: 0,
   });
@@ -3218,7 +3318,7 @@ function spawnArenaEnemy(){
 
 function spawnArenaBoss(){
   const def = ARENA_ENEMY_DEFS.boss;
-  const scale = 1 + arena.difficulty*0.1;
+  const scale = stageScale(arena.stage) * 1.2;
   arena.enemies.push({
     kind:'boss',
     x: W/2, y: ARENA.TOP_Y-20,
@@ -3754,23 +3854,8 @@ function updateArena(){
   // update efeitos especiais
   updateArenaEffects();
 
-  // spawn enemies
-  arena.spawnTimer--;
-  if(arena.spawnTimer <= 0){
-    spawnArenaEnemy();
-    const t = (performance.now()-arena.startTime)/1000;
-    arena.spawnTimer = Math.max(20, 60 - t*0.6);
-  }
-
-  // boss spawn periodic
-  arena.bossTimer--;
-  if(arena.bossTimer <= 0){
-    spawnArenaBoss();
-    arena.bossTimer = 60*60; // próximo boss em 60s
-  }
-
-  // dificuldade sobe com tempo
-  arena.difficulty = 1 + (performance.now()-arena.startTime)/60000; // +1 por minuto
+  // wave/stage tick — substitui spawn por tempo
+  tickArenaWave();
 
   // enemies behavior + collision
   for(let i=arena.enemies.length-1;i>=0;i--){
@@ -3917,9 +4002,11 @@ function enterArenaGameOver(){
     }
   }
   stats.innerHTML = `
+    <div class="row"><span>Stage máximo</span><span style="color:#ffcc3d">${stageLabel(arena.maxStageReached)}</span></div>
     <div class="row"><span>Nível</span><span>${arena.level}</span></div>
     <div class="row"><span>Kills</span><span>${arena.killCount}</span></div>
-    <div class="row"><span>Regiões conquistadas</span><span>${arena.regions}</span></div>
+    <div class="row"><span>Bosses derrotados</span><span>${arena.regions}</span></div>
+    <div class="row"><span>⚡ Power final</span><span style="color:#ffcc3d">${arena.power}</span></div>
     <div class="row"><span>Tempo</span><span>${time}s</span></div>
     ${itemsHtml}
   `;
@@ -4165,16 +4252,25 @@ function drawArenaHUD(){
     ctx.globalAlpha = 1;
   }
 
-  // time + kills + regions
-  const t = ((performance.now()-arena.startTime)/1000)|0;
-  const mm = String((t/60)|0).padStart(2,'0');
-  const ss = String(t%60).padStart(2,'0');
+  // STAGE label centralizado + wave progress
   ctx.fillStyle = '#fff7e0';
-  ctx.font = 'bold 12px monospace';
+  ctx.font = 'bold 13px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(`${mm}:${ss}`, W/2 + 30, 34);
+  ctx.fillText(`STAGE ${stageLabel(arena.stage)}`, W/2 + 30, 33);
+  // wave dots (5 bolinhas, atual destacada)
+  const dotsX0 = W/2 + 30 - (WAVES_PER_STAGE*8)/2 + 4;
+  for(let i=0;i<WAVES_PER_STAGE;i++){
+    const isCur = (i+1) === arena.wave;
+    const isPast = (i+1) < arena.wave;
+    const isBoss = (i+1) === WAVES_PER_STAGE;
+    ctx.fillStyle = isCur ? (isBoss?'#ff5252':'#ffcc3d')
+                  : isPast ? '#4cf08e'
+                  : (isBoss?'#5a2a2a':'#3b2a70');
+    ctx.fillRect(dotsX0 + i*8 - 2, 45, 4, 3);
+  }
   ctx.textAlign = 'right';
   ctx.fillStyle = '#ff5252';
+  ctx.font = 'bold 12px monospace';
   ctx.fillText(`💀${arena.killCount}`, W-58, 34);
   ctx.fillStyle = '#ff9b3a';
   ctx.fillText(`🥕${arena.carrots}`, W-10, 34);
@@ -4277,13 +4373,25 @@ function drawArenaHUD(){
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  // regions counter (hook 4x)
-  if(arena.regions > 0){
-    ctx.fillStyle = '#ffcc3d';
-    ctx.font = 'bold 11px monospace';
+  // banner de STAGE CLEAR
+  if(arena.stageClearBannerTimer > 0){
+    const lifeT = arena.stageClearBannerTimer / 120;
+    const alpha = Math.min(1, lifeT*2);
+    const scale = 1 + (1-lifeT)*0.15;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, ARENA.TOP_Y + 100, W, 80);
+    ctx.font = `bold ${Math.round(28*scale)}px monospace`;
     ctx.textAlign = 'center';
-    ctx.fillText(`🗺 Regiões: ${arena.regions}`, W/2, H-12);
+    ctx.fillStyle = '#000';
+    ctx.fillText('STAGE CLEAR!', W/2+2, ARENA.TOP_Y+138+2);
+    ctx.fillStyle = '#ffcc3d';
+    ctx.fillText('STAGE CLEAR!', W/2, ARENA.TOP_Y+138);
+    ctx.font = 'bold 14px monospace';
+    ctx.fillStyle = '#fff7e0';
+    ctx.fillText(`Próximo: ${stageLabel(arena.stage+1)}`, W/2, ARENA.TOP_Y+162);
     ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -4613,13 +4721,13 @@ function buildArenaTabContent(key){
   if(key === 'world'){
     const t = Math.floor((performance.now()-arena.startTime)/1000);
     return `<div class="stats">
-      <div class="row"><span>🗺 Regiões Conquistadas</span><span>${arena.regions}</span></div>
-      <div class="row"><span>Bosses derrotados</span><span>${arena.regions}</span></div>
+      <div class="row"><span>Stage atual</span><span style="color:#ffcc3d">${stageLabel(arena.stage)} (Wave ${arena.wave}/${WAVES_PER_STAGE})</span></div>
+      <div class="row"><span>Stage máximo atingido</span><span style="color:#4cf08e">${stageLabel(arena.maxStageReached)}</span></div>
+      <div class="row"><span>🗺 Bosses derrotados</span><span>${arena.regions}</span></div>
       <div class="row"><span>Total kills</span><span>${arena.killCount}</span></div>
       <div class="row"><span>Tempo na arena</span><span>${t}s</span></div>
-      <div class="row"><span>Próximo boss</span><span>${Math.max(0,Math.ceil(arena.bossTimer/60))}s</span></div>
     </div>
-    <p class="em-breve">Mapa estratégico 4X — em breve.<br/>Conquiste regiões matando bosses pra desbloquear.</p>`;
+    <p class="em-breve">Mapa estratégico 4X — em breve.<br/>Cada stage clear = bônus de cenouras + novo tier de inimigos.</p>`;
   }
   if(key === 'shop'){
     const maxTier = FORGE_LEVEL_MAX_TIER[arena.forgeLevel] || 'common';
