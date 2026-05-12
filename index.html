@@ -2775,7 +2775,7 @@ const arena = {
   hurtTimer:0,
   shootTimer:0,
   enemies:[],
-  projectiles:[],
+  swings:[],   // ataques melee (arcos da espada de cenoura)
   gems:[],
   particles:[],
   items:{ weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null },
@@ -2815,7 +2815,7 @@ function initArena(){
   arena.hp = 100; arena.maxHp = 100;
   arena.level = 1; arena.xp = 0; arena.xpToNext = 8;
   arena.hurtTimer = 0; arena.shootTimer = 0;
-  arena.enemies = []; arena.projectiles = []; arena.gems = []; arena.particles = [];
+  arena.enemies = []; arena.swings = []; arena.gems = []; arena.particles = [];
   arena.items = { weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null };
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 1.54;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
@@ -2923,8 +2923,8 @@ function arenaEquipItem(item){
   return false;
 }
 
-function arenaShoot(){
-  // encontra inimigo mais próximo
+function arenaSwing(){
+  // mira no inimigo mais próximo (auto-aim igual antes); se não houver, mira pra frente
   let best=null, bestD=Infinity;
   for(const e of arena.enemies){
     const dx = e.x - arena.bx, dy = e.y - arena.by;
@@ -2932,21 +2932,20 @@ function arenaShoot(){
     if(d < bestD){ bestD=d; best=e; }
   }
   if(!best) return;
-  const projCount = Math.max(1, Math.round(arenaTotalStat('projectiles')));
-  const dmg = arenaTotalStat('dmg');
-  const crit = arenaTotalStat('crit');
-  for(let i=0;i<projCount;i++){
-    const angle = Math.atan2(best.y-arena.by, best.x-arena.bx) + (i - (projCount-1)/2)*0.18;
-    const isCrit = Math.random() < crit;
-    arena.projectiles.push({
-      x: arena.bx, y: arena.by,
-      vx: Math.cos(angle)*5,
-      vy: Math.sin(angle)*5,
-      dmg: isCrit ? Math.round(dmg*2) : dmg,
-      crit: isCrit,
-      life: 80,
-    });
-  }
+  const targetAngle = Math.atan2(best.y-arena.by, best.x-arena.bx);
+  // "projéteis" agora viram tamanho/arco da espada
+  const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
+  arena.swings.push({
+    centerAngle: targetAngle,
+    arc:   Math.PI * 0.85 + (bladeStat-1) * 0.20, // arco mais largo com upgrade
+    range: 38 + bladeStat * 6,                    // alcance maior
+    frame: 0,
+    lifeFrames: 14,
+    dmg: arenaTotalStat('dmg'),
+    crit: arenaTotalStat('crit'),
+    dir: Math.random()<0.5 ? -1 : 1, // swing alterna esquerda/direita
+    hit: new Set(),
+  });
 }
 
 function updateArena(){
@@ -2980,12 +2979,12 @@ function updateArena(){
   // hurt timer
   if(arena.hurtTimer>0) arena.hurtTimer--;
 
-  // auto-shoot
+  // auto-swing (espada de cenoura)
   const atkSpeed = 1 + arenaTotalStat('atkSpeed');
   arena.shootTimer -= atkSpeed;
   if(arena.shootTimer <= 0){
-    arenaShoot();
-    arena.shootTimer = 45;
+    arenaSwing();
+    arena.shootTimer = 50;
   }
 
   // spawn enemies
@@ -3028,42 +3027,59 @@ function updateArena(){
     }
   }
 
-  // projectiles
-  for(let i=arena.projectiles.length-1;i>=0;i--){
-    const p = arena.projectiles[i];
-    p.x += p.vx; p.y += p.vy; p.life--;
-    if(p.life<=0 || p.x<ARENA.LEFT_X-20 || p.x>ARENA.RIGHT_X+20 || p.y<ARENA.TOP_Y-20 || p.y>ARENA.BOT_Y+20){
-      arena.projectiles.splice(i,1); continue;
-    }
+  // swings (espada de cenoura) — arco rotacionando, dano em quem entrar no caminho
+  for(let i=arena.swings.length-1;i>=0;i--){
+    const sw = arena.swings[i];
+    sw.frame++;
+    const t = sw.frame / sw.lifeFrames; // 0..1
+    // ângulo da lâmina nesse frame, varrendo o arco
+    const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
+    // hit check em quem ainda não levou desse swing
     for(let j=arena.enemies.length-1;j>=0;j--){
       const e = arena.enemies[j];
-      const dx3 = p.x - e.x, dy3 = p.y - e.y;
-      if(dx3*dx3+dy3*dy3 < (e.r+3)*(e.r+3)){
-        e.hp -= p.dmg;
-        e.hurtTimer = 6;
-        spawnArenaParticle(p.x, p.y, p.crit ? '#ff5fa2' : '#ffcc3d', 4);
-        arena.projectiles.splice(i,1);
-        if(e.hp <= 0){
-          // drop gem
-          arena.gems.push({ x:e.x, y:e.y, vx:0, vy:0, xp:e.xp, age:0 });
-          // drop item raro
-          const dropChance = e.isBoss ? 1 : 0.06;
-          if(Math.random() < dropChance){
-            const item = rollItem();
-            arena.gems.push({ x:e.x+8, y:e.y+8, vx:0, vy:0, item, isItem:true, age:0 });
-          }
-          arena.killCount++;
-          if(e.isBoss){
-            arena.regions++;
-            spawnArenaParticle(e.x, e.y, '#ff5252', 30);
-          } else {
-            spawnArenaParticle(e.x, e.y, e.color, 14);
-          }
-          arena.enemies.splice(j,1);
+      if(sw.hit.has(e)) continue;
+      const dx3 = e.x - arena.bx, dy3 = e.y - arena.by;
+      const dist = Math.hypot(dx3, dy3);
+      if(dist > sw.range + e.r) continue;
+      if(dist < ARENA.BUNNY_R) { /* inimigo encostado, sempre acerta */ }
+      else {
+        const enemyAngle = Math.atan2(dy3, dx3);
+        // diff angular wrap-safe
+        let diff = enemyAngle - swingAngle;
+        while(diff > Math.PI) diff -= Math.PI*2;
+        while(diff < -Math.PI) diff += Math.PI*2;
+        if(Math.abs(diff) > 0.42) continue; // fora da largura da lâmina
+      }
+      // acerto!
+      const isCrit = Math.random() < sw.crit;
+      const dmg = isCrit ? Math.round(sw.dmg*2) : sw.dmg;
+      e.hp -= dmg;
+      e.hurtTimer = 6;
+      spawnArenaParticle(e.x, e.y, isCrit ? '#ff5fa2' : '#ff7a1a', isCrit ? 8 : 5);
+      sw.hit.add(e);
+      // knockback radial leve
+      if(dist > 0.1){
+        e.x += (dx3/dist) * 3;
+        e.y += (dy3/dist) * 3;
+      }
+      if(e.hp <= 0){
+        // drop XP gem
+        arena.gems.push({ x:e.x, y:e.y, vx:0, vy:0, xp:e.xp, age:0 });
+        const dropChance = e.isBoss ? 1 : 0.06;
+        if(Math.random() < dropChance){
+          arena.gems.push({ x:e.x+8, y:e.y+8, vx:0, vy:0, item: rollItem(), isItem:true, age:0 });
         }
-        break;
+        arena.killCount++;
+        if(e.isBoss){
+          arena.regions++;
+          spawnArenaParticle(e.x, e.y, '#ff5252', 30);
+        } else {
+          spawnArenaParticle(e.x, e.y, e.color, 14);
+        }
+        arena.enemies.splice(j,1);
       }
     }
+    if(sw.frame >= sw.lifeFrames) arena.swings.splice(i,1);
   }
 
   // gems: atrai pro player quando dentro do raio + coleta
@@ -3191,6 +3207,60 @@ function enterArena(){
 }
 
 // ========== RENDER ARENA ==========
+function drawCarrotSword(x, y, angle, range, t){
+  // t in [0,1] — usado pra trail/transparência
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  const len = range;
+  // trail: arco semi-transparente "fantasma" atrás da lâmina (só nos primeiros frames)
+  if(t < 0.7){
+    ctx.fillStyle = `rgba(255,180,80,${0.18*(1-t)})`;
+    ctx.fillRect(6, -8, len-6, 16);
+  }
+
+  // hilt (folhas verdes da cenoura)
+  ctx.fillStyle = '#2aa860';
+  ctx.fillRect(0, -4, 7, 8);
+  ctx.fillStyle = '#4cf08e';
+  ctx.fillRect(2, -6, 4, 3);
+  ctx.fillRect(2, 3, 4, 3);
+  ctx.fillRect(-1, -3, 3, 6);
+  ctx.fillStyle = '#88f0a8';
+  ctx.fillRect(3, -5, 2, 2);
+
+  // corpo da lâmina (cenoura laranja, afina pra ponta)
+  // segmento mais grosso perto do cabo
+  ctx.fillStyle = '#cc4a0a';
+  ctx.fillRect(7, -4, len-18, 8);
+  ctx.fillStyle = '#ff7a1a';
+  ctx.fillRect(7, -3, len-18, 6);
+  ctx.fillStyle = '#ff9b3a';
+  ctx.fillRect(7, -2, len-18, 2);
+
+  // ponta cônica (degraus pixelados)
+  const tipStart = len - 11;
+  ctx.fillStyle = '#cc4a0a';
+  ctx.fillRect(tipStart,    -3, 4, 6);
+  ctx.fillRect(tipStart+4,  -2, 3, 4);
+  ctx.fillRect(tipStart+7,  -1, 2, 2);
+  ctx.fillStyle = '#ff7a1a';
+  ctx.fillRect(tipStart,    -2, 4, 4);
+  ctx.fillRect(tipStart+4,  -1, 3, 2);
+
+  // estrias amarelas (detalhe da cenoura)
+  ctx.fillStyle = '#ffcc3d';
+  for(let i=0;i<3;i++){
+    ctx.fillRect(11 + i*8, -1, 3, 2);
+  }
+  // highlight branco
+  ctx.fillStyle = '#fff7e0';
+  ctx.fillRect(10, -3, 4, 1);
+
+  ctx.restore();
+}
+
 function drawArenaBunny(){
   const x = arena.bx, y = arena.by;
   const flash = arena.hurtTimer>0 && (arena.hurtTimer%6<3);
@@ -3404,12 +3474,11 @@ function renderArena(){
   // enemies
   for(const e of arena.enemies) drawArenaEnemy(e);
 
-  // projectiles
-  for(const p of arena.projectiles){
-    ctx.fillStyle = p.crit ? '#ff5fa2' : '#ffcc3d';
-    ctx.fillRect(p.x-2, p.y-2, 4, 4);
-    ctx.fillStyle = '#fff7e0';
-    ctx.fillRect(p.x-1, p.y-1, 2, 2);
+  // swings (espada de cenoura)
+  for(const sw of arena.swings){
+    const t = sw.frame / sw.lifeFrames;
+    const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
+    drawCarrotSword(arena.bx, arena.by, swingAngle, sw.range, t);
   }
 
   // bunny
