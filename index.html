@@ -171,13 +171,66 @@
     transform:translate(-50%,-50%);
   }
 
-  /* arena forge button */
-  #arenaForgeBtn{
+  /* arena forge row (3 botões: level / forge / auto) */
+  #arenaForgeRow{
     position:absolute;
     left:50%;
     transform:translateX(-50%);
     bottom:72px;
-    width:60%;max-width:240px;
+    width:min(94%, 340px);
+    display:none;
+    gap:6px;
+    align-items:stretch;
+    z-index:6;
+  }
+  #arenaForgeRow.show{display:flex;}
+
+  #arenaForgeLevelBtn, #arenaForgeAutoBtn{
+    border:0;cursor:pointer;
+    border-radius:8px;
+    font-weight:bold;letter-spacing:1px;
+    height:42px;padding:0 6px;
+    font-size:10px;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    line-height:1.1;
+  }
+  #arenaForgeLevelBtn{
+    width:74px;
+    background:linear-gradient(180deg,#5fb0d8,#2a6f95);
+    border:2px solid #88daf0;
+    color:#0d2a3a;
+    box-shadow:0 3px 0 #1a4a6a, 0 0 10px rgba(95,176,216,.3);
+  }
+  #arenaForgeLevelBtn:active{transform:translateY(1px);}
+  #arenaForgeLevelBtn .lvNum{font-size:14px;color:#0d2a3a;}
+  #arenaForgeLevelBtn.upgradable{
+    animation:forgePulse 1s infinite;
+    border-color:#ffcc3d;
+  }
+  @keyframes forgePulse{
+    0%,100%{box-shadow:0 3px 0 #1a4a6a, 0 0 10px rgba(255,204,61,.4);}
+    50%{box-shadow:0 3px 0 #1a4a6a, 0 0 18px rgba(255,204,61,.8);}
+  }
+
+  #arenaForgeAutoBtn{
+    width:54px;
+    background:linear-gradient(180deg,#5a4499,#3b2a70);
+    color:var(--ink);
+    border:2px solid #7a5fc4;
+    box-shadow:0 3px 0 #2a1a55;
+  }
+  #arenaForgeAutoBtn.active{
+    background:linear-gradient(180deg,#4cf08e,#2aa860);
+    color:#0d2a1a;
+    border-color:#88f0a8;
+    box-shadow:0 3px 0 #1a6a3a;
+  }
+  #arenaForgeAutoBtn:active{transform:translateY(1px);}
+
+  /* arena forge button (centro) */
+  #arenaForgeBtn{
+    flex:1;
     height:42px;
     border:0;cursor:pointer;
     border-radius:10px;
@@ -186,12 +239,9 @@
     color:#3a230b;
     font-size:13px;font-weight:bold;
     letter-spacing:2px;
-    display:none;
-    z-index:6;
     box-shadow:0 3px 0 #6b2a05, 0 0 18px rgba(255,140,40,.4);
   }
-  #arenaForgeBtn.show{display:block;}
-  #arenaForgeBtn:active{transform:translateX(-50%) translateY(2px);box-shadow:0 1px 0 #6b2a05;}
+  #arenaForgeBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #6b2a05;}
   #arenaForgeBtn.cooldown{
     background:linear-gradient(180deg,#5a4499,#3b2a70);
     color:#9b8fc4;
@@ -380,8 +430,14 @@
     <!-- arena AUTO toggle -->
     <button id="arenaAutoBtn" title="Auto-movimento">AUTO</button>
 
-    <!-- arena forge button -->
-    <button id="arenaForgeBtn" title="Forjar item">⚒ FORGE</button>
+    <!-- arena forge row: LV (popup) / FORGE / AUTO -->
+    <div id="arenaForgeRow">
+      <button id="arenaForgeLevelBtn" title="Upgrade da forja">
+        <span>FORGE LV</span><span class="lvNum" id="forgeLevelNum">1</span>
+      </button>
+      <button id="arenaForgeBtn" title="Forjar item">⚒ FORGE</button>
+      <button id="arenaForgeAutoBtn" title="Auto-forge">AUTO</button>
+    </div>
 
     <!-- arena bottom tab bar (COMBAT no meio) -->
     <div id="arenaTabBar">
@@ -507,6 +563,17 @@
         </div>
       </div>
       <button class="btn" id="resumeBtn">Continuar</button>
+    </div>
+
+    <!-- forge LEVEL upgrade popup -->
+    <div class="layer" id="forgeLevelLayer">
+      <h2 style="color:#5fb0d8;text-shadow:0 2px 0 #1a4a6a">⚙ FORGE LEVEL</h2>
+      <p>Upgrades reduzem o cooldown da forja. Custo: kills acumulados.</p>
+      <div id="forgeLevelInfo" style="margin-top:14px;"></div>
+      <div class="forge-actions">
+        <button class="btn secondary" id="forgeLevelCloseBtn">Voltar</button>
+        <button class="btn" id="forgeLevelUpgradeBtn">⚡ Upgrade</button>
+      </div>
     </div>
 
     <!-- forge comparison popup -->
@@ -1864,7 +1931,7 @@ function enterGameOver(){
 
 // ============ UI LAYERS ============
 function hideAllLayers(){
-  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaLevelUp','arenaGameover','arenaTab','forgeCompare']){
+  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaLevelUp','arenaGameover','arenaTab','forgeCompare','forgeLevelLayer']){
     document.getElementById(id).classList.remove('show');
   }
 }
@@ -2981,8 +3048,10 @@ const arena = {
   maxRollBuffFrames:0,  // boost de range nos próximos swings (MAXROLL)
   autoMove: false,      // IA de movimento ON/OFF
   forgeCooldown: 0,     // frames até próxima forja
-  forgeInterval: 900,   // 15s @ 60fps
+  forgeInterval: 900,   // 15s @ 60fps (será recalculado pelo level)
   pendingForgeItem: null,
+  forgeLevel: 1,
+  autoForge: false,
   particles:[],
   items:{ weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null },
   // base stats (modificados por items + upgrades)
@@ -3038,6 +3107,11 @@ function initArena(){
   arena._aiEscapeDir = {x:0,y:0};
   arena.forgeCooldown = 0;
   arena.pendingForgeItem = null;
+  arena.forgeLevel = 1;
+  arena.forgeInterval = 900;
+  arena.autoForge = false;
+  const afb = document.getElementById('arenaForgeAutoBtn');
+  if(afb) afb.classList.remove('active');
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null };
@@ -3608,6 +3682,10 @@ function updateArena(){
   if(arena.comboTextTimer > 0) arena.comboTextTimer--;
   if(arena.maxRollBuffFrames > 0) arena.maxRollBuffFrames--;
   if(arena.forgeCooldown > 0) arena.forgeCooldown--;
+  // auto-forge: rola item silenciosamente e auto-equipa se for melhor
+  if(arena.autoForge && arena.forgeCooldown <= 0){
+    autoForgeStep();
+  }
 
   // update efeitos especiais
   updateArenaEffects();
@@ -4255,6 +4333,88 @@ function renderArena(){
 }
 
 // ============== FORGE ==============
+const FORGE_THRESHOLDS = [0, 10, 30, 60, 100, 150, 220]; // kills pra cada nível (1=0, 2=10, 3=30, ...)
+const FORGE_MAX_LEVEL = FORGE_THRESHOLDS.length;
+function forgeIntervalAtLevel(lvl){
+  // L1=15s, decresce ~1.5s por nível, mínimo 3s
+  return Math.max(180, Math.round(900 - (lvl-1) * 90));
+}
+function canUpgradeForge(){
+  return arena.forgeLevel < FORGE_MAX_LEVEL
+      && arena.killCount >= FORGE_THRESHOLDS[arena.forgeLevel]; // próximo threshold
+}
+
+function buildForgeLevelInfo(){
+  const lvl = arena.forgeLevel;
+  const atMax = lvl >= FORGE_MAX_LEVEL;
+  const curCd = (arena.forgeInterval/60).toFixed(1);
+  let html = `<div class="stats">
+    <div class="row"><span>Nível</span><span style="color:#5fb0d8">${lvl} / ${FORGE_MAX_LEVEL}</span></div>
+    <div class="row"><span>Cooldown</span><span>${curCd}s</span></div>`;
+  if(!atMax){
+    const nextCd = (forgeIntervalAtLevel(lvl+1)/60).toFixed(1);
+    const reqKills = FORGE_THRESHOLDS[lvl];
+    const enough = arena.killCount >= reqKills;
+    html += `
+      <div class="row"><span>Próximo cooldown</span><span style="color:#4cf08e">${nextCd}s</span></div>
+      <div class="row"><span>Kills necessárias</span><span style="color:${enough?'#4cf08e':'#ff5252'}">${arena.killCount} / ${reqKills}</span></div>`;
+  } else {
+    html += `<div class="row"><span style="color:#ffcc3d">NÍVEL MÁXIMO</span><span></span></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function openForgeLevel(){
+  document.getElementById('forgeLevelInfo').innerHTML = buildForgeLevelInfo();
+  const upBtn = document.getElementById('forgeLevelUpgradeBtn');
+  if(canUpgradeForge()){
+    upBtn.disabled = false;
+    upBtn.style.opacity = '1';
+    upBtn.textContent = '⚡ Upgrade';
+  } else {
+    upBtn.disabled = true;
+    upBtn.style.opacity = '0.5';
+    upBtn.textContent = arena.forgeLevel >= FORGE_MAX_LEVEL ? 'MAX' : '⚡ Upgrade';
+  }
+  state = STATE.ARENA_TAB;
+  showLayer('forgeLevelLayer');
+}
+
+function upgradeForgeLevel(){
+  if(!canUpgradeForge()) return;
+  arena.forgeLevel++;
+  arena.forgeInterval = forgeIntervalAtLevel(arena.forgeLevel);
+  spawnArenaParticle(arena.bx, arena.by, '#5fb0d8', 24);
+  // re-render popup
+  openForgeLevel();
+}
+
+function autoForgeStep(){
+  const newItem = rollItem();
+  const equipped = arenaEquipItem(newItem);
+  if(equipped){
+    spawnArenaParticle(arena.bx, arena.by, RARITY[newItem.rarity].color, 12);
+  } else {
+    spawnArenaParticle(arena.bx, arena.by, '#5a4499', 4);
+  }
+  arena.forgeCooldown = arena.forgeInterval;
+}
+
+document.getElementById('arenaForgeLevelBtn').addEventListener('click', ()=>{
+  if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
+  openForgeLevel();
+});
+document.getElementById('forgeLevelCloseBtn').addEventListener('click', ()=>{
+  hideAllLayers();
+  state = STATE.ARENA_PLAY;
+});
+document.getElementById('forgeLevelUpgradeBtn').addEventListener('click', upgradeForgeLevel);
+document.getElementById('arenaForgeAutoBtn').addEventListener('click', ()=>{
+  arena.autoForge = !arena.autoForge;
+  document.getElementById('arenaForgeAutoBtn').classList.toggle('active', arena.autoForge);
+});
+
 function forgeItemCardInner(item){
   const r = RARITY[item.rarity];
   return `
@@ -4488,19 +4648,27 @@ function loop(now){
   if(state === STATE.ARENA_PLAY || state === STATE.ARENA_TAB) tabBarEl.classList.add('show');
   else tabBarEl.classList.remove('show');
 
-  // FORGE button: só em ARENA_PLAY; mostra cooldown
+  // FORGE row (3 botões): só em ARENA_PLAY
+  const forgeRow = document.getElementById('arenaForgeRow');
   const forgeBtn = document.getElementById('arenaForgeBtn');
+  const forgeLvBtn = document.getElementById('arenaForgeLevelBtn');
+  const forgeLvNum = document.getElementById('forgeLevelNum');
   if(state === STATE.ARENA_PLAY){
-    forgeBtn.classList.add('show');
+    forgeRow.classList.add('show');
+    // cooldown / texto do FORGE
     if(arena.forgeCooldown > 0){
       forgeBtn.classList.add('cooldown');
-      forgeBtn.textContent = `⚒ FORGE ${Math.ceil(arena.forgeCooldown/60)}s`;
+      forgeBtn.textContent = `⚒ ${Math.ceil(arena.forgeCooldown/60)}s`;
     } else {
       forgeBtn.classList.remove('cooldown');
       forgeBtn.textContent = '⚒ FORGE';
     }
+    // FORGE LV: atualiza número e pisca se pode upgrade
+    if(forgeLvNum) forgeLvNum.textContent = arena.forgeLevel;
+    if(canUpgradeForge()) forgeLvBtn.classList.add('upgradable');
+    else forgeLvBtn.classList.remove('upgradable');
   } else {
-    forgeBtn.classList.remove('show');
+    forgeRow.classList.remove('show');
   }
 
   if(state === STATE.CAVE_PLAY || state === STATE.CAVE_GAMEOVER){
