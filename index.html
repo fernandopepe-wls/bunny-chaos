@@ -3065,6 +3065,10 @@ const arena = {
   forgeLevel: 1,
   autoForge: false,
   carrots: 0, // moeda da forja (cenouras)
+  power: 0,
+  powerDelta: 0,
+  powerDeltaTimer: 0,
+  powerPulseTimer: 0,
   particles:[],
   items:{ weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null },
   // base stats (modificados por items + upgrades)
@@ -3087,6 +3091,35 @@ function arenaTotalStat(name){
     value += it.value;
   }
   return value;
+}
+
+// Power Score agregado — soma todas as stats com pesos
+function arenaPower(){
+  return Math.round(
+    arenaTotalStat('dmg')         * 10 +
+    arenaTotalStat('maxHp')       * 1  +
+    arenaTotalStat('atkSpeed')    * 60 +
+    arenaTotalStat('moveSpeed')   * 50 +
+    arenaTotalStat('crit')        * 220 +
+    arenaTotalStat('dodge')       * 200 +
+    arenaTotalStat('projectiles') * 80 +
+    arenaTotalStat('xpMult')      * 40 +
+    arenaTotalStat('pickupRange') * 0.5 +
+    arena.level                   * 40
+  );
+}
+
+function bumpArenaPower(){
+  const p = arenaPower();
+  const dp = p - arena.power;
+  if(dp !== 0){
+    // acumula deltas se já tem um voando
+    if(arena.powerDeltaTimer > 0) arena.powerDelta += dp;
+    else arena.powerDelta = dp;
+    arena.powerDeltaTimer = 90; // 1.5s
+    arena.power = p;
+    if(dp > 0) arena.powerPulseTimer = 30; // 0.5s de pulse
+  }
 }
 
 function initArenaLayout(){
@@ -3124,6 +3157,10 @@ function initArena(){
   arena.forgeInterval = 900;
   arena.autoForge = false;
   arena.carrots = 0;
+  arena.power = arenaPower();
+  arena.powerDelta = 0;
+  arena.powerDeltaTimer = 0;
+  arena.powerPulseTimer = 0;
   const afb = document.getElementById('arenaForgeAutoBtn');
   if(afb) afb.classList.remove('active');
   const ab = document.getElementById('arenaAutoBtn');
@@ -3702,6 +3739,9 @@ function updateArena(){
   if(arena.comboTextTimer > 0) arena.comboTextTimer--;
   if(arena.maxRollBuffFrames > 0) arena.maxRollBuffFrames--;
   if(arena.forgeCooldown > 0) arena.forgeCooldown--;
+  if(arena.powerDeltaTimer > 0) arena.powerDeltaTimer--;
+  if(arena.powerPulseTimer > 0) arena.powerPulseTimer--;
+  bumpArenaPower();
   // auto-forge: rola item silenciosamente e auto-equipa se for melhor
   if(arena.autoForge && arena.forgeCooldown <= 0 && arena.carrots >= FORGE_COST){
     autoForgeStep();
@@ -4131,6 +4171,39 @@ function drawArenaHUD(){
   ctx.font = 'bold 12px monospace';
   ctx.fillText(`Lv ${arena.level}`, 10, 34);
 
+  // POWER score com pulse quando equipa item (cor laranja-ouro)
+  const pulse = arena.powerPulseTimer > 0
+    ? 1 + Math.sin(arena.powerPulseTimer*0.45)*0.18 : 1;
+  ctx.fillStyle = '#ffcc3d';
+  ctx.font = `bold ${Math.round(13*pulse)}px monospace`;
+  ctx.fillText(`⚡${arena.power}`, 50, 33);
+  // glow sutil quando pulsando
+  if(arena.powerPulseTimer > 0){
+    ctx.globalAlpha = 0.5 * (arena.powerPulseTimer/30);
+    ctx.fillStyle = '#ff9b3a';
+    ctx.font = `bold ${Math.round(13*pulse)}px monospace`;
+    ctx.fillText(`⚡${arena.power}`, 50, 33);
+    ctx.globalAlpha = 1;
+  }
+
+  // delta flutuante (sobe e desaparece em ~1.5s)
+  if(arena.powerDeltaTimer > 0){
+    const lifeT = arena.powerDeltaTimer / 90;
+    const yOff = (1-lifeT) * 24;
+    const alpha = Math.min(1, lifeT * 2.5);
+    ctx.globalAlpha = alpha;
+    const sign = arena.powerDelta >= 0 ? '+' : '';
+    const txt = `${sign}${arena.powerDelta}`;
+    const col = arena.powerDelta >= 0 ? '#4cf08e' : '#ff5252';
+    // outline preto pra legibilidade
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(txt, 113+1, 33-yOff+1);
+    ctx.fillStyle = col;
+    ctx.fillText(txt, 113, 33-yOff);
+    ctx.globalAlpha = 1;
+  }
+
   // time + kills + regions
   const t = ((performance.now()-arena.startTime)/1000)|0;
   const mm = String((t/60)|0).padStart(2,'0');
@@ -4138,7 +4211,7 @@ function drawArenaHUD(){
   ctx.fillStyle = '#fff7e0';
   ctx.font = 'bold 12px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(`${mm}:${ss}`, W/2, 34);
+  ctx.fillText(`${mm}:${ss}`, W/2 + 30, 34);
   ctx.textAlign = 'right';
   ctx.fillStyle = '#ff5252';
   ctx.fillText(`💀${arena.killCount}`, W-58, 34);
