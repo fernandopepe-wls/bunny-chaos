@@ -3690,20 +3690,20 @@ function drawArenaHUD(){
   ctx.fillRect(40, 50, W-80, 1);
 
   // dados (arena) + cooldown
-  const slotSize = 22, gap = 4;
-  const totalDiceW = 5*slotSize + 4*gap;
+  const dSize = 22, dGap = 4;
+  const totalDiceW = 5*dSize + 4*dGap;
   let dx0 = (W - totalDiceW)/2;
   const dy0 = 56;
   for(let i=0;i<5;i++){
     const has = i < arena.dice.length;
     ctx.fillStyle = has ? '#fff7e0' : '#241a44';
-    ctx.fillRect(dx0, dy0, slotSize, slotSize);
+    ctx.fillRect(dx0, dy0, dSize, dSize);
     ctx.fillStyle = has ? '#ffcc3d' : '#3b2a70';
-    ctx.fillRect(dx0, dy0, slotSize, 2);
+    ctx.fillRect(dx0, dy0, dSize, 2);
     if(has){
-      drawDieFace(dx0, dy0, slotSize, slotSize, arena.dice[i].value);
+      drawDieFace(dx0, dy0, dSize, dSize, arena.dice[i].value);
     }
-    dx0 += slotSize+gap;
+    dx0 += dSize+dGap;
   }
   // cooldown ring (barra abaixo)
   const cdW = totalDiceW;
