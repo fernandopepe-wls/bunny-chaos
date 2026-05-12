@@ -171,6 +171,41 @@
     transform:translate(-50%,-50%);
   }
 
+  /* arena bottom tab bar */
+  #arenaTabBar{
+    position:absolute;
+    left:0;right:0;bottom:0;
+    height:54px;
+    display:none;
+    z-index:6;
+    background:rgba(13,10,26,0.94);
+    border-top:2px solid #5a4499;
+    box-sizing:border-box;
+  }
+  #arenaTabBar.show{display:flex;}
+  .arenaTab-btn{
+    flex:1;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    background:transparent;border:0;cursor:pointer;
+    color:#9b8fc4;font-size:8px;font-weight:bold;
+    padding:4px 2px;gap:2px;
+    letter-spacing:.6px;
+    border-right:1px solid #2a1f4d;
+    transition:color .12s, background .12s;
+  }
+  .arenaTab-btn:last-child{border-right:0;}
+  .arenaTab-btn .ico{font-size:18px;line-height:1;}
+  .arenaTab-btn:hover{color:#fff7e0;}
+  .arenaTab-btn:active{background:rgba(255,95,162,.12);}
+
+  #arenaTab{justify-content:flex-start;padding:18px 14px;overflow-y:auto;}
+  #arenaTab h2{margin-bottom:10px;}
+  #arenaTab .stats{margin:6px 0;}
+  #arenaTab .em-breve{
+    color:#9b8fc4;text-align:center;margin-top:30px;font-size:13px;
+  }
+
   /* AUTO toggle (arena) */
   #arenaAutoBtn{
     position:absolute;
@@ -265,6 +300,16 @@
 
     <!-- arena AUTO toggle -->
     <button id="arenaAutoBtn" title="Auto-movimento">AUTO</button>
+
+    <!-- arena bottom tab bar -->
+    <div id="arenaTabBar">
+      <button class="arenaTab-btn" data-tab="shop"><span class="ico">🛒</span><span>SHOP</span></button>
+      <button class="arenaTab-btn" data-tab="hero"><span class="ico">👤</span><span>HERO</span></button>
+      <button class="arenaTab-btn" data-tab="growth"><span class="ico">📈</span><span>GROWTH</span></button>
+      <button class="arenaTab-btn" data-tab="equipe"><span class="ico">🎽</span><span>EQUIPE</span></button>
+      <button class="arenaTab-btn" data-tab="mission"><span class="ico">📋</span><span>MISSION</span></button>
+      <button class="arenaTab-btn" data-tab="world"><span class="ico">🗺</span><span>WORLD</span></button>
+    </div>
 
     <!-- main menu -->
     <div class="layer show" id="menu">
@@ -381,6 +426,13 @@
       <button class="btn" id="resumeBtn">Continuar</button>
     </div>
 
+    <!-- arena tab content -->
+    <div class="layer" id="arenaTab">
+      <h2 id="arenaTabTitle">Tab</h2>
+      <div id="arenaTabContent"></div>
+      <button class="btn" id="arenaTabClose" style="margin-top:auto">Fechar</button>
+    </div>
+
     <!-- arena level up -->
     <div class="layer" id="arenaLevelUp">
       <h2 style="color:#ff5fa2;">⬆ LEVEL UP!</h2>
@@ -449,7 +501,7 @@ const COMBO = {
 };
 
 // ============ STATE ============
-const STATE = { MENU:0, PLAY:1, UPGRADE:2, GAMEOVER:3, TRANSITION:4, PAUSED:5, CAVE_PLAY:6, CAVE_GAMEOVER:7, ARENA_PLAY:8, ARENA_LEVELUP:9, ARENA_GAMEOVER:10 };
+const STATE = { MENU:0, PLAY:1, UPGRADE:2, GAMEOVER:3, TRANSITION:4, PAUSED:5, CAVE_PLAY:6, CAVE_GAMEOVER:7, ARENA_PLAY:8, ARENA_LEVELUP:9, ARENA_GAMEOVER:10, ARENA_TAB:11 };
 let state = STATE.MENU;
 
 const game = {
@@ -1715,7 +1767,7 @@ function enterGameOver(){
 
 // ============ UI LAYERS ============
 function hideAllLayers(){
-  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaLevelUp','arenaGameover']){
+  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaLevelUp','arenaGameover','arenaTab']){
     document.getElementById(id).classList.remove('show');
   }
 }
@@ -2842,7 +2894,8 @@ function arenaTotalStat(name){
 
 function initArenaLayout(){
   ARENA.TOP_Y = HUD_TOP + 4;
-  ARENA.BOT_Y = H - HUD_BOT - 70; // espaço pro strip de itens
+  // espaço pro strip de itens (44) + barra de tabs (40 logical = 54 CSS)
+  ARENA.BOT_Y = H - HUD_BOT - 70 - 36;
   ARENA.LEFT_X = 4;
   ARENA.RIGHT_X = W - 4;
 }
@@ -3996,6 +4049,93 @@ function renderArena(){
   drawArenaHUD();
 }
 
+function buildArenaTabContent(key){
+  if(key === 'hero'){
+    const ms = arena.baseMoveSpeed * (1 + arenaTotalStat('moveSpeed'));
+    return `<div class="stats">
+      <div class="row"><span>Nível</span><span>${arena.level}</span></div>
+      <div class="row"><span>HP</span><span>${Math.ceil(arena.hp)}/${arena.maxHp}</span></div>
+      <div class="row"><span>Dano (espada)</span><span>${arenaTotalStat('dmg').toFixed(1)}</span></div>
+      <div class="row"><span>Vel. Ataque</span><span>${(1+arenaTotalStat('atkSpeed')).toFixed(2)}×</span></div>
+      <div class="row"><span>Vel. Movimento</span><span>${ms.toFixed(2)}</span></div>
+      <div class="row"><span>Crit</span><span>${(arenaTotalStat('crit')*100).toFixed(0)}%</span></div>
+      <div class="row"><span>Dodge</span><span>${(arenaTotalStat('dodge')*100).toFixed(0)}%</span></div>
+      <div class="row"><span>XP Multiplicador</span><span>${arenaTotalStat('xpMult').toFixed(2)}×</span></div>
+      <div class="row"><span>Raio coleta</span><span>${(arena.basePickupRange + arenaTotalStat('pickupRange')).toFixed(0)}px</span></div>
+      <div class="row"><span>Lâmina (arc/range)</span><span>+${arenaTotalStat('projectiles').toFixed(0)}</span></div>
+      <div class="row"><span>Kills</span><span>${arena.killCount}</span></div>
+    </div>`;
+  }
+  if(key === 'equipe'){
+    let html = '';
+    for(const slot of ARENA_SLOTS){
+      const it = arena.items[slot];
+      if(it){
+        html += `<div class="row" style="color:${RARITY[it.rarity].color}">
+          <span>${it.icon} ${it.name}</span>
+          <span>${RARITY[it.rarity].name} • +${it.value} ${it.stat}</span>
+        </div>`;
+      } else {
+        html += `<div class="row">
+          <span style="color:#9b8fc4">${ARENA_SLOT_ICONS[slot]} ${slot}</span>
+          <span style="color:#5a4499">vazio</span>
+        </div>`;
+      }
+    }
+    return `<div class="stats">${html}</div>
+      <p style="color:#9b8fc4;font-size:11px;margin-top:10px;text-align:center">Itens dropam dos inimigos. Slots auto-equipam o melhor.</p>`;
+  }
+  if(key === 'world'){
+    const t = Math.floor((performance.now()-arena.startTime)/1000);
+    return `<div class="stats">
+      <div class="row"><span>🗺 Regiões Conquistadas</span><span>${arena.regions}</span></div>
+      <div class="row"><span>Bosses derrotados</span><span>${arena.regions}</span></div>
+      <div class="row"><span>Total kills</span><span>${arena.killCount}</span></div>
+      <div class="row"><span>Tempo na arena</span><span>${t}s</span></div>
+      <div class="row"><span>Próximo boss</span><span>${Math.max(0,Math.ceil(arena.bossTimer/60))}s</span></div>
+    </div>
+    <p class="em-breve">Mapa estratégico 4X — em breve.<br/>Conquiste regiões matando bosses pra desbloquear.</p>`;
+  }
+  if(key === 'shop'){
+    return `<div class="stats">
+      <div class="row"><span>🪙 Cenouras</span><span style="color:#ffcc3d">—</span></div>
+    </div>
+    <p class="em-breve">Loja em breve.<br/>Por enquanto, itens dropam dos inimigos.</p>`;
+  }
+  if(key === 'growth'){
+    return `<p class="em-breve">Meta-progressão permanente em breve.<br/>Upgrades persistentes entre runs (skill tree).</p>`;
+  }
+  if(key === 'mission'){
+    return `<p class="em-breve">Missões diárias e semanais em breve.<br/>Recompensas por matar X inimigos, sobreviver Y minutos, etc.</p>`;
+  }
+  return '<p class="em-breve">Em breve.</p>';
+}
+
+function openArenaTab(key){
+  const titles = {
+    shop:'🛒 SHOP', hero:'👤 HERO', growth:'📈 GROWTH',
+    equipe:'🎽 EQUIPE', mission:'📋 MISSION', world:'🗺 WORLD'
+  };
+  document.getElementById('arenaTabTitle').textContent = titles[key] || key;
+  document.getElementById('arenaTabContent').innerHTML = buildArenaTabContent(key);
+  state = STATE.ARENA_TAB;
+  showLayer('arenaTab');
+}
+
+function closeArenaTab(){
+  state = STATE.ARENA_PLAY;
+  hideAllLayers();
+}
+
+// hook nos botões da tab bar
+for(const btn of document.querySelectorAll('.arenaTab-btn')){
+  btn.addEventListener('click', ()=>{
+    if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
+    openArenaTab(btn.dataset.tab);
+  });
+}
+document.getElementById('arenaTabClose').addEventListener('click', closeArenaTab);
+
 document.getElementById('arenaBtn').addEventListener('click', enterArena);
 document.getElementById('arenaRetryBtn').addEventListener('click', enterArena);
 document.getElementById('arenaAutoBtn').addEventListener('click', ()=>{
@@ -4044,6 +4184,11 @@ function loop(now){
   const autoEl = document.getElementById('arenaAutoBtn');
   if(state === STATE.ARENA_PLAY) autoEl.classList.add('show');
   else autoEl.classList.remove('show');
+
+  // Tab bar visível durante ARENA_PLAY e ARENA_TAB (pra poder navegar)
+  const tabBarEl = document.getElementById('arenaTabBar');
+  if(state === STATE.ARENA_PLAY || state === STATE.ARENA_TAB) tabBarEl.classList.add('show');
+  else tabBarEl.classList.remove('show');
 
   if(state === STATE.CAVE_PLAY || state === STATE.CAVE_GAMEOVER){
     renderCave();
