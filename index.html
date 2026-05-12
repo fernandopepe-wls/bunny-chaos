@@ -2915,6 +2915,11 @@ function initArena(){
   arena.comboTextTimer = 0;
   arena.maxRollBuffFrames = 0;
   arena.autoMove = false;
+  arena._aiFrame = 0;
+  arena._aiLastX = arena.bx; arena._aiLastY = arena.by;
+  arena._aiStuckTimer = 0;
+  arena._aiEscape = 0;
+  arena._aiEscapeDir = {x:0,y:0};
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null };
@@ -3300,13 +3305,48 @@ function arenaSwing(){
 }
 
 function computeArenaAI(){
-  // 1) range ideal pra ataque: dentro do alcance da espada com folga
+  // ===== anti-stuck: detecta se não está se movendo e força escape =====
+  arena._aiFrame = (arena._aiFrame || 0) + 1;
+  if(arena._aiLastX === undefined){ arena._aiLastX = arena.bx; arena._aiLastY = arena.by; }
+  arena._aiStuckTimer = arena._aiStuckTimer || 0;
+  arena._aiEscape = arena._aiEscape || 0;
+  arena._aiEscapeDir = arena._aiEscapeDir || { x:0, y:0 };
+
+  if(arena._aiFrame % 24 === 0){
+    const moved = Math.hypot(arena.bx - arena._aiLastX, arena.by - arena._aiLastY);
+    if(moved < 6){
+      arena._aiStuckTimer++;
+      if(arena._aiStuckTimer >= 2){
+        const cx = (ARENA.LEFT_X + ARENA.RIGHT_X)/2;
+        const cy = (ARENA.TOP_Y + ARENA.BOT_Y)/2;
+        const cdx = cx - arena.bx, cdy = cy - arena.by;
+        const m = Math.hypot(cdx, cdy) || 1;
+        arena._aiEscape = 35;
+        // pula direto pro centro com jitter pra não bater no inimigo de novo
+        arena._aiEscapeDir = {
+          x: cdx/m + (Math.random()-0.5)*0.8,
+          y: cdy/m + (Math.random()-0.5)*0.8
+        };
+        arena._aiStuckTimer = 0;
+      }
+    } else {
+      arena._aiStuckTimer = 0;
+    }
+    arena._aiLastX = arena.bx;
+    arena._aiLastY = arena.by;
+  }
+
+  if(arena._aiEscape > 0){
+    arena._aiEscape--;
+    return arena._aiEscapeDir;
+  }
+
+  // ===== combate normal =====
   const swordRange = 38 + Math.max(1, Math.round(arenaTotalStat('projectiles'))) * 6;
-  const idealNear = 32;
+  const idealNear = 34;
   const idealFar  = Math.max(46, swordRange - 8);
   const dangerR   = 60;
 
-  // 2) acha inimigo mais próximo + vetor de fuga somado
   let nearest=null, nearestD=Infinity;
   let fleeX=0, fleeY=0, dangerCount=0;
   for(const e of arena.enemies){
@@ -3314,7 +3354,7 @@ function computeArenaAI(){
     const d = Math.hypot(ddx, ddy);
     if(d < nearestD){ nearestD = d; nearest = e; }
     if(d < dangerR && d > 0.1){
-      const w = (dangerR - d) / dangerR; // mais perto = mais peso
+      const w = (dangerR - d) / dangerR;
       fleeX += (ddx/d) * w;
       fleeY += (ddy/d) * w;
       dangerCount++;
@@ -3326,26 +3366,28 @@ function computeArenaAI(){
     const tdx = nearest.x - arena.bx, tdy = nearest.y - arena.by;
     const d = nearestD || 0.001;
     if(d < idealNear){
-      // muito perto: foge na direção oposta
       dx = -tdx/d; dy = -tdy/d;
     } else if(d > idealFar){
-      // muito longe: aproxima
       dx = tdx/d; dy = tdy/d;
     } else {
-      // sweet spot: estafar perpendicular (kiting)
-      dx = -tdy/d * 0.6;
-      dy =  tdx/d * 0.6;
+      // kiting perpendicular: escolhe direção que afasta das bordas
+      const px = -tdy/d, py =  tdx/d;
+      const cx = (ARENA.LEFT_X + ARENA.RIGHT_X)/2;
+      const cy = (ARENA.TOP_Y + ARENA.BOT_Y)/2;
+      const towardCenterDot = px*(cx-arena.bx) + py*(cy-arena.by);
+      const sign = towardCenterDot >= 0 ? 1 : -1;
+      dx = px * 0.6 * sign;
+      dy = py * 0.6 * sign;
     }
   }
 
-  // 3) blend com vetor de fuga (peso maior se múltiplos inimigos perto)
   if(dangerCount > 0){
     const fleeMag = Math.min(1, dangerCount * 0.4);
     dx += fleeX * fleeMag;
     dy += fleeY * fleeMag;
   }
 
-  // 4) coleta de XP gems quando seguro
+  // coleta XP gems quando seguro
   if(dangerCount === 0 || nearestD > 70){
     let bestGem=null, bestGemD=Infinity;
     for(const g of arena.gems){
@@ -3360,12 +3402,35 @@ function computeArenaAI(){
     }
   }
 
-  // 5) repele das bordas pra não encurralar
-  const margin = 28;
-  if(arena.bx < ARENA.LEFT_X + margin)  dx += 0.6;
-  if(arena.bx > ARENA.RIGHT_X - margin) dx -= 0.6;
-  if(arena.by < ARENA.TOP_Y + margin)   dy += 0.6;
-  if(arena.by > ARENA.BOT_Y - margin)   dy -= 0.6;
+  // ===== repulsão contínua das bordas (mais forte em cantos) =====
+  // gradiente suave: quanto mais perto da borda, mais forte o empurrão
+  const edgeMargin = 65;
+  const lx = arena.bx - ARENA.LEFT_X;
+  const rx = ARENA.RIGHT_X - arena.bx;
+  const ty = arena.by - ARENA.TOP_Y;
+  const by2 = ARENA.BOT_Y - arena.by;
+  let epX = 0, epY = 0;
+  if(lx < edgeMargin)  epX += Math.pow((edgeMargin - lx) / edgeMargin, 1.6);
+  if(rx < edgeMargin)  epX -= Math.pow((edgeMargin - rx) / edgeMargin, 1.6);
+  if(ty < edgeMargin)  epY += Math.pow((edgeMargin - ty) / edgeMargin, 1.6);
+  if(by2 < edgeMargin) epY -= Math.pow((edgeMargin - by2) / edgeMargin, 1.6);
+  // peso forte da repulsão de borda — domina o vetor quando muito perto
+  dx += epX * 2.2;
+  dy += epY * 2.2;
+
+  // ===== bias suave pro centro quando está longe dele =====
+  const cx = (ARENA.LEFT_X + ARENA.RIGHT_X)/2;
+  const cy = (ARENA.TOP_Y + ARENA.BOT_Y)/2;
+  const halfDiag = Math.hypot((ARENA.RIGHT_X-ARENA.LEFT_X)/2, (ARENA.BOT_Y-ARENA.TOP_Y)/2);
+  const dFromCenter = Math.hypot(arena.bx-cx, arena.by-cy);
+  const centerRatio = dFromCenter / halfDiag; // 0..1
+  if(centerRatio > 0.55){
+    const w = (centerRatio - 0.55) / 0.45; // 0..1 conforme se afasta
+    const cdx = cx - arena.bx, cdy = cy - arena.by;
+    const m = Math.hypot(cdx, cdy) || 1;
+    dx += (cdx/m) * w * 0.5;
+    dy += (cdy/m) * w * 0.5;
+  }
 
   return { dx, dy };
 }
