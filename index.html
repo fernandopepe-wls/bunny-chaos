@@ -1,0 +1,1766 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>Bunny Chaos! Jump Jump! — MVP</title>
+<style>
+  :root{
+    --bg:#0d0a1a; --panel:#1a1330; --panel2:#241a44;
+    --accent:#ffcc3d; --accent2:#ff5fa2; --good:#4cf08e; --bad:#ff5252;
+    --ink:#fff7e0; --muted:#9b8fc4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    height:100%;
+    background:radial-gradient(circle at 50% 0%,#2a1a55 0%,#0d0a1a 70%);
+    color:var(--ink);
+    font-family:'Trebuchet MS',system-ui,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    overflow:hidden;
+    touch-action:none;
+    user-select:none;
+  }
+  #stage{
+    position:relative;
+    width:100vw;height:100vh;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #frame{
+    position:relative;
+    width:min(100vw, calc(100vh * 9 / 16));
+    height:min(100vh, calc(100vw * 16 / 9));
+    max-width:480px;max-height:854px;
+    background:#0a0716;
+    box-shadow:0 0 40px rgba(255,95,162,.25), inset 0 0 0 2px #2a1a55;
+    overflow:hidden;
+    border-radius:12px;
+  }
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated;}
+
+  /* overlays */
+  .layer{
+    position:absolute;inset:0;display:none;flex-direction:column;
+    align-items:stretch;justify-content:center;padding:24px;
+    background:linear-gradient(180deg,rgba(10,7,22,.85),rgba(10,7,22,.95));
+    z-index:10;
+  }
+  .layer.show{display:flex;}
+  h1{font-size:28px;letter-spacing:1px;text-align:center;color:var(--accent);
+    text-shadow:0 3px 0 #b3791f, 0 6px 18px rgba(255,204,61,.35);}
+  h1 small{display:block;font-size:14px;color:var(--accent2);letter-spacing:2px;margin-top:6px;}
+  h2{font-size:20px;color:var(--accent);text-align:center;margin-bottom:8px;}
+  p{color:var(--muted);font-size:13px;line-height:1.4;text-align:center;}
+  .btn{
+    appearance:none;border:0;cursor:pointer;
+    padding:14px 18px;margin:6px 0;border-radius:12px;
+    background:linear-gradient(180deg,var(--accent),#e6a823);
+    color:#3a230b;font-weight:bold;font-size:16px;letter-spacing:1px;
+    box-shadow:0 4px 0 #8a5e10, 0 8px 16px rgba(0,0,0,.4);
+    transition:transform .05s;
+  }
+  .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #8a5e10;}
+  .btn.secondary{background:linear-gradient(180deg,#5a4499,#3b2a70);color:#fff;box-shadow:0 4px 0 #2a1a55;}
+  .btn.locked{background:#2a223f;color:#5a4f7a;cursor:not-allowed;box-shadow:none;}
+  .modes{display:flex;flex-direction:column;gap:10px;margin-top:18px;}
+  .mode{
+    display:flex;align-items:center;gap:12px;
+    background:var(--panel);padding:12px;border-radius:14px;
+    border:2px solid #2a1f4d;
+  }
+  .mode .icon{
+    width:48px;height:48px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    background:#2a1f4d;font-size:24px;
+  }
+  .mode .info{flex:1;}
+  .mode .info .name{font-weight:bold;color:var(--ink);font-size:14px;}
+  .mode .info .desc{color:var(--muted);font-size:11px;margin-top:2px;}
+  .mode.active{border-color:var(--accent);box-shadow:0 0 18px rgba(255,204,61,.25);}
+  .mode.active .icon{background:linear-gradient(180deg,var(--accent),#e6a823);color:#3a230b;}
+  .mode.locked{opacity:.55;}
+  .mode.locked .badge{font-size:10px;color:var(--muted);background:#2a1f4d;padding:3px 8px;border-radius:6px;}
+
+  /* upgrade screen */
+  .upgrade-card{
+    background:var(--panel);border:2px solid var(--accent2);border-radius:14px;
+    padding:14px;margin:6px 0;cursor:pointer;
+    transition:transform .1s, border-color .1s;
+  }
+  .upgrade-card:active{transform:scale(.98);}
+  .upgrade-card.disabled{opacity:.4;cursor:not-allowed;border-color:#2a1f4d;}
+  .upgrade-card .head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .upgrade-card .icon{font-size:28px;}
+  .upgrade-card .title{font-weight:bold;color:var(--accent);font-size:14px;}
+  .upgrade-card .body{color:var(--muted);font-size:12px;line-height:1.4;}
+
+  .combo-table{
+    background:#0f0a22;border-radius:10px;padding:10px;margin-top:8px;
+    font-size:11px;color:var(--muted);
+  }
+  .combo-table .row{display:flex;justify-content:space-between;padding:2px 0;}
+  .combo-table .row b{color:var(--accent);}
+
+  /* gameover */
+  .stats{background:var(--panel);border-radius:12px;padding:14px;margin:14px 0;}
+  .stats .row{display:flex;justify-content:space-between;padding:4px 0;}
+  .stats .row span:last-child{color:var(--accent);font-weight:bold;}
+
+  /* joystick */
+  #joy{
+    position:absolute;left:0;right:0;bottom:0;height:42%;
+    pointer-events:auto;
+    z-index:5;
+  }
+  #joy.disabled{pointer-events:none;}
+  #joyKnob{
+    position:absolute;width:80px;height:80px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#fff7e0,#ffcc3d 60%,#b3791f);
+    box-shadow:0 0 24px rgba(255,204,61,.5);
+    pointer-events:none;display:none;
+    transform:translate(-50%,-50%);
+  }
+  #joyBase{
+    position:absolute;width:140px;height:140px;border-radius:50%;
+    border:3px solid rgba(255,204,61,.4);
+    background:rgba(0,0,0,.25);
+    pointer-events:none;display:none;
+    transform:translate(-50%,-50%);
+  }
+
+  /* pause button (combo sheet) */
+  #pauseBtn{
+    position:absolute;
+    left:6px;
+    bottom:7%;
+    width:42px;height:42px;
+    z-index:6;
+    border:0;cursor:pointer;
+    border-radius:10px;
+    background:linear-gradient(180deg,#5a4499,#3b2a70);
+    border:2px solid #ffcc3d;
+    color:#ffcc3d;
+    font-size:20px;font-weight:bold;
+    box-shadow:0 3px 0 #2a1a55, 0 0 14px rgba(255,204,61,.3);
+    display:none;
+    line-height:1;
+  }
+  #pauseBtn.show{display:block;}
+  #pauseBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #2a1a55;}
+
+  /* combo sheet overlay */
+  #comboSheet{justify-content:flex-start;padding:18px 14px;overflow-y:auto;}
+  .combo-list{display:flex;flex-direction:column;gap:5px;margin:10px 0;}
+  .combo-row{
+    display:flex;align-items:center;gap:6px;
+    padding:8px 10px;
+    background:linear-gradient(180deg,#5a4499,#3b2a70);
+    border:2px solid #7a5fc4;
+    border-radius:10px;
+    color:var(--ink);
+  }
+  .combo-row .icon{font-size:18px;width:22px;text-align:center;}
+  .combo-row .name{flex:1;font-size:11px;font-weight:bold;letter-spacing:.3px;}
+  .combo-row .dice{font-size:18px;letter-spacing:1px;color:#fff;text-shadow:0 1px 0 #000;}
+  .combo-row .mult{
+    color:#ffcc3d;font-weight:bold;font-size:14px;
+    min-width:46px;text-align:right;
+    text-shadow:0 1px 0 #3a230b;
+  }
+
+  /* hint */
+  .hint{
+    position:absolute;left:0;right:0;bottom:18px;text-align:center;
+    color:var(--muted);font-size:12px;z-index:4;pointer-events:none;
+    text-shadow:0 1px 2px rgba(0,0,0,.8);
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="frame">
+    <canvas id="game"></canvas>
+
+    <!-- joystick zone -->
+    <div id="joy"></div>
+    <div id="joyBase"></div>
+    <div id="joyKnob"></div>
+    <div class="hint" id="hint">Arraste na metade inferior para mover • Solte para pular</div>
+
+    <!-- pause / combo sheet button -->
+    <button id="pauseBtn" title="Combos">📖</button>
+
+    <!-- main menu -->
+    <div class="layer show" id="menu">
+      <h1>BUNNY CHAOS!<small>JUMP • JUMP!</small></h1>
+      <p>Suba a torre. Defenda as cenouras. Role os dados.</p>
+      <div class="modes">
+        <div class="mode active" id="playBtn">
+          <div class="icon">🐰</div>
+          <div class="info">
+            <div class="name">Tower Ascension</div>
+            <div class="desc">Suba andares infinitos. Toque para jogar.</div>
+          </div>
+          <div>▶</div>
+        </div>
+        <div class="mode locked">
+          <div class="icon">🥕</div>
+          <div class="info">
+            <div class="name">Carrot Defense</div>
+            <div class="desc">Em breve</div>
+          </div>
+          <div class="badge">🔒</div>
+        </div>
+        <div class="mode locked">
+          <div class="icon">⚔️</div>
+          <div class="info">
+            <div class="name">Boss Rush</div>
+            <div class="desc">Em breve</div>
+          </div>
+          <div class="badge">🔒</div>
+        </div>
+        <div class="mode locked">
+          <div class="icon">🎲</div>
+          <div class="info">
+            <div class="name">Daily Dice</div>
+            <div class="desc">Em breve</div>
+          </div>
+          <div class="badge">🔒</div>
+        </div>
+      </div>
+      <div class="combo-table">
+        <div class="row"><span>Max Roll (6)</span><b>×1.5</b></div>
+        <div class="row"><span>One Pair</span><b>×2.0</b></div>
+        <div class="row"><span>Two Pair</span><b>×2.5</b></div>
+        <div class="row"><span>Three of a Kind</span><b>×3.0</b></div>
+        <div class="row"><span>Straight</span><b>×3.5</b></div>
+        <div class="row"><span>Full House</span><b>×4.0</b></div>
+        <div class="row"><span>Four of a Kind</span><b>×5.5</b></div>
+        <div class="row"><span>Five of a Kind</span><b>×10.5</b></div>
+      </div>
+    </div>
+
+    <!-- upgrade screen -->
+    <div class="layer" id="upgrade">
+      <h2>🎲 Escolha seu Upgrade</h2>
+      <p id="upgradeSub">A cada 3 andares você ganha um dado novo ou melhora um existente.</p>
+      <div id="upgradeOptions" style="margin-top:14px;"></div>
+      <button class="btn secondary" id="skipUpgrade">Pular</button>
+    </div>
+
+    <!-- combo sheet (pause) -->
+    <div class="layer" id="comboSheet">
+      <h2>📖 Lançamento de Dados</h2>
+      <p>Multiplicador de dano por combinação dos seus dados ativos.</p>
+      <div class="combo-list">
+        <div class="combo-row">
+          <div class="icon">👑</div>
+          <div class="name">Cinco Iguais</div>
+          <div class="dice">⚅⚅⚅⚅⚅</div>
+          <div class="mult">×10.5</div>
+        </div>
+        <div class="combo-row">
+          <div class="icon">🗡️</div>
+          <div class="name">Quatro Iguais</div>
+          <div class="dice">⚄⚄⚄⚄</div>
+          <div class="mult">×5.5</div>
+        </div>
+        <div class="combo-row">
+          <div class="icon">🔮</div>
+          <div class="name">Full House</div>
+          <div class="dice">⚂⚂⚂⚄⚄</div>
+          <div class="mult">×4.0</div>
+        </div>
+        <div class="combo-row">
+          <div class="icon">🎵</div>
+          <div class="name">Sequência</div>
+          <div class="dice">⚀⚁⚂⚃⚄</div>
+          <div class="mult">×3.5</div>
+        </div>
+        <div class="combo-row">
+          <div class="icon">⚡</div>
+          <div class="name">Três Iguais</div>
+          <div class="dice">⚂⚂⚂</div>
+          <div class="mult">×3.0</div>
+        </div>
+        <div class="combo-row">
+          <div class="icon">⚖️</div>
+          <div class="name">Dois Pares</div>
+          <div class="dice">⚀⚀⚂⚂</div>
+          <div class="mult">×2.5</div>
+        </div>
+        <div class="combo-row">
+          <div class="icon">🪶</div>
+          <div class="name">Um Par</div>
+          <div class="dice">⚀⚀</div>
+          <div class="mult">×2.0</div>
+        </div>
+        <div class="combo-row">
+          <div class="icon">🏆</div>
+          <div class="name">Lançamento Máx.</div>
+          <div class="dice">⚅</div>
+          <div class="mult">×1.5</div>
+        </div>
+      </div>
+      <button class="btn" id="resumeBtn">Continuar</button>
+    </div>
+
+    <!-- game over -->
+    <div class="layer" id="gameover">
+      <h1 style="color:var(--bad);text-shadow:0 3px 0 #6b1414">GAME OVER</h1>
+      <div class="stats" id="goStats"></div>
+      <button class="btn" id="retryBtn">Tentar de novo</button>
+      <button class="btn secondary" id="menuBtn">Menu</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ============ CONFIG ============
+const W = 360, H = 640; // logical portrait resolution
+const HUD_TOP = 56;
+const HUD_BOT = 96;
+const PLAY_TOP = HUD_TOP;
+const PLAY_BOT = H - HUD_BOT;
+
+const BUNNY_W = 22, BUNNY_H = 26;
+const GRAVITY = 0.38;
+const JUMP_VY = -9.12;         // +20% jump distance/airtime
+const MOVE_SPEED = 2.04; // +20%
+const SHOOT_INTERVAL = 36;     // frames between shots
+const PROJECTILE_SPEED = 4.5;
+const LAND_SHOOT_BUFFER = 12;  // 0.2s @ 60fps before shooting after landing
+const WALL_SLIDE_VY = 1.6;     // velocidade máxima de queda enquanto desliza na parede
+const DICE_REROLL_INTERVAL = 60; // frames
+
+// poker combos (multipliers from GDD)
+const COMBO = {
+  NONE:    {name:'No Combo',       mult:1.0,  icon:'·'},
+  MAXROLL: {name:'Max Roll (6)',   mult:1.5,  icon:'⚀'},
+  PAIR:    {name:'One Pair',       mult:2.0,  icon:'⚁⚁'},
+  TWOPAIR: {name:'Two Pair',       mult:2.5,  icon:'⚂⚂'},
+  THREE:   {name:'Three of a Kind',mult:3.0,  icon:'⚃⚃⚃'},
+  STRAIGHT:{name:'Straight',       mult:3.5,  icon:'⚀⚁⚂⚃⚄'},
+  FULL:    {name:'Full House',     mult:4.0,  icon:'F.H.'},
+  FOUR:    {name:'Four of a Kind', mult:5.5,  icon:'⚄×4'},
+  FIVE:    {name:'Five of a Kind', mult:10.5, icon:'⚅×5'},
+};
+
+// ============ STATE ============
+const STATE = { MENU:0, PLAY:1, UPGRADE:2, GAMEOVER:3, TRANSITION:4, PAUSED:5 };
+let state = STATE.MENU;
+
+const game = {
+  floor: 1,
+  score: 0,
+  coins: 0,
+  enemiesKilled: 0,
+  bestCombo: 'NONE',
+  startTime: 0,
+};
+
+// ============ CANVAS SETUP ============
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+function fitCanvas(){
+  const r = canvas.getBoundingClientRect();
+  // keep logical W x H, scale crisply
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width  = Math.round(r.width  * dpr);
+  canvas.height = Math.round(r.height * dpr);
+}
+fitCanvas();
+window.addEventListener('resize', fitCanvas);
+const scaleX = () => canvas.width  / W;
+const scaleY = () => canvas.height / H;
+
+// ============ INPUT (joystick + keyboard) ============
+const input = { axisX: 0, jumpQueued: false, active: false, releaseAxis: 0, downHold: false, chargedJump: false };
+const joyZone = document.getElementById('joy');
+const joyBase = document.getElementById('joyBase');
+const joyKnob = document.getElementById('joyKnob');
+let joyOrigin = null;
+const JOY_RADIUS = 60;
+
+function startJoy(x,y){
+  input.active = true;
+  joyOrigin = {x,y};
+  const frameRect = document.getElementById('frame').getBoundingClientRect();
+  const localX = x - frameRect.left, localY = y - frameRect.top;
+  joyBase.style.left = localX+'px'; joyBase.style.top = localY+'px';
+  joyKnob.style.left = localX+'px'; joyKnob.style.top = localY+'px';
+  joyBase.style.display='block'; joyKnob.style.display='block';
+}
+function moveJoy(x,y){
+  if(!joyOrigin) return;
+  let dx = x - joyOrigin.x;
+  let dy = y - joyOrigin.y;
+  const len = Math.abs(dx);
+  if(len > JOY_RADIUS) dx = (dx/len) * JOY_RADIUS;
+
+  // arrastar pra baixo trava o coelho na posição (active continua true → não auto-pula)
+  if(dy > JOY_RADIUS * 0.45){
+    input.axisX = 0;
+    input.downHold = true;
+  } else {
+    input.axisX = dx / JOY_RADIUS;
+    input.downHold = false;
+  }
+
+  const frameRect = document.getElementById('frame').getBoundingClientRect();
+  // knob acompanha o dedo no Y também (clampado pra não sair do círculo)
+  const dyClamped = Math.max(-JOY_RADIUS, Math.min(JOY_RADIUS, dy));
+  const knobX = joyOrigin.x + dx - frameRect.left;
+  const knobY = joyOrigin.y + dyClamped - frameRect.top;
+  joyKnob.style.left = knobX+'px'; joyKnob.style.top = knobY+'px';
+}
+function endJoy(){
+  if(input.active && state === STATE.PLAY){
+    if(input.downHold){
+      // soltou estando em down-hold: só pula se estiver carregado (charged jump)
+      if(bunny.charged){
+        input.jumpQueued = true;
+        input.chargedJump = true;
+        input.releaseAxis = 0;
+      }
+    } else {
+      input.jumpQueued = true;
+      input.releaseAxis = input.axisX; // captura direção pra pulo diagonal
+    }
+  }
+  input.active = false; input.axisX = 0; input.downHold = false; joyOrigin = null;
+  joyBase.style.display='none'; joyKnob.style.display='none';
+}
+
+// touch
+joyZone.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  startJoy(t.clientX, t.clientY);
+},{passive:false});
+joyZone.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  moveJoy(t.clientX, t.clientY);
+},{passive:false});
+joyZone.addEventListener('touchend', e=>{ e.preventDefault(); endJoy(); },{passive:false});
+joyZone.addEventListener('touchcancel', e=>{ e.preventDefault(); endJoy(); },{passive:false});
+
+// mouse
+let mouseDown = false;
+joyZone.addEventListener('mousedown', e=>{ mouseDown = true; startJoy(e.clientX, e.clientY); });
+window.addEventListener('mousemove', e=>{ if(mouseDown) moveJoy(e.clientX, e.clientY); });
+window.addEventListener('mouseup', ()=>{ if(mouseDown){ mouseDown=false; endJoy(); }});
+
+// keyboard fallback
+const keys = {};
+window.addEventListener('keydown', e=>{
+  keys[e.key]=true;
+  if(state===STATE.PLAY){
+    if(e.key==='ArrowDown'||e.key==='s'){
+      // simula puxar joystick pra baixo: trava na posição
+      input.axisX = 0;
+      input.downHold = true;
+    } else if(e.key==='ArrowLeft'||e.key==='a'){
+      if(!input.downHold) input.axisX = -1;
+    } else if(e.key==='ArrowRight'||e.key==='d'){
+      if(!input.downHold) input.axisX = 1;
+    }
+  }
+});
+window.addEventListener('keyup', e=>{
+  keys[e.key]=false;
+  if((e.key==='ArrowLeft'||e.key==='a'||e.key==='ArrowRight'||e.key==='d')){
+    if(!keys['ArrowLeft']&&!keys['a']&&!keys['ArrowRight']&&!keys['d']){
+      // só queue do pulo se NÃO estiver em down-hold
+      if(state===STATE.PLAY && !input.downHold){
+        input.jumpQueued = true;
+        input.releaseAxis = input.axisX; // captura direção pra pulo diagonal
+      }
+      if(!input.downHold) input.axisX = 0;
+    }
+  }
+  if(e.key==='ArrowDown'||e.key==='s'){
+    if(!keys['ArrowDown'] && !keys['s']){
+      // se carregou (3s), dispara charged jump na soltura
+      if(state===STATE.PLAY && bunny.charged){
+        input.jumpQueued = true;
+        input.chargedJump = true;
+        input.releaseAxis = 0;
+      }
+      input.downHold = false;
+      // restaura axisX pelas teclas horizontais que ainda estão pressionadas
+      if(keys['ArrowLeft']||keys['a']) input.axisX = -1;
+      else if(keys['ArrowRight']||keys['d']) input.axisX = 1;
+      else input.axisX = 0;
+    }
+  }
+});
+
+// ============ ENTITIES ============
+const bunny = {
+  x:W/2, y:0, vx:0, vy:0, w:BUNNY_W, h:BUNNY_H,
+  grounded:false, hp:5, maxHp:5,
+  faceX:1, shootTimer:0, hurtTimer:0, dustTimer:0, landBuffer:0,
+  wallSliding:false, wallSlideSide:0, wallJumpLock:0,
+  chargeTimer:0, charged:false,
+};
+
+const enemies = [];
+const projectiles = [];   // player bullets
+const eProjectiles = [];  // enemy bullets
+const particles = [];
+const coins = [];
+const damageNumbers = [];
+
+let platforms = [];
+
+// ============ DICE ============
+const dice = []; // each: {value:1-6, level:1}
+function rollDice(){
+  for(const d of dice){
+    d.value = 1 + ((Math.random()*6)|0);
+  }
+}
+function evalCombo(){
+  if(dice.length===0) return 'NONE';
+  const counts = [0,0,0,0,0,0,0]; // 1..6
+  const values = dice.map(d=>d.value);
+  for(const v of values) counts[v]++;
+  let pairs=0, threes=0, fours=0, fives=0;
+  for(let i=1;i<=6;i++){
+    if(counts[i]===5) fives++;
+    else if(counts[i]===4) fours++;
+    else if(counts[i]===3) threes++;
+    else if(counts[i]===2) pairs++;
+  }
+  if(fives) return 'FIVE';
+  if(fours) return 'FOUR';
+  if(threes && pairs) return 'FULL';
+  // straight: 5 consecutive distinct values
+  if(dice.length>=5){
+    const uniq = [...new Set(values)].sort((a,b)=>a-b);
+    for(let i=0;i+4<uniq.length;i++){
+      if(uniq[i+4]-uniq[i]===4) return 'STRAIGHT';
+    }
+  }
+  if(threes) return 'THREE';
+  if(pairs>=2) return 'TWOPAIR';
+  if(pairs===1) return 'PAIR';
+  if(values.includes(6)) return 'MAXROLL';
+  return 'NONE';
+}
+function comboMult(){ return COMBO[evalCombo()].mult; }
+
+// ============ FLOORS ============
+// 6 handcrafted layouts (relative to PLAY area)
+function makePlat(x,y,w,h,oneWay){
+  // plataformas finas (h<=14) viram jump-through por padrão; pilares/paredes ficam sólidos
+  if(oneWay === undefined) oneWay = (h <= 14);
+  return {x,y,w,h,oneWay};
+}
+const FLOORS = [
+  // 0: tutorial — dummies parados pra testar controle
+  () => ({
+    plats: [
+      makePlat(0, PLAY_BOT-12, W, 12),
+      makePlat(60, PLAY_BOT-90, 80, 10),
+      makePlat(220, PLAY_BOT-90, 80, 10),
+      makePlat(140, PLAY_BOT-160, 80, 10),
+      // upper
+      makePlat(30, PLAY_BOT-230, 80, 10),
+      makePlat(W-110, PLAY_BOT-230, 80, 10),
+      makePlat(W/2-40, PLAY_BOT-310, 80, 10),
+    ],
+    enemies: [
+      {kind:'dummy', x:90,  y:PLAY_BOT-32},
+      {kind:'dummy', x:260, y:PLAY_BOT-32},
+      {kind:'dummy', x:170, y:PLAY_BOT-180},
+    ],
+  }),
+  // 1: vertical chase — fase 2 ainda só com dummies pro player praticar controle
+  () => ({
+    plats: [
+      makePlat(0, PLAY_BOT-12, W, 12),
+      makePlat(0, PLAY_BOT-80, 110, 10),
+      makePlat(W-110, PLAY_BOT-150, 110, 10),
+      makePlat(0, PLAY_BOT-220, 110, 10),
+      makePlat(W-110, PLAY_BOT-290, 110, 10),
+      // upper
+      makePlat(0, PLAY_BOT-360, 110, 10),
+      makePlat(W-110, PLAY_BOT-430, 110, 10),
+    ],
+    enemies: [
+      {kind:'dummy', x:50,    y:PLAY_BOT-100},
+      {kind:'dummy', x:W-55,  y:PLAY_BOT-170},
+      {kind:'dummy', x:50,    y:PLAY_BOT-240},
+      {kind:'dummy', x:W-55,  y:PLAY_BOT-310},
+    ],
+  }),
+  // 2: ranged duel
+  () => ({
+    plats: [
+      makePlat(0, PLAY_BOT-12, W, 12),
+      makePlat(40, PLAY_BOT-80, 70, 10),
+      makePlat(W-110, PLAY_BOT-80, 70, 10),
+      makePlat(W/2-40, PLAY_BOT-170, 80, 10),
+      // upper
+      makePlat(30, PLAY_BOT-250, 80, 10),
+      makePlat(W-110, PLAY_BOT-250, 80, 10),
+      makePlat(W/2-50, PLAY_BOT-330, 100, 10),
+    ],
+    enemies: [
+      {kind:'shooter', x:60, y:PLAY_BOT-100},
+      {kind:'shooter', x:W-60, y:PLAY_BOT-100},
+    ],
+  }),
+  // 3: narrow bridge
+  () => ({
+    plats: [
+      makePlat(40, PLAY_BOT-12, W-80, 12),
+      makePlat(0, PLAY_BOT-100, 80, 10),
+      makePlat(W-80, PLAY_BOT-100, 80, 10),
+      makePlat(W/2-50, PLAY_BOT-180, 100, 10),
+      // upper
+      makePlat(0, PLAY_BOT-260, 80, 10),
+      makePlat(W-80, PLAY_BOT-260, 80, 10),
+      makePlat(W/2-60, PLAY_BOT-340, 120, 10),
+    ],
+    enemies: [
+      {kind:'chaser', x:W/2, y:PLAY_TOP+50},
+      {kind:'chaser', x:60, y:PLAY_TOP+80},
+      {kind:'chaser', x:W-60, y:PLAY_TOP+80},
+    ],
+  }),
+  // 4: dodge gauntlet
+  () => ({
+    plats: [
+      makePlat(0, PLAY_BOT-12, W, 12),
+      makePlat(80, PLAY_BOT-70, 60, 10),
+      makePlat(220, PLAY_BOT-70, 60, 10),
+      makePlat(80, PLAY_BOT-140, 60, 10),
+      makePlat(220, PLAY_BOT-140, 60, 10),
+      makePlat(W/2-30, PLAY_BOT-210, 60, 10),
+      // upper
+      makePlat(80, PLAY_BOT-280, 60, 10),
+      makePlat(220, PLAY_BOT-280, 60, 10),
+      makePlat(W/2-30, PLAY_BOT-350, 60, 10),
+    ],
+    enemies: [
+      {kind:'shooter', x:W/2, y:PLAY_TOP+30},
+      {kind:'chaser',  x:50, y:PLAY_BOT-90},
+      {kind:'chaser',  x:W-50, y:PLAY_BOT-90},
+    ],
+  }),
+  // 5: pillars
+  () => ({
+    plats: [
+      makePlat(0, PLAY_BOT-12, W, 12),
+      makePlat(40, PLAY_BOT-80, 30, 80),
+      makePlat(W-70, PLAY_BOT-80, 30, 80),
+      makePlat(W/2-15, PLAY_BOT-150, 30, 150),
+      // upper
+      makePlat(0, PLAY_BOT-230, 80, 10),
+      makePlat(W-80, PLAY_BOT-230, 80, 10),
+      makePlat(W/2-50, PLAY_BOT-310, 100, 10),
+    ],
+    enemies: [
+      {kind:'shooter', x:60, y:PLAY_BOT-100},
+      {kind:'shooter', x:W-60, y:PLAY_BOT-100},
+      {kind:'chaser',  x:W/2, y:PLAY_TOP+30},
+    ],
+  }),
+];
+
+function loadFloor(idx){
+  const layout = FLOORS[idx % FLOORS.length]();
+  platforms = layout.plats;
+  enemies.length = 0;
+  projectiles.length = 0;
+  eProjectiles.length = 0;
+  particles.length = 0;
+  coins.length = 0;
+  damageNumbers.length = 0;
+  // scale enemy hp/dmg with floor
+  const lvl = 1 + (game.floor-1)*0.18;
+  for(const e of layout.enemies){
+    enemies.push(makeEnemy(e.kind, e.x, e.y, lvl));
+  }
+  placeCoins();
+  // place bunny
+  bunny.x = W/2; bunny.y = PLAY_BOT - 40;
+  bunny.vx = 0; bunny.vy = 0;
+  bunny.shootTimer = 0;
+  bunny.hurtTimer = 0;
+  rollDice();
+}
+
+function placeCoins(){
+  // pick non-ground platforms (algumas plataformas elevadas)
+  const candidates = platforms.filter(p => p.y < PLAY_BOT - 30 && p.h <= 14);
+  if(candidates.length === 0) return;
+  const count = 1 + ((Math.random()*3)|0); // 1..3
+  const shuffled = [...candidates].sort(()=>Math.random()-0.5);
+  const n = Math.min(count, shuffled.length);
+  for(let i=0; i<n; i++){
+    const p = shuffled[i];
+    coins.push({
+      x: p.x + p.w/2 - 6,
+      y: p.y - 16,
+      w: 12, h: 14,
+      phase: Math.random()*Math.PI*2,
+    });
+  }
+}
+
+function makeEnemy(kind, x, y, lvl){
+  if(kind==='dummy'){
+    return {
+      kind, x, y, w:20, h:20,
+      vx:0, vy:0, grounded:false,
+      hp: 6, maxHp: 6,
+      speed: 0,
+      contactDmg:0, hurtTimer:0, color:'#6a8c4a',
+    };
+  }
+  if(kind==='chaser'){
+    return {
+      kind, x, y, w:18, h:18,
+      vx:0, vy:0, grounded:false,
+      hp: Math.round(8*lvl), maxHp: Math.round(8*lvl),
+      speed: 0.8 + Math.random()*0.2,
+      contactDmg:1, hurtTimer:0, color:'#ff5252',
+    };
+  } else { // shooter
+    return {
+      kind, x, y, w:20, h:20,
+      vx:0, vy:0, grounded:false,
+      hp: Math.round(10*lvl), maxHp: Math.round(10*lvl),
+      speed: 0.4,
+      shootTimer: 90 + (Math.random()*60)|0,
+      contactDmg:1, hurtTimer:0, color:'#a86bff',
+    };
+  }
+}
+
+// ============ PHYSICS ============
+function aabb(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+function isAgainstWall(side){
+  // side: -1 (esquerda) ou 1 (direita). Probe 1px pro lado.
+  // borda do play area
+  if(side < 0 && bunny.x <= 0) return true;
+  if(side > 0 && bunny.x + bunny.w >= W) return true;
+  // plataformas sólidas (pilares/paredes); jump-through não conta
+  const probe = {
+    x: bunny.x + (side > 0 ? 1 : -1),
+    y: bunny.y + 4,
+    w: bunny.w,
+    h: bunny.h - 8,
+  };
+  for(const p of platforms){
+    if(p.oneWay) continue;
+    if(aabb(probe, p)) return true;
+  }
+  return false;
+}
+
+function resolvePlatforms(ent){
+  ent.grounded = false;
+  // X
+  ent.x += ent.vx;
+  for(const p of platforms){
+    if(p.oneWay) continue; // jump-through: sem colisão lateral
+    const e = {x:ent.x, y:ent.y, w:ent.w, h:ent.h};
+    if(aabb(e,p)){
+      if(ent.vx > 0) ent.x = p.x - ent.w;
+      else if(ent.vx < 0) ent.x = p.x + p.w;
+      ent.vx = 0;
+    }
+  }
+  // Y
+  const prevY = ent.y; // posição vertical antes de aplicar vy
+  ent.y += ent.vy;
+  for(const p of platforms){
+    const e = {x:ent.x, y:ent.y, w:ent.w, h:ent.h};
+    if(aabb(e,p)){
+      if(ent.vy > 0){
+        // descendo: só pousa
+        if(p.oneWay){
+          // pousa SOMENTE se estava acima da plataforma na frame anterior (vindo de cima)
+          if(prevY + ent.h <= p.y + 1){
+            ent.y = p.y - ent.h; ent.grounded = true; ent.vy = 0;
+          }
+        } else {
+          ent.y = p.y - ent.h; ent.grounded = true; ent.vy = 0;
+        }
+      } else if(ent.vy < 0){
+        // subindo: bonk só em platforma sólida; jump-through deixa passar
+        if(!p.oneWay){
+          ent.y = p.y + p.h; ent.vy = 0;
+        }
+      }
+    }
+  }
+  // bounds
+  if(ent.x < 0) ent.x = 0;
+  if(ent.x + ent.w > W) ent.x = W - ent.w;
+  if(ent.y + ent.h > PLAY_BOT){ ent.y = PLAY_BOT - ent.h; ent.grounded = true; ent.vy = 0; }
+  if(ent.y < PLAY_TOP){ ent.y = PLAY_TOP; ent.vy = 0; }
+}
+
+// ============ UPDATE ============
+function nearestEnemy(){
+  let best=null, bestD=Infinity;
+  for(const e of enemies){
+    const dx = (e.x+e.w/2)-(bunny.x+bunny.w/2);
+    const dy = (e.y+e.h/2)-(bunny.y+bunny.h/2);
+    const d = dx*dx + dy*dy;
+    if(d < bestD){ bestD = d; best = e; }
+  }
+  return best;
+}
+
+function spawnDamageNumber(x, y, value, kind){
+  // kind: 'normal' (yellow), 'crit' (red+!), 'fatal' (pink "FATAL HIT")
+  kind = kind || 'normal';
+  damageNumbers.push({
+    x: x + (Math.random()-0.5)*4,
+    y: y - 6,
+    text: typeof value === 'string' ? value : `${value}`,
+    kind,
+    vy: kind === 'fatal' ? -1.9 : -1.6,
+    life: kind === 'fatal' ? 70 : 50,
+    maxLife: kind === 'fatal' ? 70 : 50,
+  });
+}
+
+function spawnParticle(x,y,color,count=6,spread=2){
+  for(let i=0;i<count;i++){
+    particles.push({
+      x,y,
+      vx:(Math.random()-.5)*spread*2,
+      vy:(Math.random()-.5)*spread*2 - 0.5,
+      life: 16+((Math.random()*10)|0),
+      color
+    });
+  }
+}
+
+function updatePlay(){
+  const wasGrounded = bunny.grounded;
+
+  // horizontal
+  if(bunny.grounded){
+    bunny.vx = input.axisX * MOVE_SPEED;
+  } else if(Math.abs(input.axisX) > 0.05 && bunny.wallJumpLock <= 0){
+    // controle no ar com 63.25% da velocidade (57.5% + 10%)
+    bunny.vx = input.axisX * MOVE_SPEED * 0.6325;
+  }
+  // senão (no ar sem input ou em lock pós wall jump): mantém a velocidade do lançamento
+  if(bunny.wallJumpLock > 0) bunny.wallJumpLock--;
+  if(bunny.vx > 0.05) bunny.faceX = 1;
+  else if(bunny.vx < -0.05) bunny.faceX = -1;
+
+  // auto-jump on release: when grounded and not actively pressing → jump
+  // and when jump explicitly queued
+  const wantsJump = (bunny.grounded && !input.active && !input.downHold && Math.abs(input.axisX)<0.05) || input.jumpQueued;
+  if(wantsJump && bunny.grounded){
+    const isCharged = input.chargedJump && bunny.charged;
+    bunny.vy = JUMP_VY * (isCharged ? 1.5 : 1);
+    // se soltou andando, pula na diagonal usando a direção que tinha
+    if(Math.abs(input.releaseAxis) > 0.05){
+      bunny.vx = input.releaseAxis * MOVE_SPEED;
+      bunny.faceX = input.releaseAxis > 0 ? 1 : -1;
+    }
+    if(isCharged){
+      bunny.charged = false;
+      bunny.chargeTimer = 0;
+      // explosão de partículas amarelas no charged jump
+      spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h, '#ffcc3d', 18, 3);
+      spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h, '#ff5fa2', 8, 2);
+    }
+    input.releaseAxis = 0;
+    input.chargedJump = false;
+    bunny.grounded = false;
+    bunny.dustTimer = 6;
+    spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h, '#fff7e0', 4, 1.2);
+  }
+  // wall jump: solta durante slide → pula no sentido oposto da parede
+  else if(wantsJump && !bunny.grounded && bunny.wallSliding){
+    bunny.vy = JUMP_VY;
+    bunny.vx = -bunny.wallSlideSide * MOVE_SPEED;
+    bunny.faceX = -bunny.wallSlideSide;
+    bunny.wallSliding = false;
+    bunny.wallJumpLock = 12; // ~0.2s sem air control pra preservar trajetória
+    input.releaseAxis = 0;
+    spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h/2, '#fff7e0', 8, 1.8);
+  }
+  input.jumpQueued = false;
+
+  // gravity
+  bunny.vy += GRAVITY;
+  if(bunny.vy > 12) bunny.vy = 12;
+
+  resolvePlatforms(bunny);
+
+  // wall slide: se está no ar caindo e empurrando contra uma parede, cap a velocidade
+  let sliding = false;
+  if(!bunny.grounded && bunny.vy > 0 && Math.abs(input.axisX) > 0.05){
+    const side = input.axisX > 0 ? 1 : -1;
+    if(isAgainstWall(side)){
+      if(bunny.vy > WALL_SLIDE_VY) bunny.vy = WALL_SLIDE_VY;
+      sliding = true;
+      bunny.wallSlideSide = side;
+      // poeirinha de fricção
+      if(Math.random() < 0.35){
+        const px = side > 0 ? bunny.x + bunny.w : bunny.x;
+        particles.push({
+          x: px, y: bunny.y + bunny.h - 4 - Math.random()*8,
+          vx: -side * (0.3 + Math.random()*0.6),
+          vy: -0.2 - Math.random()*0.3,
+          life: 12 + ((Math.random()*6)|0),
+          color: '#fff7e0',
+        });
+      }
+    }
+  }
+  bunny.wallSliding = sliding;
+
+  // charge jump: segurar pra baixo 3s parado no chão = pulo +50%
+  if(input.downHold && bunny.grounded){
+    bunny.chargeTimer++;
+    // partículas subindo enquanto carrega
+    if(bunny.chargeTimer > 30 && bunny.chargeTimer % 5 === 0){
+      const color = bunny.charged ? '#ffcc3d' : '#ff5fa2';
+      const intensity = Math.min(1, bunny.chargeTimer/180);
+      particles.push({
+        x: bunny.x + Math.random()*bunny.w,
+        y: bunny.y + bunny.h - Math.random()*4,
+        vx: (Math.random()-0.5) * (1 + intensity),
+        vy: -1 - Math.random()*(1 + intensity),
+        life: 18,
+        color,
+      });
+    }
+    // momento exato em que completa a carga
+    if(bunny.chargeTimer === 180){
+      bunny.charged = true;
+      spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h/2, '#ffcc3d', 20, 3);
+    }
+  } else {
+    // saiu do down-hold OU saiu do chão: zera progresso (charged flag persiste até consumir)
+    bunny.chargeTimer = 0;
+  }
+
+  // landing buffer: trava o tiro por ~0.2s ao pousar pra evitar shots no idle-jump
+  if(!wasGrounded && bunny.grounded){
+    bunny.landBuffer = LAND_SHOOT_BUFFER;
+  }
+  if(bunny.landBuffer > 0) bunny.landBuffer--;
+
+  // shooting (only when grounded and past landing buffer)
+  bunny.shootTimer--;
+  if(bunny.grounded && bunny.shootTimer<=0 && bunny.landBuffer<=0){
+    const tgt = nearestEnemy();
+    if(tgt){
+      // re-roll on shoot? GDD says re-roll on shot OR fixed cadence; we re-roll on shot
+      rollDice();
+      const cKey = evalCombo();
+      const mult = COMBO[cKey].mult;
+      if(cKey !== 'NONE' && (rankCombo(cKey) > rankCombo(game.bestCombo))) game.bestCombo = cKey;
+
+      const cx = bunny.x+bunny.w/2, cy = bunny.y+bunny.h/2;
+      const tx = tgt.x+tgt.w/2, ty = tgt.y+tgt.h/2;
+      const dx = tx-cx, dy = ty-cy;
+      const len = Math.hypot(dx,dy)||1;
+      const baseDmg = 2;
+      projectiles.push({
+        x:cx, y:cy, w:6, h:6,
+        vx: dx/len*PROJECTILE_SPEED, vy: dy/len*PROJECTILE_SPEED,
+        dmg: Math.round(baseDmg*mult),
+        life: 80, color: mult>=4 ? '#ff5fa2' : (mult>=2 ? '#ffcc3d' : '#fff7e0'),
+        mult,
+      });
+    }
+    bunny.shootTimer = SHOOT_INTERVAL;
+  }
+
+  // hurt timer
+  if(bunny.hurtTimer>0) bunny.hurtTimer--;
+  if(bunny.dustTimer>0) bunny.dustTimer--;
+
+  // enemies
+  for(let i=enemies.length-1;i>=0;i--){
+    const e = enemies[i];
+    if(e.kind==='dummy'){
+      // parado, só aplica gravidade pra encostar no chão
+      e.vx = 0;
+      e.vy += GRAVITY;
+      resolvePlatforms(e);
+    } else if(e.kind==='chaser'){
+      const dx = (bunny.x+bunny.w/2) - (e.x+e.w/2);
+      e.vx = Math.sign(dx) * e.speed;
+      // hop occasionally
+      if(e.grounded && Math.random()<0.01) e.vy = -6;
+      e.vy += GRAVITY;
+      resolvePlatforms(e);
+    } else if(e.kind==='shooter'){
+      // small horizontal patrol
+      e.vx = Math.sin(performance.now()/1100 + e.x)*0.45;
+      e.vy += GRAVITY;
+      resolvePlatforms(e);
+      e.shootTimer--;
+      if(e.shootTimer<=0){
+        const cx = e.x+e.w/2, cy = e.y+e.h/2;
+        const dx = (bunny.x+bunny.w/2)-cx, dy = (bunny.y+bunny.h/2)-cy;
+        const len = Math.hypot(dx,dy)||1;
+        eProjectiles.push({
+          x:cx,y:cy,w:6,h:6,
+          vx: dx/len*2.2, vy: dy/len*2.2,
+          dmg:1, life:160, color:'#a86bff',
+        });
+        e.shootTimer = 130 + (Math.random()*60)|0;
+      }
+    }
+    if(e.hurtTimer>0) e.hurtTimer--;
+
+    // stomp (Mario-style) / contact damage
+    if(aabb(bunny, e)){
+      const bunnyBottom = bunny.y + bunny.h;
+      const isStomp = bunny.vy > 1 && (bunnyBottom - e.y) < (e.h * 0.6) && !e.spiky;
+      if(isStomp){
+        spawnParticle(e.x+e.w/2, e.y+e.h/2, e.color, 16, 3);
+        spawnDamageNumber(e.x + e.w/2, e.y, 'FATAL HIT', 'fatal');
+        enemies.splice(i,1);
+        game.enemiesKilled++;
+        game.score += 25; // stomp = 25 pts
+        bunny.vy = JUMP_VY * 1.1; // trampolim: +10% de altura sobre o pulo normal
+        bunny.y = e.y - bunny.h - 1;
+        continue;
+      }
+      if(e.contactDmg > 0 && bunny.hurtTimer<=0){
+        bunny.hp -= e.contactDmg;
+        bunny.hurtTimer = 50;
+        // knockback
+        bunny.vx = (bunny.x < e.x ? -3 : 3);
+        bunny.vy = -5;
+        spawnParticle(bunny.x+bunny.w/2,bunny.y+bunny.h/2,'#ff5252',8,2.5);
+      }
+    }
+  }
+
+  // player projectiles
+  for(let i=projectiles.length-1;i>=0;i--){
+    const p = projectiles[i];
+    p.x += p.vx; p.y += p.vy; p.life--;
+    if(p.life<=0 || p.x<-10||p.x>W+10||p.y<-10||p.y>H+10){ projectiles.splice(i,1); continue; }
+    // hit enemy
+    for(let j=enemies.length-1;j>=0;j--){
+      const e = enemies[j];
+      if(aabb(p,e)){
+        e.hp -= p.dmg;
+        e.hurtTimer = 8;
+        spawnParticle(p.x,p.y,p.color,5,2);
+        spawnDamageNumber(e.x + e.w/2, e.y, p.dmg, p.mult >= 4 ? 'crit' : 'normal');
+        projectiles.splice(i,1);
+        if(e.hp<=0){
+          spawnParticle(e.x+e.w/2,e.y+e.h/2,e.color,14,3);
+          enemies.splice(j,1);
+          game.enemiesKilled++;
+          game.score += 10;
+        }
+        break;
+      }
+    }
+  }
+
+  // enemy projectiles
+  for(let i=eProjectiles.length-1;i>=0;i--){
+    const p = eProjectiles[i];
+    p.x += p.vx; p.y += p.vy; p.life--;
+    if(p.life<=0 || p.x<-10||p.x>W+10||p.y<-10||p.y>H+10){ eProjectiles.splice(i,1); continue; }
+    if(bunny.hurtTimer<=0 && aabb(p,bunny)){
+      bunny.hp -= p.dmg;
+      bunny.hurtTimer = 40;
+      spawnParticle(p.x,p.y,'#ff5252',6,2);
+      eProjectiles.splice(i,1);
+    }
+  }
+
+  // particles
+  for(let i=particles.length-1;i>=0;i--){
+    const pt = particles[i];
+    pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.18; pt.life--;
+    if(pt.life<=0) particles.splice(i,1);
+  }
+
+  // damage numbers
+  for(let i=damageNumbers.length-1;i>=0;i--){
+    const d = damageNumbers[i];
+    d.y += d.vy;
+    d.vy *= 0.93;
+    d.life--;
+    if(d.life<=0) damageNumbers.splice(i,1);
+  }
+
+  // coins
+  for(let i=coins.length-1;i>=0;i--){
+    const c = coins[i];
+    if(aabb(bunny, c)){
+      coins.splice(i,1);
+      game.coins++;
+      game.score += 5;
+      spawnParticle(c.x+c.w/2, c.y+c.h/2, '#ffcc3d', 10, 2.5);
+    }
+  }
+
+  // death
+  if(bunny.hp<=0){
+    enterGameOver();
+    return;
+  }
+
+  // floor cleared
+  if(enemies.length===0){
+    enterTransition();
+  }
+}
+
+function rankCombo(k){
+  const order = ['NONE','MAXROLL','PAIR','TWOPAIR','THREE','STRAIGHT','FULL','FOUR','FIVE'];
+  return order.indexOf(k);
+}
+
+// ============ RENDER ============
+function drawPixel(x,y,w,h,color){
+  ctx.fillStyle = color;
+  ctx.fillRect(x*scaleX(),y*scaleY(),w*scaleX(),h*scaleY());
+}
+// helper to draw to logical coords with crisp scaling
+function setupCtx(){
+  ctx.imageSmoothingEnabled = false;
+  ctx.setTransform(scaleX(),0,0,scaleY(),0,0);
+}
+
+function drawBackground(){
+  // sky gradient
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#2a1a55');
+  grad.addColorStop(1,'#0d0a1a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  // tower silhouette parallax
+  ctx.fillStyle = '#1a1330';
+  for(let i=0;i<6;i++){
+    const yy = (i*120 + (game.floor*8) % 120);
+    ctx.fillRect(0, yy, 30, 20);
+    ctx.fillRect(W-30, yy+30, 30, 20);
+  }
+  // stars
+  ctx.fillStyle = '#fff7e0';
+  for(let i=0;i<24;i++){
+    const sx = (i*53 + game.floor*13) % W;
+    const sy = (i*89) % PLAY_TOP;
+    ctx.globalAlpha = 0.4 + (i%3)*0.2;
+    ctx.fillRect(sx,sy,2,2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPlatforms(){
+  for(const p of platforms){
+    // top highlight
+    ctx.fillStyle = '#5a4499';
+    ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle = '#7a5fc4';
+    ctx.fillRect(p.x,p.y,p.w,3);
+    // dark base
+    ctx.fillStyle = '#3b2a70';
+    ctx.fillRect(p.x,p.y+p.h-2,p.w,2);
+  }
+}
+
+function drawBunny(){
+  const x = bunny.x, y = bunny.y;
+  const flash = bunny.hurtTimer>0 && (bunny.hurtTimer%6<3);
+  if(flash){ ctx.globalAlpha = 0.4; }
+
+  // body (white)
+  ctx.fillStyle = '#fff7e0';
+  ctx.fillRect(x+3, y+10, BUNNY_W-6, BUNNY_H-12);
+  // head
+  ctx.fillRect(x+5, y+4, BUNNY_W-10, 10);
+  // ears
+  ctx.fillRect(x+6, y, 3, 8);
+  ctx.fillRect(x+BUNNY_W-9, y, 3, 8);
+  // ear pink
+  ctx.fillStyle = '#ff5fa2';
+  ctx.fillRect(x+7, y+1, 1, 6);
+  ctx.fillRect(x+BUNNY_W-8, y+1, 1, 6);
+  // eyes
+  ctx.fillStyle = '#0d0a1a';
+  if(bunny.faceX>0){
+    ctx.fillRect(x+9, y+8, 2, 2);
+    ctx.fillRect(x+14, y+8, 2, 2);
+  } else {
+    ctx.fillRect(x+6, y+8, 2, 2);
+    ctx.fillRect(x+11, y+8, 2, 2);
+  }
+  // nose
+  ctx.fillStyle = '#ff5fa2';
+  ctx.fillRect(x+10, y+11, 2, 1);
+  // feet
+  ctx.fillStyle = '#fff7e0';
+  if(bunny.grounded){
+    ctx.fillRect(x+3, y+BUNNY_H-3, 6, 3);
+    ctx.fillRect(x+BUNNY_W-9, y+BUNNY_H-3, 6, 3);
+  } else {
+    // tucked
+    ctx.fillRect(x+5, y+BUNNY_H-5, 12, 4);
+  }
+
+  // gun (only when grounded — visual cue)
+  if(bunny.grounded){
+    ctx.fillStyle = '#ffcc3d';
+    if(bunny.faceX>0) ctx.fillRect(x+BUNNY_W-2, y+14, 6, 3);
+    else ctx.fillRect(x-4, y+14, 6, 3);
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+function drawEnemy(e){
+  const flash = e.hurtTimer>0;
+  ctx.fillStyle = flash ? '#fff7e0' : e.color;
+  if(e.kind==='dummy'){
+    // boneco de treino com alvo
+    ctx.fillRect(e.x, e.y, e.w, e.h);
+    if(!flash){
+      ctx.fillStyle = '#fff7e0';
+      ctx.fillRect(e.x+3, e.y+3, e.w-6, e.h-6);
+      ctx.fillStyle = '#ff5252';
+      ctx.fillRect(e.x+6, e.y+6, e.w-12, e.h-12);
+      ctx.fillStyle = '#fff7e0';
+      ctx.fillRect(e.x+e.w/2-1, e.y+e.h/2-1, 2, 2);
+    }
+  } else if(e.kind==='chaser'){
+    // angry blob with teeth
+    ctx.fillRect(e.x, e.y+2, e.w, e.h-2);
+    ctx.fillRect(e.x+2, e.y, e.w-4, 2);
+    if(!flash){
+      ctx.fillStyle = '#fff7e0';
+      ctx.fillRect(e.x+4, e.y+6, 3, 3);
+      ctx.fillRect(e.x+e.w-7, e.y+6, 3, 3);
+      ctx.fillStyle = '#0d0a1a';
+      ctx.fillRect(e.x+5, e.y+7, 2, 2);
+      ctx.fillRect(e.x+e.w-6, e.y+7, 2, 2);
+      // teeth
+      ctx.fillStyle = '#fff7e0';
+      ctx.fillRect(e.x+5, e.y+e.h-4, 2, 2);
+      ctx.fillRect(e.x+9, e.y+e.h-4, 2, 2);
+      ctx.fillRect(e.x+e.w-7, e.y+e.h-4, 2, 2);
+    }
+  } else {
+    // shooter: floating mage box
+    ctx.fillRect(e.x, e.y, e.w, e.h);
+    if(!flash){
+      ctx.fillStyle = '#0d0a1a';
+      ctx.fillRect(e.x+4, e.y+6, 3, 3);
+      ctx.fillRect(e.x+e.w-7, e.y+6, 3, 3);
+      ctx.fillStyle = '#ffcc3d';
+      ctx.fillRect(e.x+e.w/2-2, e.y+e.h-4, 4, 2);
+    }
+  }
+  // hp bar
+  if(e.hp < e.maxHp){
+    ctx.fillStyle = '#000';
+    ctx.fillRect(e.x, e.y-5, e.w, 3);
+    ctx.fillStyle = '#4cf08e';
+    ctx.fillRect(e.x, e.y-5, e.w*(e.hp/e.maxHp), 3);
+  }
+}
+
+function drawCoins(){
+  const t = performance.now()/180;
+  for(const c of coins){
+    const xs = Math.cos(t + c.phase);    // -1..1 (gira)
+    const widthScale = Math.max(0.15, Math.abs(xs));
+    const drawW = c.w * widthScale;
+    const cx = c.x + c.w/2;
+    const cy = c.y + Math.sin(t*0.6 + c.phase)*1.5; // bob
+    // borda
+    ctx.fillStyle = xs > 0 ? '#b3791f' : '#8a5e10';
+    ctx.fillRect(cx - drawW/2, cy, drawW, c.h);
+    // miolo
+    ctx.fillStyle = xs > 0 ? '#ffcc3d' : '#e6a823';
+    ctx.fillRect(cx - drawW/2 + 1, cy + 1, Math.max(1, drawW-2), c.h-2);
+    // marca central só quando "frente"
+    if(widthScale > 0.5){
+      ctx.fillStyle = '#b3791f';
+      const innerW = Math.max(1, drawW - 6);
+      ctx.fillRect(cx - innerW/2, cy + c.h/2 - 1, innerW, 2);
+      ctx.fillRect(cx - 1, cy + 3, 2, c.h - 6);
+    }
+    // brilho
+    if(xs > 0.7){
+      ctx.fillStyle = '#fff7e0';
+      ctx.fillRect(cx - drawW/2 + 1, cy+1, 1, 2);
+    }
+  }
+}
+
+function drawTargetMarker(){
+  if(!bunny.grounded) return;
+  const tgt = nearestEnemy();
+  if(!tgt) return;
+
+  const t = performance.now() / 180;
+  const pulse = Math.sin(t) * 1.5;
+  const cx = tgt.x + tgt.w/2;
+  const cy = tgt.y + tgt.h/2;
+  const half = Math.max(tgt.w, tgt.h)/2 + 5 + pulse;
+  const len = 5;
+
+  ctx.strokeStyle = '#ffcc3d';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  // top-left
+  ctx.moveTo(cx-half, cy-half+len); ctx.lineTo(cx-half, cy-half); ctx.lineTo(cx-half+len, cy-half);
+  // top-right
+  ctx.moveTo(cx+half-len, cy-half); ctx.lineTo(cx+half, cy-half); ctx.lineTo(cx+half, cy-half+len);
+  // bottom-left
+  ctx.moveTo(cx-half, cy+half-len); ctx.lineTo(cx-half, cy+half); ctx.lineTo(cx-half+len, cy+half);
+  // bottom-right
+  ctx.moveTo(cx+half-len, cy+half); ctx.lineTo(cx+half, cy+half); ctx.lineTo(cx+half, cy+half-len);
+  ctx.stroke();
+
+  // center dot
+  ctx.fillStyle = '#ff5fa2';
+  ctx.fillRect(cx-1, cy-1, 2, 2);
+}
+
+function drawProjectiles(){
+  for(const p of projectiles){
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x-p.w/2, p.y-p.h/2, p.w, p.h);
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.fillRect(p.x-p.w/2-1, p.y-p.h/2-1, p.w+2, p.h+2);
+  }
+  for(const p of eProjectiles){
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x-p.w/2, p.y-p.h/2, p.w, p.h);
+  }
+}
+function drawParticles(){
+  for(const pt of particles){
+    ctx.globalAlpha = Math.min(1, pt.life/16);
+    ctx.fillStyle = pt.color;
+    ctx.fillRect(pt.x, pt.y, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawTextOutlined(text, x, y, fillColor, outlineColor, outlineW){
+  ctx.fillStyle = outlineColor;
+  for(let dx=-outlineW; dx<=outlineW; dx++){
+    for(let dy=-outlineW; dy<=outlineW; dy++){
+      if(dx===0 && dy===0) continue;
+      ctx.fillText(text, x+dx, y+dy);
+    }
+  }
+  ctx.fillStyle = fillColor;
+  ctx.fillText(text, x, y);
+}
+
+function drawDamageNumbers(){
+  ctx.textAlign = 'center';
+  for(const d of damageNumbers){
+    const alpha = Math.min(1, d.life/30);
+    ctx.globalAlpha = alpha;
+    if(d.kind === 'fatal'){
+      // FATAL HIT: rosa forte com contorno preto
+      ctx.font = 'bold 14px monospace';
+      drawTextOutlined(d.text, d.x, d.y, '#ff1f9d', '#000', 2);
+    } else if(d.kind === 'crit'){
+      ctx.font = 'bold 18px monospace';
+      drawTextOutlined(`${d.text}!`, d.x, d.y, '#ff5252', '#000', 1);
+    } else {
+      // dano normal em amarelo (fonte dobrada de 11 → 22px)
+      ctx.font = 'bold 22px monospace';
+      drawTextOutlined(d.text, d.x, d.y, '#ffcc3d', '#000', 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+}
+
+function drawHUDTop(){
+  // bg bar
+  ctx.fillStyle = 'rgba(13,10,26,0.85)';
+  ctx.fillRect(0,0,W,HUD_TOP);
+  ctx.fillStyle = '#5a4499';
+  ctx.fillRect(0,HUD_TOP-2,W,2);
+
+  // floor counter (left)
+  ctx.fillStyle = '#ffcc3d';
+  ctx.font = 'bold 16px monospace';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`FLOOR ${String(game.floor).padStart(2,'0')}`, 10, 8);
+
+  // coin counter (ao lado do floor)
+  const cix = 110, ciy = 10;
+  ctx.fillStyle = '#b3791f';
+  ctx.fillRect(cix, ciy, 12, 12);
+  ctx.fillStyle = '#ffcc3d';
+  ctx.fillRect(cix+1, ciy+1, 10, 10);
+  ctx.fillStyle = '#b3791f';
+  ctx.fillRect(cix+5, ciy+3, 2, 6);
+  ctx.fillStyle = '#ffcc3d';
+  ctx.font = 'bold 14px monospace';
+  ctx.fillText(`× ${String(game.coins).padStart(2,'0')}`, cix+18, 9);
+
+  // hp bar (right)
+  const barX = W - 130, barY = 10, barW = 120, barH = 14;
+  ctx.fillStyle = '#3b2a70';
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.fillStyle = '#ff5252';
+  ctx.fillRect(barX+2, barY+2, (barW-4)*(bunny.hp/bunny.maxHp), barH-4);
+  ctx.fillStyle = '#fff7e0';
+  ctx.font = 'bold 10px monospace';
+  ctx.fillText(`HP ${Math.max(0,bunny.hp)}/${bunny.maxHp}`, barX+barW/2-22, barY+3);
+
+  // combo label
+  const c = COMBO[evalCombo()];
+  ctx.fillStyle = '#ff5fa2';
+  ctx.font = 'bold 11px monospace';
+  ctx.fillText(`${c.name}  ×${c.mult.toFixed(1)}`, 10, 30);
+
+  // score (right, abaixo da hp bar)
+  ctx.fillStyle = '#ffcc3d';
+  ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(`SCORE ${game.score}`, W-10, 30);
+  ctx.textAlign = 'left';
+}
+
+function drawHUDBottom(){
+  ctx.fillStyle = 'rgba(13,10,26,0.92)';
+  ctx.fillRect(0, H-HUD_BOT, W, HUD_BOT);
+  ctx.fillStyle = '#5a4499';
+  ctx.fillRect(0, H-HUD_BOT, W, 2);
+
+  // dice slots
+  const slotW = 50, slotH = 50, gap = 8;
+  const total = 5*slotW + 4*gap;
+  let sx = (W-total)/2;
+  const sy = H-HUD_BOT + 12;
+  for(let i=0;i<5;i++){
+    const has = i < dice.length;
+    ctx.fillStyle = has ? '#fff7e0' : '#241a44';
+    ctx.fillRect(sx, sy, slotW, slotH);
+    ctx.fillStyle = has ? '#ffcc3d' : '#3b2a70';
+    ctx.fillRect(sx, sy, slotW, 4);
+    if(has){
+      drawDieFace(sx, sy, slotW, slotH, dice[i].value);
+    } else {
+      ctx.fillStyle = '#3b2a70';
+      ctx.font = 'bold 22px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('?', sx+slotW/2, sy+slotH/2-10);
+      ctx.textAlign = 'left';
+    }
+    sx += slotW+gap;
+  }
+
+  // label
+  ctx.fillStyle = '#9b8fc4';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('DICE LOADOUT', W/2, H-12);
+  ctx.textAlign = 'left';
+}
+
+function drawDieFace(x,y,w,h,value){
+  ctx.fillStyle = '#0d0a1a';
+  // pip layout 3x3
+  const pipMap = {
+    1:[[1,1]],
+    2:[[0,0],[2,2]],
+    3:[[0,0],[1,1],[2,2]],
+    4:[[0,0],[2,0],[0,2],[2,2]],
+    5:[[0,0],[2,0],[1,1],[0,2],[2,2]],
+    6:[[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]],
+  };
+  const pips = pipMap[value] || [];
+  const px = x+8, py = y+10;
+  const cellW = (w-16)/3, cellH = (h-16)/3;
+  for(const [cx,cy] of pips){
+    ctx.fillRect(px+cx*cellW+cellW/2-2, py+cy*cellH+cellH/2-2, 4, 4);
+  }
+}
+
+function drawTransition(t){
+  // t in [0,1]
+  ctx.fillStyle = `rgba(255,204,61,${0.15+0.4*Math.sin(t*Math.PI)})`;
+  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = '#ffcc3d';
+  ctx.font = 'bold 24px monospace';
+  ctx.textAlign='center';
+  ctx.fillText(`FLOOR ${game.floor}`, W/2, H/2);
+  ctx.font = '12px monospace';
+  ctx.fillStyle = '#fff7e0';
+  ctx.fillText('hop hop hop!', W/2, H/2+22);
+  ctx.textAlign='left';
+}
+
+function render(){
+  setupCtx();
+  ctx.clearRect(0,0,W,H);
+  drawBackground();
+  if(state===STATE.PLAY || state===STATE.TRANSITION){
+    drawPlatforms();
+    drawCoins();
+    drawProjectiles();
+    for(const e of enemies) drawEnemy(e);
+    drawTargetMarker();
+    drawBunny();
+    drawParticles();
+    drawDamageNumbers();
+    drawHUDTop();
+    drawHUDBottom();
+    if(state===STATE.TRANSITION) drawTransition(transitionT);
+  }
+}
+
+// ============ TRANSITIONS / FLOW ============
+let transitionT = 0;
+function enterPlay(reset){
+  state = STATE.PLAY;
+  hideAllLayers();
+  document.getElementById('hint').style.display='block';
+  if(reset){
+    game.floor = 1;
+    game.score = 0;
+    game.coins = 0;
+    game.enemiesKilled = 0;
+    game.bestCombo = 'NONE';
+    game.startTime = performance.now();
+    bunny.hp = bunny.maxHp = 5;
+    dice.length = 0;
+    dice.push({value:1, level:1});
+  }
+  loadFloor(game.floor-1);
+}
+function enterTransition(){
+  state = STATE.TRANSITION;
+  transitionT = 0;
+  // hop animation: bunny goes up
+  bunny.vy = -10;
+}
+function tickTransition(){
+  transitionT += 1/45;
+  bunny.y += bunny.vy;
+  bunny.vy += 0.2;
+  if(transitionT >= 1){
+    game.floor++;
+    if(game.floor % 3 === 1 && game.floor > 1){
+      // upgrade screen between floors (after every 3 cleared)
+      enterUpgrade();
+    } else {
+      loadFloor(game.floor-1);
+      state = STATE.PLAY;
+    }
+  }
+}
+function enterUpgrade(){
+  state = STATE.UPGRADE;
+  document.getElementById('hint').style.display='none';
+  showLayer('upgrade');
+  buildUpgradeOptions();
+}
+function enterGameOver(){
+  state = STATE.GAMEOVER;
+  document.getElementById('hint').style.display='none';
+  const stats = document.getElementById('goStats');
+  const time = ((performance.now()-game.startTime)/1000).toFixed(1);
+  stats.innerHTML = `
+    <div class="row"><span>Floor reached</span><span>${game.floor}</span></div>
+    <div class="row"><span>Enemies defeated</span><span>${game.enemiesKilled}</span></div>
+    <div class="row"><span>Coins collected</span><span>${game.coins}</span></div>
+    <div class="row"><span>Best combo</span><span>${COMBO[game.bestCombo].name}</span></div>
+    <div class="row"><span>Score</span><span>${game.score}</span></div>
+    <div class="row"><span>Time</span><span>${time}s</span></div>
+  `;
+  showLayer('gameover');
+}
+
+// ============ UI LAYERS ============
+function hideAllLayers(){
+  for(const id of ['menu','upgrade','gameover','comboSheet']){
+    document.getElementById(id).classList.remove('show');
+  }
+}
+function showLayer(id){
+  hideAllLayers();
+  document.getElementById(id).classList.add('show');
+}
+
+document.getElementById('playBtn').addEventListener('click', ()=>{
+  enterPlay(true);
+});
+document.getElementById('retryBtn').addEventListener('click', ()=>{
+  enterPlay(true);
+});
+document.getElementById('menuBtn').addEventListener('click', ()=>{
+  state = STATE.MENU;
+  showLayer('menu');
+  document.getElementById('hint').style.display='none';
+});
+document.getElementById('pauseBtn').addEventListener('click', ()=>{
+  if(state === STATE.PLAY){
+    state = STATE.PAUSED;
+    // limpa input pra evitar joystick "preso"
+    input.active = false; input.axisX = 0;
+    input.releaseAxis = 0; input.jumpQueued = false;
+    joyBase.style.display='none'; joyKnob.style.display='none';
+    showLayer('comboSheet');
+    document.getElementById('hint').style.display='none';
+  }
+});
+document.getElementById('resumeBtn').addEventListener('click', ()=>{
+  if(state === STATE.PAUSED){
+    state = STATE.PLAY;
+    hideAllLayers();
+  }
+});
+
+document.getElementById('skipUpgrade').addEventListener('click', ()=>{
+  loadFloor(game.floor-1);
+  state = STATE.PLAY;
+  hideAllLayers();
+  document.getElementById('hint').style.display='block';
+});
+
+function buildUpgradeOptions(){
+  const wrap = document.getElementById('upgradeOptions');
+  wrap.innerHTML = '';
+  // option A: add a die (if <5)
+  const canAdd = dice.length < 5;
+  const optAdd = document.createElement('div');
+  optAdd.className = 'upgrade-card' + (canAdd?'':' disabled');
+  optAdd.innerHTML = `
+    <div class="head"><div class="icon">➕🎲</div><div class="title">Adicionar Dado (${dice.length}/5)</div></div>
+    <div class="body">Aumenta a chance de combos melhores. Mais dados = mais multiplicador.</div>
+  `;
+  if(canAdd){
+    optAdd.addEventListener('click', ()=>{
+      dice.push({value:1, level:1});
+      finishUpgrade();
+    });
+  }
+  wrap.appendChild(optAdd);
+
+  // option B: upgrade existing → reroll favors higher numbers (simulated by HP boost / bias)
+  const optUp = document.createElement('div');
+  optUp.className = 'upgrade-card';
+  optUp.innerHTML = `
+    <div class="head"><div class="icon">⚡</div><div class="title">Vida Extra</div></div>
+    <div class="body">+2 HP máximo e cura completa. Sobreviva para rolar mais dados.</div>
+  `;
+  optUp.addEventListener('click', ()=>{
+    bunny.maxHp += 2;
+    bunny.hp = bunny.maxHp;
+    finishUpgrade();
+  });
+  wrap.appendChild(optUp);
+
+  // option C: lucky reroll - bias dice toward 6
+  const optLucky = document.createElement('div');
+  optLucky.className = 'upgrade-card';
+  optLucky.innerHTML = `
+    <div class="head"><div class="icon">🍀</div><div class="title">Cenoura da Sorte</div></div>
+    <div class="body">Aumenta o nível dos seus dados. Próxima rolagem favorece valores altos.</div>
+  `;
+  optLucky.addEventListener('click', ()=>{
+    for(const d of dice) d.level++;
+    // bias: when rolling, with chance based on level, +1 to value capped at 6
+    finishUpgrade();
+  });
+  wrap.appendChild(optLucky);
+}
+function finishUpgrade(){
+  loadFloor(game.floor-1);
+  state = STATE.PLAY;
+  hideAllLayers();
+  document.getElementById('hint').style.display='block';
+  rollDice();
+}
+
+// override rollDice with lucky bias
+const _origRoll = rollDice;
+rollDice = function(){
+  for(const d of dice){
+    let v = 1 + ((Math.random()*6)|0);
+    // each level gives 12% chance to bump up by 1
+    for(let i=0;i<d.level-1;i++){
+      if(Math.random() < 0.12 && v < 6) v++;
+    }
+    d.value = v;
+  }
+};
+
+// ============ MAIN LOOP (fixed 60Hz timestep) ============
+const FIXED_DT = 1000/60;
+let last = performance.now();
+let acc = 0;
+function loop(now){
+  let frame = now - last;
+  last = now;
+  if(frame > 250) frame = 250; // clamp after tab switch
+  acc += frame;
+  // run as many fixed steps as needed (max 4 per frame to avoid spiral of death)
+  let steps = 0;
+  while(acc >= FIXED_DT && steps < 4){
+    if(state === STATE.PLAY) updatePlay();
+    else if(state === STATE.TRANSITION) tickTransition();
+    acc -= FIXED_DT;
+    steps++;
+  }
+  if(steps === 4) acc = 0;
+
+  // joystick zone: only active during PLAY
+  const joyEl = document.getElementById('joy');
+  if(state === STATE.PLAY) joyEl.classList.remove('disabled');
+  else joyEl.classList.add('disabled');
+
+  // pause button só visível durante o jogo
+  const pauseEl = document.getElementById('pauseBtn');
+  if(state === STATE.PLAY) pauseEl.classList.add('show');
+  else pauseEl.classList.remove('show');
+
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// hide hint after first few seconds of gameplay
+setInterval(()=>{
+  const hint = document.getElementById('hint');
+  if(state===STATE.PLAY && game.startTime && (performance.now()-game.startTime)>5000){
+    hint.style.opacity = '0';
+    hint.style.transition = 'opacity .5s';
+  }
+}, 500);
+
+// prevent context menu on long press
+window.addEventListener('contextmenu', e=>e.preventDefault());
+</script>
+</body>
+</html>
