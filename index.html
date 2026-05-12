@@ -3009,8 +3009,9 @@ function arenaTotalStat(name){
 
 function initArenaLayout(){
   ARENA.TOP_Y = HUD_TOP + 4;
-  // espaço pro strip de itens (44) + barra de tabs (40 logical = 54 CSS)
-  ARENA.BOT_Y = H - HUD_BOT - 70 - 36;
+  // play area encurtada em ~20%; sobra mais espaço pro strip de itens
+  // bottom area: items strip alto (90) + forge btn (~40) + tab bar (~40 logical)
+  ARENA.BOT_Y = H - HUD_BOT - 90 - 92;
   ARENA.LEFT_X = 4;
   ARENA.RIGHT_X = W - 4;
 }
@@ -4080,33 +4081,48 @@ function drawArenaHUD(){
   ctx.fillStyle = '#5a4499';
   ctx.fillRect(0, ARENA.BOT_Y+4, W, 2);
 
-  // 8 slots ocupando quase a tela toda (edge-to-edge)
-  const slotSize = 42, gap = 2;
-  const totalW = ARENA_SLOTS.length*slotSize + (ARENA_SLOTS.length-1)*gap;
-  let sx = (W-totalW)/2; // ~5px de margem cada lado
-  const sy = ARENA.BOT_Y + 8;
+  // 8 slots edge-to-edge, retangulares verticais (ícone em cima + stat embaixo)
+  const slotW = 42, slotH = 68, gap = 2;
+  const totalW = ARENA_SLOTS.length*slotW + (ARENA_SLOTS.length-1)*gap;
+  let sx = (W-totalW)/2;
+  const sy = ARENA.BOT_Y + 12;
   for(const slot of ARENA_SLOTS){
     const it = arena.items[slot];
     const col = it ? RARITY[it.rarity].color : '#241a44';
-    // borda
+    // borda colorida pela raridade
     ctx.fillStyle = col;
-    ctx.fillRect(sx, sy, slotSize, slotSize);
+    ctx.fillRect(sx, sy, slotW, slotH);
     // miolo escuro
     ctx.fillStyle = '#0d0a1a';
-    ctx.fillRect(sx+2, sy+2, slotSize-4, slotSize-4);
-    // ícone bem maior centralizado
+    ctx.fillRect(sx+2, sy+2, slotW-4, slotH-4);
+    // divisória sutil entre ícone e stat
+    ctx.fillStyle = col;
+    ctx.fillRect(sx+4, sy+slotH-18, slotW-8, 1);
+    // ícone grande no topo
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if(it){
       ctx.fillStyle = col;
       ctx.font = 'bold 26px monospace';
-      ctx.fillText(it.icon, sx+slotSize/2, sy+slotSize/2);
+      ctx.fillText(it.icon, sx+slotW/2, sy + 26);
+      // stat value embaixo
+      ctx.fillStyle = '#fff7e0';
+      ctx.font = 'bold 9px monospace';
+      const statTxt = it.stat === 'maxHp' || it.stat === 'pickupRange' || it.stat === 'projectiles'
+        ? `+${it.value.toFixed(0)}`
+        : `+${Math.round(it.value*100)}%`;
+      ctx.fillText(statTxt, sx+slotW/2, sy+slotH-9);
     } else {
       ctx.fillStyle = '#3b2a70';
-      ctx.font = '24px monospace';
-      ctx.fillText(ARENA_SLOT_ICONS[slot], sx+slotSize/2, sy+slotSize/2);
+      ctx.font = '26px monospace';
+      ctx.fillText(ARENA_SLOT_ICONS[slot], sx+slotW/2, sy + 26);
+      // label do slot embaixo (vazio)
+      ctx.fillStyle = '#5a4499';
+      ctx.font = 'bold 8px monospace';
+      const lbl = (ARENA_SLOT_LABELS[slot] || slot).toUpperCase();
+      ctx.fillText(lbl, sx+slotW/2, sy+slotH-9);
     }
-    sx += slotSize + gap;
+    sx += slotW + gap;
   }
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
