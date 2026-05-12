@@ -609,10 +609,10 @@ function rollDice(){
     d.value = 1 + ((Math.random()*6)|0);
   }
 }
-function evalCombo(){
-  if(dice.length===0) return 'NONE';
-  const counts = [0,0,0,0,0,0,0]; // 1..6
-  const values = dice.map(d=>d.value);
+function evalComboArr(diceArr){
+  if(diceArr.length===0) return 'NONE';
+  const counts = [0,0,0,0,0,0,0];
+  const values = diceArr.map(d=>d.value);
   for(const v of values) counts[v]++;
   let pairs=0, threes=0, fours=0, fives=0;
   for(let i=1;i<=6;i++){
@@ -624,8 +624,7 @@ function evalCombo(){
   if(fives) return 'FIVE';
   if(fours) return 'FOUR';
   if(threes && pairs) return 'FULL';
-  // straight: 5 consecutive distinct values
-  if(dice.length>=5){
+  if(diceArr.length>=5){
     const uniq = [...new Set(values)].sort((a,b)=>a-b);
     for(let i=0;i+4<uniq.length;i++){
       if(uniq[i+4]-uniq[i]===4) return 'STRAIGHT';
@@ -637,6 +636,7 @@ function evalCombo(){
   if(values.includes(6)) return 'MAXROLL';
   return 'NONE';
 }
+function evalCombo(){ return evalComboArr(dice); }
 function comboMult(){ return COMBO[evalCombo()].mult; }
 
 // ============ FLOORS ============
@@ -2776,7 +2776,15 @@ const arena = {
   shootTimer:0,
   enemies:[],
   swings:[],   // ataques melee (arcos da espada de cenoura)
+  effects:[],  // habilidades especiais (shockwave, beam, meteor, nuke, orbiter)
   gems:[],
+  // dice system
+  dice:[{value:1}],
+  diceRollTimer:300,    // frames até próximo roll (5s @ 60fps)
+  diceRollInterval:300,
+  lastCombo:'NONE',
+  comboTextTimer:0,
+  maxRollBuffFrames:0,  // boost de range nos próximos swings (MAXROLL)
   particles:[],
   items:{ weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null },
   // base stats (modificados por items + upgrades)
@@ -2815,7 +2823,13 @@ function initArena(){
   arena.hp = 100; arena.maxHp = 100;
   arena.level = 1; arena.xp = 0; arena.xpToNext = 8;
   arena.hurtTimer = 0; arena.shootTimer = 0;
-  arena.enemies = []; arena.swings = []; arena.gems = []; arena.particles = [];
+  arena.enemies = []; arena.swings = []; arena.effects = [];
+  arena.gems = []; arena.particles = [];
+  arena.dice = [{value:1}];
+  arena.diceRollTimer = arena.diceRollInterval = 300;
+  arena.lastCombo = 'NONE';
+  arena.comboTextTimer = 0;
+  arena.maxRollBuffFrames = 0;
   arena.items = { weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null };
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 1.54;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
@@ -2923,6 +2937,241 @@ function arenaEquipItem(item){
   return false;
 }
 
+function killArenaEnemy(idx, e){
+  // idx pode ser -1: encontra pelo ref
+  if(idx < 0){
+    idx = arena.enemies.indexOf(e);
+    if(idx < 0) return;
+  }
+  arena.gems.push({ x:e.x, y:e.y, vx:0, vy:0, xp:e.xp, age:0 });
+  const dropChance = e.isBoss ? 1 : 0.06;
+  if(Math.random() < dropChance){
+    arena.gems.push({ x:e.x+8, y:e.y+8, vx:0, vy:0, item: rollItem(), isItem:true, age:0 });
+  }
+  arena.killCount++;
+  if(e.isBoss){
+    arena.regions++;
+    spawnArenaParticle(e.x, e.y, '#ff5252', 30);
+  } else {
+    spawnArenaParticle(e.x, e.y, e.color, 14);
+  }
+  arena.enemies.splice(idx,1);
+}
+
+function triggerArenaAbility(combo){
+  const baseDmg = arenaTotalStat('dmg');
+  switch(combo){
+    case 'MAXROLL': {
+      // buff: próximos swings ganham +50% range por 3 segundos
+      arena.maxRollBuffFrames = 180;
+      spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 14);
+      break;
+    }
+    case 'PAIR': {
+      // spin: swing de 360°
+      arena.swings.push({
+        centerAngle: 0, arc: Math.PI*2, range: 56,
+        frame: 0, lifeFrames: 14, dir: 1,
+        dmg: baseDmg, crit: arenaTotalStat('crit'),
+        hit: new Set(),
+      });
+      break;
+    }
+    case 'TWOPAIR': {
+      // double slash: 2 swings em sequência
+      let best=null,bd=Infinity;
+      for(const e of arena.enemies){
+        const d=(e.x-arena.bx)**2+(e.y-arena.by)**2;
+        if(d<bd){bd=d;best=e;}
+      }
+      const ang = best ? Math.atan2(best.y-arena.by, best.x-arena.bx) : 0;
+      arena.swings.push({
+        centerAngle: ang, arc: Math.PI*0.95, range: 52,
+        frame: 0, lifeFrames: 6, dir: 1,
+        dmg: baseDmg*1.2, crit: arenaTotalStat('crit'),
+        hit: new Set(),
+      });
+      arena.effects.push({ kind:'delayed', framesLeft:10, fn:()=>{
+        arena.swings.push({
+          centerAngle: ang, arc: Math.PI*0.95, range: 52,
+          frame: 0, lifeFrames: 6, dir: -1,
+          dmg: baseDmg*1.2, crit: arenaTotalStat('crit'),
+          hit: new Set(),
+        });
+      }, frame:0, lifeFrames:11 });
+      break;
+    }
+    case 'THREE': {
+      // shockwave AOE expansiva
+      arena.effects.push({
+        kind:'shockwave', x:arena.bx, y:arena.by,
+        r:8, maxR:120, frame:0, lifeFrames:24,
+        dmg: baseDmg*1.5, hit: new Set(),
+      });
+      break;
+    }
+    case 'STRAIGHT': {
+      // beam piercing que sai numa direção
+      let best=null,bd=Infinity;
+      for(const e of arena.enemies){
+        const d=(e.x-arena.bx)**2+(e.y-arena.by)**2;
+        if(d<bd){bd=d;best=e;}
+      }
+      const ang = best ? Math.atan2(best.y-arena.by, best.x-arena.bx) : -Math.PI/2;
+      arena.effects.push({
+        kind:'beam', x:arena.bx, y:arena.by,
+        vx:Math.cos(ang)*9, vy:Math.sin(ang)*9,
+        angle: ang,
+        frame:0, lifeFrames:36,
+        dmg: baseDmg*2.0, hit: new Set(),
+      });
+      break;
+    }
+    case 'FULL': {
+      // orbiter: 3 orbes que orbitam o coelho por ~5s
+      const dur = 300;
+      for(let i=0;i<3;i++){
+        arena.effects.push({
+          kind:'orbiter',
+          angle: (Math.PI*2/3)*i,
+          radius: 38, x:arena.bx, y:arena.by,
+          frame:0, lifeFrames: dur,
+          dmg: baseDmg*0.6, lastHit: new Map(),
+        });
+      }
+      break;
+    }
+    case 'FOUR': {
+      // meteor: cai no inimigo mais "ameaçador" (HP maior, ou boss)
+      let target=null,maxHp=-1;
+      for(const e of arena.enemies){
+        if(e.hp > maxHp){ maxHp=e.hp; target=e; }
+      }
+      const tx = target ? target.x : arena.bx;
+      const ty = target ? target.y : arena.by;
+      arena.effects.push({
+        kind:'meteor',
+        x: tx + (Math.random()-0.5)*40, y: -30,
+        targetX: tx, targetY: ty,
+        frame:0, lifeFrames: 36,
+        dmg: baseDmg*4.5, radius: 60,
+        exploded: false,
+      });
+      break;
+    }
+    case 'FIVE': {
+      // nuke: limpa tela (dano massivo em todos)
+      arena.effects.push({
+        kind:'nuke',
+        frame:0, lifeFrames:30,
+        dmg: baseDmg*10, exploded:false,
+      });
+      break;
+    }
+  }
+}
+
+function updateArenaEffects(){
+  for(let i=arena.effects.length-1;i>=0;i--){
+    const ef = arena.effects[i];
+    ef.frame++;
+
+    if(ef.kind === 'delayed'){
+      if(ef.frame >= ef.framesLeft){ ef.fn(); arena.effects.splice(i,1); continue; }
+    }
+    else if(ef.kind === 'shockwave'){
+      const t = ef.frame / ef.lifeFrames;
+      ef.r = ef.maxR * t;
+      for(let j=arena.enemies.length-1;j>=0;j--){
+        const e = arena.enemies[j];
+        if(ef.hit.has(e)) continue;
+        const d = Math.hypot(e.x-ef.x, e.y-ef.y);
+        if(d < ef.r){
+          e.hp -= ef.dmg;
+          e.hurtTimer = 6;
+          ef.hit.add(e);
+          const ang = Math.atan2(e.y-ef.y, e.x-ef.x);
+          e.x += Math.cos(ang)*8;
+          e.y += Math.sin(ang)*8;
+          spawnArenaParticle(e.x, e.y, '#5fb0d8', 6);
+          if(e.hp <= 0) killArenaEnemy(j, e);
+        }
+      }
+    }
+    else if(ef.kind === 'beam'){
+      ef.x += ef.vx; ef.y += ef.vy;
+      for(let j=arena.enemies.length-1;j>=0;j--){
+        const e = arena.enemies[j];
+        if(ef.hit.has(e)) continue;
+        const d = Math.hypot(e.x-ef.x, e.y-ef.y);
+        if(d < e.r + 7){
+          e.hp -= ef.dmg;
+          e.hurtTimer = 6;
+          ef.hit.add(e);
+          spawnArenaParticle(e.x, e.y, '#a86bff', 6);
+          if(e.hp <= 0) killArenaEnemy(j, e);
+        }
+      }
+    }
+    else if(ef.kind === 'orbiter'){
+      ef.angle += 0.15;
+      ef.x = arena.bx + Math.cos(ef.angle) * ef.radius;
+      ef.y = arena.by + Math.sin(ef.angle) * ef.radius;
+      for(let j=arena.enemies.length-1;j>=0;j--){
+        const e = arena.enemies[j];
+        const d = Math.hypot(e.x-ef.x, e.y-ef.y);
+        if(d < e.r + 8){
+          const last = ef.lastHit.get(e) || -100;
+          if(ef.frame - last > 18){
+            e.hp -= ef.dmg;
+            e.hurtTimer = 6;
+            ef.lastHit.set(e, ef.frame);
+            spawnArenaParticle(e.x, e.y, '#5fb0d8', 4);
+            if(e.hp <= 0) killArenaEnemy(j, e);
+          }
+        }
+      }
+    }
+    else if(ef.kind === 'meteor'){
+      if(ef.frame < ef.lifeFrames - 8){
+        const t = ef.frame/(ef.lifeFrames-8);
+        ef.x = ef.x + (ef.targetX - ef.x) * 0.15;
+        ef.y = ef.y + (ef.targetY - ef.y) * (0.05 + t*0.2);
+      } else if(!ef.exploded){
+        ef.exploded = true;
+        spawnArenaParticle(ef.targetX, ef.targetY, '#ff5252', 30);
+        spawnArenaParticle(ef.targetX, ef.targetY, '#ffcc3d', 20);
+        spawnArenaParticle(ef.targetX, ef.targetY, '#fff7e0', 10);
+        for(let j=arena.enemies.length-1;j>=0;j--){
+          const e = arena.enemies[j];
+          const d = Math.hypot(e.x-ef.targetX, e.y-ef.targetY);
+          if(d < ef.radius){
+            e.hp -= ef.dmg;
+            e.hurtTimer = 6;
+            if(e.hp <= 0) killArenaEnemy(j, e);
+          }
+        }
+      }
+    }
+    else if(ef.kind === 'nuke'){
+      if(!ef.exploded){
+        ef.exploded = true;
+        for(let j=arena.enemies.length-1;j>=0;j--){
+          const e = arena.enemies[j];
+          e.hp -= ef.dmg;
+          e.hurtTimer = 6;
+          spawnArenaParticle(e.x, e.y, '#fff7e0', 12);
+          if(e.hp <= 0) killArenaEnemy(j, e);
+        }
+      }
+    }
+
+    if(ef.frame >= ef.lifeFrames){
+      arena.effects.splice(i,1);
+    }
+  }
+}
+
 function arenaSwing(){
   // mira no inimigo mais próximo (auto-aim igual antes); se não houver, mira pra frente
   let best=null, bestD=Infinity;
@@ -2935,12 +3184,13 @@ function arenaSwing(){
   const targetAngle = Math.atan2(best.y-arena.by, best.x-arena.bx);
   // "projéteis" agora viram tamanho/arco da espada
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
+  const rangeBoost = arena.maxRollBuffFrames > 0 ? 1.5 : 1;
   arena.swings.push({
     centerAngle: targetAngle,
-    arc:   Math.PI * 0.85 + (bladeStat-1) * 0.20, // arco mais largo com upgrade
-    range: 38 + bladeStat * 6,                    // alcance maior
+    arc:   Math.PI * 0.85 + (bladeStat-1) * 0.20,
+    range: (38 + bladeStat * 6) * rangeBoost,
     frame: 0,
-    lifeFrames: 6,                                // swish rápido (~100ms)
+    lifeFrames: 6,
     dmg: arenaTotalStat('dmg'),
     crit: arenaTotalStat('crit'),
     dir: Math.random()<0.5 ? -1 : 1,
@@ -3000,6 +3250,24 @@ function updateArena(){
     arenaSwing();
     arena.shootTimer = 50;
   }
+
+  // dice roll: rola todos os dados periodicamente e dispara habilidade pelo combo
+  arena.diceRollTimer--;
+  if(arena.diceRollTimer <= 0){
+    arena.diceRollTimer = arena.diceRollInterval;
+    for(const d of arena.dice) d.value = 1 + ((Math.random()*6)|0);
+    const combo = evalComboArr(arena.dice);
+    arena.lastCombo = combo;
+    if(combo !== 'NONE'){
+      triggerArenaAbility(combo);
+      arena.comboTextTimer = 60;
+    }
+  }
+  if(arena.comboTextTimer > 0) arena.comboTextTimer--;
+  if(arena.maxRollBuffFrames > 0) arena.maxRollBuffFrames--;
+
+  // update efeitos especiais
+  updateArenaEffects();
 
   // spawn enemies
   arena.spawnTimer--;
@@ -3156,11 +3424,13 @@ const ARENA_UPGRADES = [
   { name:'+15% Vel. Ataque',    color:'#ffcc3d', apply:()=>arena.baseAtkSpeed *= 1.15 },
   { name:'+20 HP Máximo',       color:'#ff5fa2', apply:()=>{ arena.baseMaxHp += 20; arena.hp += 20; } },
   { name:'+10% Vel. Movimento', color:'#4cf08e', apply:()=>arena.baseMoveSpeed *= 1.10 },
-  { name:'+1 Projétil',         color:'#a86bff', apply:()=>arena.baseProjectiles += 1 },
+  { name:'+1 Lâmina',           color:'#a86bff', apply:()=>arena.baseProjectiles += 1 },
   { name:'+8% Crit',            color:'#ff5fa2', apply:()=>arena.baseCrit += 0.08 },
   { name:'+30 Raio Coleta',     color:'#5fb0d8', apply:()=>arena.basePickupRange += 30 },
   { name:'+15% XP',             color:'#4cf08e', apply:()=>arena.baseXpMult += 0.15 },
   { name:'Cura completa',       color:'#ff5fa2', apply:()=>{ arena.hp = arena.maxHp; } },
+  { name:'+1 Dado 🎲',          color:'#ffcc3d', apply:()=>{ if(arena.dice.length < 5) arena.dice.push({value:1}); } },
+  { name:'-15% Cooldown Dados', color:'#5fb0d8', apply:()=>{ arena.diceRollInterval = Math.max(120, Math.round(arena.diceRollInterval*0.85)); } },
 ];
 
 function enterArenaLevelUp(){
@@ -3419,6 +3689,47 @@ function drawArenaHUD(){
   ctx.fillStyle = 'rgba(255, 247, 224, 0.13)';
   ctx.fillRect(40, 50, W-80, 1);
 
+  // dados (arena) + cooldown
+  const slotSize = 22, gap = 4;
+  const totalDiceW = 5*slotSize + 4*gap;
+  let dx0 = (W - totalDiceW)/2;
+  const dy0 = 56;
+  for(let i=0;i<5;i++){
+    const has = i < arena.dice.length;
+    ctx.fillStyle = has ? '#fff7e0' : '#241a44';
+    ctx.fillRect(dx0, dy0, slotSize, slotSize);
+    ctx.fillStyle = has ? '#ffcc3d' : '#3b2a70';
+    ctx.fillRect(dx0, dy0, slotSize, 2);
+    if(has){
+      drawDieFace(dx0, dy0, slotSize, slotSize, arena.dice[i].value);
+    }
+    dx0 += slotSize+gap;
+  }
+  // cooldown ring (barra abaixo)
+  const cdW = totalDiceW;
+  const cdX = (W - cdW)/2;
+  const cdY = dy0 + slotSize + 2;
+  const pct = 1 - arena.diceRollTimer / arena.diceRollInterval;
+  ctx.fillStyle = '#3b2a70';
+  ctx.fillRect(cdX, cdY, cdW, 2);
+  ctx.fillStyle = '#ff5fa2';
+  ctx.fillRect(cdX, cdY, cdW*pct, 2);
+
+  // combo recém-disparado (texto)
+  if(arena.comboTextTimer > 0 && arena.lastCombo !== 'NONE'){
+    const a = Math.min(1, arena.comboTextTimer / 30);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 16px monospace';
+    ctx.textAlign = 'center';
+    const name = (COMBO[arena.lastCombo].name||'').toUpperCase()+'!';
+    ctx.fillText(name, W/2+1, 87+1);
+    ctx.fillStyle = '#ff5fa2';
+    ctx.fillText(name, W/2, 87);
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+  }
+
   // 6 slots de itens no bottom HUD
   ctx.fillStyle = 'rgba(13,10,26,0.92)';
   ctx.fillRect(0, ARENA.BOT_Y+4, W, H-ARENA.BOT_Y-4);
@@ -3500,6 +3811,69 @@ function renderArena(){
     const t = sw.frame / sw.lifeFrames;
     const swingAngle = sw.centerAngle + sw.dir * (sw.arc/2 - sw.arc * t);
     drawCarrotSword(arena.bx, arena.by, swingAngle, sw.range, t);
+  }
+
+  // efeitos especiais (habilidades de dados)
+  for(const ef of arena.effects){
+    if(ef.kind === 'shockwave'){
+      const a = 1 - ef.frame/ef.lifeFrames;
+      ctx.fillStyle = `rgba(95,176,216,${0.8*a})`;
+      const r = ef.r, rw = 5;
+      ctx.fillRect(ef.x-r, ef.y-1, r*2, 2);
+      ctx.fillRect(ef.x-1, ef.y-r, 2, r*2);
+      // anel pixelado em 8 direções
+      for(let k=0;k<16;k++){
+        const ang = (k/16)*Math.PI*2;
+        const rx = ef.x + Math.cos(ang)*r;
+        const ry = ef.y + Math.sin(ang)*r;
+        ctx.fillRect(rx-2, ry-2, 4, 4);
+      }
+    }
+    else if(ef.kind === 'beam'){
+      const a = 1 - ef.frame/ef.lifeFrames*0.5;
+      ctx.save();
+      ctx.translate(ef.x, ef.y);
+      ctx.rotate(ef.angle);
+      ctx.fillStyle = `rgba(168,107,255,${0.7*a})`;
+      ctx.fillRect(-12, -6, 24, 12);
+      ctx.fillStyle = `rgba(255,247,224,${a})`;
+      ctx.fillRect(-10, -2, 20, 4);
+      ctx.restore();
+    }
+    else if(ef.kind === 'orbiter'){
+      const a = ef.frame > ef.lifeFrames-30 ? (ef.lifeFrames-ef.frame)/30 : 1;
+      ctx.fillStyle = `rgba(95,176,216,${0.7*a})`;
+      ctx.fillRect(ef.x-6, ef.y-6, 12, 12);
+      ctx.fillStyle = `rgba(255,247,224,${a})`;
+      ctx.fillRect(ef.x-3, ef.y-3, 6, 6);
+      ctx.fillStyle = `rgba(255,204,61,${a})`;
+      ctx.fillRect(ef.x-1, ef.y-1, 2, 2);
+    }
+    else if(ef.kind === 'meteor'){
+      if(!ef.exploded){
+        // streak descendente
+        ctx.fillStyle = '#ff5252';
+        ctx.fillRect(ef.x-6, ef.y-12, 12, 24);
+        ctx.fillStyle = '#ffcc3d';
+        ctx.fillRect(ef.x-4, ef.y-10, 8, 20);
+        ctx.fillStyle = '#fff7e0';
+        ctx.fillRect(ef.x-2, ef.y-8, 4, 16);
+        // sombra alvo
+        ctx.fillStyle = 'rgba(255,82,82,0.25)';
+        ctx.fillRect(ef.targetX-30, ef.targetY-30, 60, 60);
+      } else {
+        // explosão pulsante
+        const t = (ef.frame - (ef.lifeFrames-8))/8;
+        const r = ef.radius * (1 + t*0.5);
+        ctx.fillStyle = `rgba(255,140,40,${0.8*(1-t)})`;
+        ctx.fillRect(ef.targetX-r, ef.targetY-r, r*2, r*2);
+      }
+    }
+    else if(ef.kind === 'nuke'){
+      const t = ef.frame/ef.lifeFrames;
+      ctx.fillStyle = `rgba(255,247,224,${0.8*(1-t)})`;
+      ctx.fillRect(0,0,W,H);
+    }
   }
 
   // bunny
