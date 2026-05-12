@@ -263,13 +263,13 @@
           </div>
           <div>▶</div>
         </div>
-        <div class="mode locked">
-          <div class="icon">⚔️</div>
+        <div class="mode active" id="arenaBtn" style="border-color:#ff5fa2;">
+          <div class="icon" style="background:linear-gradient(180deg,#ff5fa2,#c93b7d);color:#3a0a1f;">⚔️</div>
           <div class="info">
-            <div class="name">Boss Rush</div>
-            <div class="desc">Em breve</div>
+            <div class="name">Loot Arena</div>
+            <div class="desc">Sobreviva às hordas. Suba de nível e equipe loot.</div>
           </div>
-          <div class="badge">🔒</div>
+          <div>▶</div>
         </div>
         <div class="mode locked">
           <div class="icon">🎲</div>
@@ -357,6 +357,21 @@
       <button class="btn" id="resumeBtn">Continuar</button>
     </div>
 
+    <!-- arena level up -->
+    <div class="layer" id="arenaLevelUp">
+      <h2 style="color:#ff5fa2;">⬆ LEVEL UP!</h2>
+      <p id="arenaLvlSub">Escolha um upgrade.</p>
+      <div id="arenaLvlOptions" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- arena game over -->
+    <div class="layer" id="arenaGameover">
+      <h1 style="color:#ff5fa2;text-shadow:0 3px 0 #6b1454">FIM DA ARENA</h1>
+      <div class="stats" id="arenaGoStats"></div>
+      <button class="btn" id="arenaRetryBtn">Tentar de novo</button>
+      <button class="btn secondary" id="arenaMenuBtn">Menu</button>
+    </div>
+
     <!-- cave game over -->
     <div class="layer" id="caveGameover">
       <h1 style="color:#5fb0d8;text-shadow:0 3px 0 #1e4660">FIM DA CAVERNA</h1>
@@ -410,7 +425,7 @@ const COMBO = {
 };
 
 // ============ STATE ============
-const STATE = { MENU:0, PLAY:1, UPGRADE:2, GAMEOVER:3, TRANSITION:4, PAUSED:5, CAVE_PLAY:6, CAVE_GAMEOVER:7 };
+const STATE = { MENU:0, PLAY:1, UPGRADE:2, GAMEOVER:3, TRANSITION:4, PAUSED:5, CAVE_PLAY:6, CAVE_GAMEOVER:7, ARENA_PLAY:8, ARENA_LEVELUP:9, ARENA_GAMEOVER:10 };
 let state = STATE.MENU;
 
 const game = {
@@ -439,7 +454,7 @@ const scaleX = () => canvas.width  / W;
 const scaleY = () => canvas.height / H;
 
 // ============ INPUT (joystick + keyboard) ============
-const input = { axisX: 0, jumpQueued: false, active: false, releaseAxis: 0, downHold: false, chargedJump: false };
+const input = { axisX: 0, axisY: 0, jumpQueued: false, active: false, releaseAxis: 0, downHold: false, chargedJump: false };
 const joyZone = document.getElementById('joy');
 const joyBase = document.getElementById('joyBase');
 const joyKnob = document.getElementById('joyKnob');
@@ -459,13 +474,15 @@ function moveJoy(x,y){
   if(!joyOrigin) return;
   let dx = x - joyOrigin.x;
   let dy = y - joyOrigin.y;
-  const rawDx = dx; // antes de clampar, pra avaliar ângulo do gesto
-  const len = Math.abs(dx);
-  if(len > JOY_RADIUS) dx = (dx/len) * JOY_RADIUS;
+  const rawDx = dx;
+  const lenX = Math.abs(dx);
+  if(lenX > JOY_RADIUS) dx = (dx/lenX) * JOY_RADIUS;
+  // axisY: clampa dy ao raio também (usado em ARENA_PLAY pra movimento 2D)
+  const dyClamped = Math.max(-JOY_RADIUS, Math.min(JOY_RADIUS, dy));
+  input.axisY = dyClamped / JOY_RADIUS;
 
-  // down-hold SÓ no cone estreito (~±25° da vertical). Diagonais andam normal.
-  // tan(25°) ≈ 0.466
-  if(dy > JOY_RADIUS * 0.45 && Math.abs(rawDx) < dy * 0.466){
+  // down-hold só faz sentido no modo plataforma (STATE.PLAY)
+  if(state === STATE.PLAY && dy > JOY_RADIUS * 0.45 && Math.abs(rawDx) < dy * 0.466){
     input.axisX = 0;
     input.downHold = true;
   } else {
@@ -474,8 +491,6 @@ function moveJoy(x,y){
   }
 
   const frameRect = document.getElementById('frame').getBoundingClientRect();
-  // knob acompanha o dedo no Y também (clampado pra não sair do círculo)
-  const dyClamped = Math.max(-JOY_RADIUS, Math.min(JOY_RADIUS, dy));
   const knobX = joyOrigin.x + dx - frameRect.left;
   const knobY = joyOrigin.y + dyClamped - frameRect.top;
   joyKnob.style.left = knobX+'px'; joyKnob.style.top = knobY+'px';
@@ -1670,7 +1685,7 @@ function enterGameOver(){
 
 // ============ UI LAYERS ============
 function hideAllLayers(){
-  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover']){
+  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaLevelUp','arenaGameover']){
     document.getElementById(id).classList.remove('show');
   }
 }
@@ -2705,6 +2720,719 @@ window.addEventListener('keydown', e=>{
   else if(e.key === 'ArrowRight' || e.key === 'd') moveCaveBunny(1);
 });
 
+// ============================ LOOT ARENA (survivor + idle RPG + loot) ============================
+const ARENA = {
+  TOP_Y: 0, BOT_Y: 0, LEFT_X: 0, RIGHT_X: 0,
+  BUNNY_R: 10,
+};
+
+// 6 slots de equipamento
+const ARENA_SLOTS = ['weapon','helmet','armor','boots','ring','amulet'];
+const ARENA_SLOT_ICONS = {
+  weapon:'⚔️', helmet:'🪖', armor:'🛡️', boots:'🥾', ring:'💍', amulet:'📿',
+};
+const RARITY = {
+  common:    { color:'#9b8fc4', mult:1.0,  name:'Comum'    },
+  uncommon:  { color:'#4cf08e', mult:1.6,  name:'Incomum'  },
+  rare:      { color:'#5fb0d8', mult:2.4,  name:'Raro'     },
+  epic:      { color:'#a86bff', mult:3.6,  name:'Épico'    },
+  legendary: { color:'#ffcc3d', mult:5.5,  name:'Lendário' },
+};
+const RARITY_WEIGHTS = [
+  ['common',    60],
+  ['uncommon',  25],
+  ['rare',      10],
+  ['epic',       4],
+  ['legendary',  1],
+];
+// stats por slot
+const ARENA_ITEM_POOL = [
+  // weapon
+  { slot:'weapon', name:'Espada',     stat:'dmg',         base:3,    icon:'🗡️' },
+  { slot:'weapon', name:'Arco',       stat:'atkSpeed',    base:0.12, icon:'🏹' },
+  { slot:'weapon', name:'Cajado',     stat:'projectiles', base:1,    icon:'🪄' },
+  // helmet
+  { slot:'helmet', name:'Capacete',   stat:'maxHp',       base:12,   icon:'⛑️' },
+  { slot:'helmet', name:'Coroa',      stat:'xpMult',      base:0.15, icon:'👑' },
+  // armor
+  { slot:'armor',  name:'Couraça',    stat:'maxHp',       base:18,   icon:'🦺' },
+  { slot:'armor',  name:'Manto',      stat:'dodge',       base:0.05, icon:'🧥' },
+  // boots
+  { slot:'boots',  name:'Botas',      stat:'moveSpeed',   base:0.12, icon:'👢' },
+  { slot:'boots',  name:'Sandália',   stat:'pickupRange', base:20,   icon:'🩴' },
+  // ring
+  { slot:'ring',   name:'Anel',       stat:'crit',        base:0.08, icon:'💍' },
+  { slot:'ring',   name:'Selo',       stat:'dmg',         base:2,    icon:'🔮' },
+  // amulet
+  { slot:'amulet', name:'Amuleto',    stat:'atkSpeed',    base:0.08, icon:'🧿' },
+  { slot:'amulet', name:'Talismã',    stat:'maxHp',       base:8,    icon:'⭐' },
+];
+
+const arena = {
+  bx:W/2, by:0, vx:0, vy:0,
+  hp:100, maxHp:100,
+  level:1, xp:0, xpToNext:8,
+  hurtTimer:0,
+  shootTimer:0,
+  enemies:[],
+  projectiles:[],
+  gems:[],
+  particles:[],
+  items:{ weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null },
+  // base stats (modificados por items + upgrades)
+  baseDmg:5, baseAtkSpeed:1.0, baseMoveSpeed:2.2, baseMaxHp:100,
+  baseProjectiles:1, baseCrit:0, baseDodge:0, baseXpMult:1, basePickupRange:50,
+  spawnTimer:60,
+  difficulty:1,
+  startTime:0,
+  killCount:0,
+  bossTimer: 30*60, // primeiro mini-boss em ~30s
+  // hook 4X: regiões "conquistadas" — só counter por enquanto, expansível
+  regions:0,
+};
+
+function arenaTotalStat(name){
+  let value = arena['base'+name[0].toUpperCase()+name.slice(1)] || 0;
+  for(const slot of ARENA_SLOTS){
+    const it = arena.items[slot];
+    if(!it || it.stat !== name) continue;
+    value += it.value;
+  }
+  return value;
+}
+
+function initArenaLayout(){
+  ARENA.TOP_Y = HUD_TOP + 4;
+  ARENA.BOT_Y = H - HUD_BOT - 70; // espaço pro strip de itens
+  ARENA.LEFT_X = 4;
+  ARENA.RIGHT_X = W - 4;
+}
+
+function initArena(){
+  initArenaLayout();
+  arena.bx = W/2; arena.by = (ARENA.TOP_Y+ARENA.BOT_Y)/2;
+  arena.vx = 0; arena.vy = 0;
+  arena.hp = 100; arena.maxHp = 100;
+  arena.level = 1; arena.xp = 0; arena.xpToNext = 8;
+  arena.hurtTimer = 0; arena.shootTimer = 0;
+  arena.enemies = []; arena.projectiles = []; arena.gems = []; arena.particles = [];
+  arena.items = { weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null };
+  arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 2.2;
+  arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
+  arena.baseDodge = 0; arena.baseXpMult = 1; arena.basePickupRange = 50;
+  arena.spawnTimer = 60; arena.difficulty = 1;
+  arena.startTime = performance.now();
+  arena.killCount = 0;
+  arena.bossTimer = 30*60;
+  arena.regions = 0;
+}
+
+const ARENA_ENEMY_DEFS = {
+  slime:    { color:'#4cf08e', r:9,  hp:8,  speed:0.55, dmg:8,  xp:1 },
+  bat:      { color:'#a86bff', r:8,  hp:5,  speed:0.95, dmg:6,  xp:1 },
+  skeleton: { color:'#fff7e0', r:9,  hp:14, speed:0.7,  dmg:10, xp:2 },
+  knight:   { color:'#9b8fc4', r:11, hp:28, speed:0.45, dmg:14, xp:3 },
+  boss:     { color:'#ff5252', r:18, hp:120,speed:0.35, dmg:22, xp:10 },
+};
+
+function spawnArenaEnemy(){
+  const t = (performance.now()-arena.startTime)/1000;
+  // pool baseado no tempo
+  const pool = ['slime','slime','slime'];
+  if(t > 15) pool.push('bat','bat');
+  if(t > 45) pool.push('skeleton');
+  if(t > 90) pool.push('knight','skeleton');
+  const kind = pool[(Math.random()*pool.length)|0];
+  const def = ARENA_ENEMY_DEFS[kind];
+  // spawna em borda aleatória
+  const side = (Math.random()*4)|0;
+  let x,y;
+  if(side===0){ x = ARENA.LEFT_X-10; y = ARENA.TOP_Y + Math.random()*(ARENA.BOT_Y-ARENA.TOP_Y); }
+  else if(side===1){ x = ARENA.RIGHT_X+10; y = ARENA.TOP_Y + Math.random()*(ARENA.BOT_Y-ARENA.TOP_Y); }
+  else if(side===2){ x = ARENA.LEFT_X + Math.random()*(ARENA.RIGHT_X-ARENA.LEFT_X); y = ARENA.TOP_Y-10; }
+  else { x = ARENA.LEFT_X + Math.random()*(ARENA.RIGHT_X-ARENA.LEFT_X); y = ARENA.BOT_Y+10; }
+  const scale = 1 + arena.difficulty*0.05;
+  arena.enemies.push({
+    kind, x, y, r:def.r,
+    hp: Math.round(def.hp*scale), maxHp: Math.round(def.hp*scale),
+    speed: def.speed,
+    dmg: Math.round(def.dmg*scale*0.8),
+    xp: def.xp,
+    color: def.color,
+    hurtTimer: 0,
+  });
+}
+
+function spawnArenaBoss(){
+  const def = ARENA_ENEMY_DEFS.boss;
+  const scale = 1 + arena.difficulty*0.1;
+  arena.enemies.push({
+    kind:'boss',
+    x: W/2, y: ARENA.TOP_Y-20,
+    r:def.r,
+    hp: Math.round(def.hp*scale), maxHp: Math.round(def.hp*scale),
+    speed: def.speed, dmg: Math.round(def.dmg*scale),
+    xp: def.xp, color: def.color, hurtTimer:0, isBoss:true,
+  });
+  spawnArenaParticle(W/2, ARENA.TOP_Y, '#ff5252', 24);
+}
+
+function rollRarity(){
+  const totalW = RARITY_WEIGHTS.reduce((s,[,w])=>s+w, 0);
+  let r = Math.random()*totalW;
+  for(const [name,w] of RARITY_WEIGHTS){
+    r -= w;
+    if(r<=0) return name;
+  }
+  return 'common';
+}
+
+function rollItem(){
+  const def = ARENA_ITEM_POOL[(Math.random()*ARENA_ITEM_POOL.length)|0];
+  const rarity = rollRarity();
+  const mult = RARITY[rarity].mult;
+  const value = +(def.base * mult).toFixed(2);
+  return { ...def, rarity, value };
+}
+
+function spawnArenaParticle(x,y,color,count){
+  for(let i=0;i<count;i++){
+    arena.particles.push({
+      x,y,
+      vx:(Math.random()-0.5)*3,
+      vy:(Math.random()-0.5)*3,
+      life:18+((Math.random()*8)|0),
+      color,
+    });
+  }
+}
+
+function arenaEquipItem(item){
+  const cur = arena.items[item.slot];
+  // se não tem item OU o novo é melhor (raridade > ou valor da mesma stat >)
+  if(!cur){
+    arena.items[item.slot] = item;
+    return true;
+  }
+  const curRank = Object.keys(RARITY).indexOf(cur.rarity);
+  const newRank = Object.keys(RARITY).indexOf(item.rarity);
+  if(newRank > curRank || (newRank===curRank && item.value > cur.value)){
+    arena.items[item.slot] = item;
+    return true;
+  }
+  return false;
+}
+
+function arenaShoot(){
+  // encontra inimigo mais próximo
+  let best=null, bestD=Infinity;
+  for(const e of arena.enemies){
+    const dx = e.x - arena.bx, dy = e.y - arena.by;
+    const d = dx*dx+dy*dy;
+    if(d < bestD){ bestD=d; best=e; }
+  }
+  if(!best) return;
+  const projCount = Math.max(1, Math.round(arenaTotalStat('projectiles')));
+  const dmg = arenaTotalStat('dmg');
+  const crit = arenaTotalStat('crit');
+  for(let i=0;i<projCount;i++){
+    const angle = Math.atan2(best.y-arena.by, best.x-arena.bx) + (i - (projCount-1)/2)*0.18;
+    const isCrit = Math.random() < crit;
+    arena.projectiles.push({
+      x: arena.bx, y: arena.by,
+      vx: Math.cos(angle)*5,
+      vy: Math.sin(angle)*5,
+      dmg: isCrit ? Math.round(dmg*2) : dmg,
+      crit: isCrit,
+      life: 80,
+    });
+  }
+}
+
+function updateArena(){
+  // input movement
+  let dx = 0, dy = 0;
+  if(input.active){
+    // joystick 2D (axisX já existe; pra Y precisamos do delta vertical)
+    dx = input.axisX || 0;
+    // grava Y também via joystick (vou usar input.axisY se existir, senão 0)
+    dy = input.axisY || 0;
+  } else {
+    // teclado
+    if(keys['ArrowLeft']||keys['a']) dx -= 1;
+    if(keys['ArrowRight']||keys['d']) dx += 1;
+    if(keys['ArrowUp']||keys['w']) dy -= 1;
+    if(keys['ArrowDown']||keys['s']) dy += 1;
+  }
+  const mag = Math.hypot(dx,dy);
+  if(mag > 0){ dx/=mag; dy/=mag; }
+  const moveSpeed = arena.baseMoveSpeed * (1 + arenaTotalStat('moveSpeed'));
+  arena.bx += dx * moveSpeed;
+  arena.by += dy * moveSpeed;
+  // bounds
+  arena.bx = Math.max(ARENA.LEFT_X+ARENA.BUNNY_R, Math.min(ARENA.RIGHT_X-ARENA.BUNNY_R, arena.bx));
+  arena.by = Math.max(ARENA.TOP_Y+ARENA.BUNNY_R, Math.min(ARENA.BOT_Y-ARENA.BUNNY_R, arena.by));
+
+  // maxHp via items
+  arena.maxHp = arena.baseMaxHp + arenaTotalStat('maxHp');
+  if(arena.hp > arena.maxHp) arena.hp = arena.maxHp;
+
+  // hurt timer
+  if(arena.hurtTimer>0) arena.hurtTimer--;
+
+  // auto-shoot
+  const atkSpeed = 1 + arenaTotalStat('atkSpeed');
+  arena.shootTimer -= atkSpeed;
+  if(arena.shootTimer <= 0){
+    arenaShoot();
+    arena.shootTimer = 45;
+  }
+
+  // spawn enemies
+  arena.spawnTimer--;
+  if(arena.spawnTimer <= 0){
+    spawnArenaEnemy();
+    const t = (performance.now()-arena.startTime)/1000;
+    arena.spawnTimer = Math.max(20, 60 - t*0.6);
+  }
+
+  // boss spawn periodic
+  arena.bossTimer--;
+  if(arena.bossTimer <= 0){
+    spawnArenaBoss();
+    arena.bossTimer = 60*60; // próximo boss em 60s
+  }
+
+  // dificuldade sobe com tempo
+  arena.difficulty = 1 + (performance.now()-arena.startTime)/60000; // +1 por minuto
+
+  // enemies behavior + collision
+  for(let i=arena.enemies.length-1;i>=0;i--){
+    const e = arena.enemies[i];
+    const dx2 = arena.bx - e.x, dy2 = arena.by - e.y;
+    const d = Math.hypot(dx2, dy2) || 1;
+    e.x += (dx2/d) * e.speed;
+    e.y += (dy2/d) * e.speed;
+    if(e.hurtTimer>0) e.hurtTimer--;
+    // damage on contact
+    if(d < e.r + ARENA.BUNNY_R && arena.hurtTimer<=0){
+      const dodge = arenaTotalStat('dodge');
+      if(Math.random() < dodge){
+        // esquivou
+        spawnArenaParticle(arena.bx, arena.by, '#fff7e0', 6);
+      } else {
+        arena.hp -= e.dmg;
+        arena.hurtTimer = 40;
+        spawnArenaParticle(arena.bx, arena.by, '#ff5252', 10);
+      }
+    }
+  }
+
+  // projectiles
+  for(let i=arena.projectiles.length-1;i>=0;i--){
+    const p = arena.projectiles[i];
+    p.x += p.vx; p.y += p.vy; p.life--;
+    if(p.life<=0 || p.x<ARENA.LEFT_X-20 || p.x>ARENA.RIGHT_X+20 || p.y<ARENA.TOP_Y-20 || p.y>ARENA.BOT_Y+20){
+      arena.projectiles.splice(i,1); continue;
+    }
+    for(let j=arena.enemies.length-1;j>=0;j--){
+      const e = arena.enemies[j];
+      const dx3 = p.x - e.x, dy3 = p.y - e.y;
+      if(dx3*dx3+dy3*dy3 < (e.r+3)*(e.r+3)){
+        e.hp -= p.dmg;
+        e.hurtTimer = 6;
+        spawnArenaParticle(p.x, p.y, p.crit ? '#ff5fa2' : '#ffcc3d', 4);
+        arena.projectiles.splice(i,1);
+        if(e.hp <= 0){
+          // drop gem
+          arena.gems.push({ x:e.x, y:e.y, vx:0, vy:0, xp:e.xp, age:0 });
+          // drop item raro
+          const dropChance = e.isBoss ? 1 : 0.06;
+          if(Math.random() < dropChance){
+            const item = rollItem();
+            arena.gems.push({ x:e.x+8, y:e.y+8, vx:0, vy:0, item, isItem:true, age:0 });
+          }
+          arena.killCount++;
+          if(e.isBoss){
+            arena.regions++;
+            spawnArenaParticle(e.x, e.y, '#ff5252', 30);
+          } else {
+            spawnArenaParticle(e.x, e.y, e.color, 14);
+          }
+          arena.enemies.splice(j,1);
+        }
+        break;
+      }
+    }
+  }
+
+  // gems: atrai pro player quando dentro do raio + coleta
+  const pickupR = arena.basePickupRange + arenaTotalStat('pickupRange');
+  for(let i=arena.gems.length-1;i>=0;i--){
+    const g = arena.gems[i];
+    g.age++;
+    const dxg = arena.bx - g.x, dyg = arena.by - g.y;
+    const dg = Math.hypot(dxg, dyg) || 1;
+    if(dg < pickupR){
+      g.vx += (dxg/dg) * 0.6;
+      g.vy += (dyg/dg) * 0.6;
+      g.vx *= 0.88; g.vy *= 0.88;
+    }
+    g.x += g.vx; g.y += g.vy;
+    if(dg < ARENA.BUNNY_R + 6){
+      if(g.isItem){
+        const equipped = arenaEquipItem(g.item);
+        if(equipped){
+          spawnArenaParticle(arena.bx, arena.by, RARITY[g.item.rarity].color, 20);
+        } else {
+          // converte item descartado em xp
+          arena.xp += 1;
+          spawnArenaParticle(arena.bx, arena.by, '#9b8fc4', 6);
+        }
+      } else {
+        const xpGain = g.xp * arenaTotalStat('xpMult');
+        arena.xp += xpGain;
+        spawnArenaParticle(arena.bx, arena.by, '#4cf08e', 5);
+      }
+      arena.gems.splice(i,1);
+    }
+  }
+
+  // level up
+  if(arena.xp >= arena.xpToNext){
+    arena.xp -= arena.xpToNext;
+    arena.level++;
+    arena.xpToNext = Math.round(8 + arena.level*4 + arena.level*arena.level*0.5);
+    arena.hp = arena.maxHp; // cura ao subir
+    enterArenaLevelUp();
+    return; // pausa update
+  }
+
+  // particles
+  for(let i=arena.particles.length-1;i>=0;i--){
+    const pt = arena.particles[i];
+    pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.1; pt.life--;
+    if(pt.life<=0) arena.particles.splice(i,1);
+  }
+
+  // morte
+  if(arena.hp <= 0){
+    enterArenaGameOver();
+  }
+}
+
+const ARENA_UPGRADES = [
+  { name:'+20% Dano',           color:'#ff5252', apply:()=>arena.baseDmg *= 1.2 },
+  { name:'+15% Vel. Ataque',    color:'#ffcc3d', apply:()=>arena.baseAtkSpeed *= 1.15 },
+  { name:'+20 HP Máximo',       color:'#ff5fa2', apply:()=>{ arena.baseMaxHp += 20; arena.hp += 20; } },
+  { name:'+10% Vel. Movimento', color:'#4cf08e', apply:()=>arena.baseMoveSpeed *= 1.10 },
+  { name:'+1 Projétil',         color:'#a86bff', apply:()=>arena.baseProjectiles += 1 },
+  { name:'+8% Crit',            color:'#ff5fa2', apply:()=>arena.baseCrit += 0.08 },
+  { name:'+30 Raio Coleta',     color:'#5fb0d8', apply:()=>arena.basePickupRange += 30 },
+  { name:'+15% XP',             color:'#4cf08e', apply:()=>arena.baseXpMult += 0.15 },
+  { name:'Cura completa',       color:'#ff5fa2', apply:()=>{ arena.hp = arena.maxHp; } },
+];
+
+function enterArenaLevelUp(){
+  state = STATE.ARENA_LEVELUP;
+  const wrap = document.getElementById('arenaLvlOptions');
+  wrap.innerHTML = '';
+  // 3 opções aleatórias distintas
+  const pool = [...ARENA_UPGRADES];
+  const chosen = [];
+  for(let i=0;i<3 && pool.length;i++){
+    const idx = (Math.random()*pool.length)|0;
+    chosen.push(pool[idx]);
+    pool.splice(idx,1);
+  }
+  for(const up of chosen){
+    const card = document.createElement('div');
+    card.className = 'upgrade-card';
+    card.style.borderColor = up.color;
+    card.innerHTML = `<div class="head"><div class="title" style="color:${up.color}">${up.name}</div></div>`;
+    card.addEventListener('click', ()=>{
+      up.apply();
+      hideAllLayers();
+      state = STATE.ARENA_PLAY;
+    });
+    wrap.appendChild(card);
+  }
+  document.getElementById('arenaLvlSub').textContent = `Nível ${arena.level} • Escolha um upgrade.`;
+  showLayer('arenaLevelUp');
+}
+
+function enterArenaGameOver(){
+  state = STATE.ARENA_GAMEOVER;
+  const stats = document.getElementById('arenaGoStats');
+  const time = ((performance.now()-arena.startTime)/1000).toFixed(1);
+  let itemsHtml = '';
+  for(const slot of ARENA_SLOTS){
+    const it = arena.items[slot];
+    if(it){
+      itemsHtml += `<div class="row"><span>${it.icon} ${it.name}</span><span style="color:${RARITY[it.rarity].color}">${RARITY[it.rarity].name}</span></div>`;
+    }
+  }
+  stats.innerHTML = `
+    <div class="row"><span>Nível</span><span>${arena.level}</span></div>
+    <div class="row"><span>Kills</span><span>${arena.killCount}</span></div>
+    <div class="row"><span>Regiões conquistadas</span><span>${arena.regions}</span></div>
+    <div class="row"><span>Tempo</span><span>${time}s</span></div>
+    ${itemsHtml}
+  `;
+  showLayer('arenaGameover');
+}
+
+function enterArena(){
+  state = STATE.ARENA_PLAY;
+  hideAllLayers();
+  document.getElementById('hint').style.display='none';
+  initArena();
+  tryFullscreen();
+}
+
+// ========== RENDER ARENA ==========
+function drawArenaBunny(){
+  const x = arena.bx, y = arena.by;
+  const flash = arena.hurtTimer>0 && (arena.hurtTimer%6<3);
+  if(flash) ctx.globalAlpha = 0.4;
+  // sombra
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(x-8, y+6, 16, 3);
+  // corpo (visão top-down meio simplificada)
+  ctx.fillStyle = '#fff7e0';
+  ctx.fillRect(x-7, y-5, 14, 12);
+  // orelhas
+  ctx.fillRect(x-6, y-11, 4, 7);
+  ctx.fillRect(x+2,  y-11, 4, 7);
+  ctx.fillStyle = '#ff5fa2';
+  ctx.fillRect(x-5, y-10, 2, 5);
+  ctx.fillRect(x+3,  y-10, 2, 5);
+  // olhos
+  ctx.fillStyle = '#0d0a1a';
+  ctx.fillRect(x-4, y-2, 2, 2);
+  ctx.fillRect(x+2, y-2, 2, 2);
+  ctx.globalAlpha = 1;
+}
+
+function drawArenaEnemy(e){
+  const flash = e.hurtTimer>0;
+  ctx.fillStyle = flash ? '#fff' : e.color;
+  if(e.kind === 'slime'){
+    ctx.fillRect(e.x-e.r, e.y-e.r+3, e.r*2, e.r*2-3);
+    ctx.fillRect(e.x-e.r+2, e.y-e.r, e.r*2-4, 3);
+    if(!flash){
+      ctx.fillStyle = '#fff'; ctx.fillRect(e.x-4, e.y-2, 2, 2); ctx.fillRect(e.x+2, e.y-2, 2, 2);
+      ctx.fillStyle = '#000'; ctx.fillRect(e.x-3, e.y-1, 1, 1); ctx.fillRect(e.x+3, e.y-1, 1, 1);
+    }
+  } else if(e.kind === 'bat'){
+    // asas
+    ctx.fillRect(e.x-e.r-2, e.y-2, 4, 5);
+    ctx.fillRect(e.x+e.r-2, e.y-2, 4, 5);
+    ctx.fillRect(e.x-5, e.y-3, 10, 6);
+    if(!flash){
+      ctx.fillStyle = '#ff5252'; ctx.fillRect(e.x-2, e.y-1, 1, 1); ctx.fillRect(e.x+1, e.y-1, 1, 1);
+    }
+  } else if(e.kind === 'skeleton'){
+    ctx.fillRect(e.x-5, e.y-7, 10, 8);
+    ctx.fillRect(e.x-3, e.y+1, 6, 6);
+    if(!flash){
+      ctx.fillStyle = '#000'; ctx.fillRect(e.x-3, e.y-4, 2, 2); ctx.fillRect(e.x+1, e.y-4, 2, 2);
+    }
+  } else if(e.kind === 'knight'){
+    ctx.fillRect(e.x-e.r, e.y-e.r, e.r*2, e.r*2);
+    if(!flash){
+      ctx.fillStyle = '#5a4499'; ctx.fillRect(e.x-7, e.y-6, 14, 4); // capacete
+      ctx.fillStyle = '#ffcc3d'; ctx.fillRect(e.x-2, e.y-4, 4, 2);
+    }
+  } else if(e.kind === 'boss'){
+    ctx.fillRect(e.x-e.r, e.y-e.r, e.r*2, e.r*2);
+    if(!flash){
+      ctx.fillStyle = '#fff'; ctx.fillRect(e.x-7, e.y-4, 3, 4); ctx.fillRect(e.x+4, e.y-4, 3, 4);
+      ctx.fillStyle = '#000'; ctx.fillRect(e.x-6, e.y-3, 2, 2); ctx.fillRect(e.x+5, e.y-3, 2, 2);
+      ctx.fillStyle = '#ffcc3d'; ctx.fillRect(e.x-8, e.y-e.r-4, 16, 4); // coroa
+    }
+  }
+  // hp bar
+  if(e.hp < e.maxHp){
+    ctx.fillStyle = '#000';
+    ctx.fillRect(e.x-e.r, e.y-e.r-5, e.r*2, 3);
+    ctx.fillStyle = '#4cf08e';
+    ctx.fillRect(e.x-e.r, e.y-e.r-5, e.r*2*(e.hp/e.maxHp), 3);
+  }
+}
+
+function drawArenaGem(g){
+  if(g.isItem){
+    const t = performance.now()/250;
+    const bob = Math.sin(t + g.age*0.05)*2;
+    const col = RARITY[g.item.rarity].color;
+    // glow
+    ctx.fillStyle = col + '50'; // hex+alpha
+    ctx.fillRect(g.x-10, g.y-10+bob, 20, 20);
+    ctx.fillStyle = col;
+    ctx.fillRect(g.x-5, g.y-5+bob, 10, 10);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(g.x-3, g.y-3+bob, 2, 2);
+  } else {
+    const t = performance.now()/200;
+    const pulse = 1 + Math.sin(t+g.age*0.1)*0.2;
+    ctx.fillStyle = '#4cf08e';
+    ctx.fillRect(g.x-3*pulse, g.y-3*pulse, 6*pulse, 6*pulse);
+    ctx.fillStyle = '#aaffcc';
+    ctx.fillRect(g.x-1, g.y-1, 2, 2);
+  }
+}
+
+function drawArenaHUD(){
+  // top bar
+  ctx.fillStyle = 'rgba(13,10,26,0.92)';
+  ctx.fillRect(0,0,W,HUD_TOP);
+  ctx.fillStyle = '#5a4499';
+  ctx.fillRect(0,HUD_TOP-2,W,2);
+
+  // hp bar (top-left larger)
+  const hpX=10, hpY=10, hpW=W-20, hpH=10;
+  ctx.fillStyle = '#3b2a70';
+  ctx.fillRect(hpX, hpY, hpW, hpH);
+  ctx.fillStyle = '#ff5252';
+  ctx.fillRect(hpX+1, hpY+1, (hpW-2)*Math.max(0,arena.hp)/arena.maxHp, hpH-2);
+  ctx.fillStyle = '#fff7e0';
+  ctx.font = 'bold 10px monospace';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`HP ${Math.max(0,Math.ceil(arena.hp))}/${arena.maxHp}`, W/2-26, hpY+1);
+
+  // xp bar
+  const xpY = 24;
+  ctx.fillStyle = '#1a4a7a';
+  ctx.fillRect(hpX, xpY, hpW, 6);
+  ctx.fillStyle = '#5fb0d8';
+  ctx.fillRect(hpX, xpY, hpW*(arena.xp/arena.xpToNext), 6);
+  ctx.fillStyle = '#ffcc3d';
+  ctx.font = 'bold 12px monospace';
+  ctx.fillText(`Lv ${arena.level}`, 10, 34);
+
+  // time + kills + regions
+  const t = ((performance.now()-arena.startTime)/1000)|0;
+  const mm = String((t/60)|0).padStart(2,'0');
+  const ss = String(t%60).padStart(2,'0');
+  ctx.fillStyle = '#fff7e0';
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${mm}:${ss}`, W/2, 34);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#ff5252';
+  ctx.fillText(`💀 ${arena.killCount}`, W-10, 34);
+  ctx.textAlign = 'left';
+
+  // separator
+  ctx.fillStyle = 'rgba(255, 247, 224, 0.13)';
+  ctx.fillRect(40, 50, W-80, 1);
+
+  // 6 slots de itens no bottom HUD
+  ctx.fillStyle = 'rgba(13,10,26,0.92)';
+  ctx.fillRect(0, ARENA.BOT_Y+4, W, H-ARENA.BOT_Y-4);
+  ctx.fillStyle = '#5a4499';
+  ctx.fillRect(0, ARENA.BOT_Y+4, W, 2);
+
+  const slotSize = 34, gap = 6;
+  const totalW = ARENA_SLOTS.length*slotSize + (ARENA_SLOTS.length-1)*gap;
+  let sx = (W-totalW)/2;
+  const sy = ARENA.BOT_Y + 14;
+  ctx.font = 'bold 16px monospace';
+  for(const slot of ARENA_SLOTS){
+    const it = arena.items[slot];
+    const col = it ? RARITY[it.rarity].color : '#241a44';
+    ctx.fillStyle = col;
+    ctx.fillRect(sx, sy, slotSize, slotSize);
+    ctx.fillStyle = '#0d0a1a';
+    ctx.fillRect(sx+2, sy+2, slotSize-4, slotSize-4);
+    if(it){
+      ctx.fillStyle = col;
+      ctx.font = 'bold 18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(it.icon, sx+slotSize/2, sy+4);
+    } else {
+      ctx.fillStyle = '#3b2a70';
+      ctx.font = '18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(ARENA_SLOT_ICONS[slot], sx+slotSize/2, sy+4);
+    }
+    ctx.textAlign = 'left';
+    sx += slotSize + gap;
+  }
+
+  // regions counter (hook 4x)
+  if(arena.regions > 0){
+    ctx.fillStyle = '#ffcc3d';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`🗺 Regiões: ${arena.regions}`, W/2, H-12);
+    ctx.textAlign = 'left';
+  }
+}
+
+function renderArena(){
+  setupCtx();
+  ctx.clearRect(0,0,W,H);
+
+  // bg gradient
+  const grad = ctx.createRadialGradient(W/2, (ARENA.TOP_Y+ARENA.BOT_Y)/2, 30, W/2, (ARENA.TOP_Y+ARENA.BOT_Y)/2, 400);
+  grad.addColorStop(0, '#3a2065');
+  grad.addColorStop(1, '#0d0a1a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  // arena floor pattern
+  const tile = 36;
+  for(let yy=ARENA.TOP_Y; yy<ARENA.BOT_Y; yy+=tile){
+    for(let xx=ARENA.LEFT_X; xx<ARENA.RIGHT_X; xx+=tile){
+      const oddCheck = ((xx/tile)|0) + ((yy/tile)|0);
+      ctx.fillStyle = oddCheck%2 === 0 ? 'rgba(122,95,196,0.08)' : 'rgba(0,0,0,0.12)';
+      ctx.fillRect(xx, yy, tile, tile);
+    }
+  }
+  // arena border
+  ctx.fillStyle = '#5a4499';
+  ctx.fillRect(ARENA.LEFT_X, ARENA.TOP_Y, ARENA.RIGHT_X-ARENA.LEFT_X, 2);
+  ctx.fillRect(ARENA.LEFT_X, ARENA.BOT_Y-2, ARENA.RIGHT_X-ARENA.LEFT_X, 2);
+  ctx.fillRect(ARENA.LEFT_X, ARENA.TOP_Y, 2, ARENA.BOT_Y-ARENA.TOP_Y);
+  ctx.fillRect(ARENA.RIGHT_X-2, ARENA.TOP_Y, 2, ARENA.BOT_Y-ARENA.TOP_Y);
+
+  // gems
+  for(const g of arena.gems) drawArenaGem(g);
+
+  // enemies
+  for(const e of arena.enemies) drawArenaEnemy(e);
+
+  // projectiles
+  for(const p of arena.projectiles){
+    ctx.fillStyle = p.crit ? '#ff5fa2' : '#ffcc3d';
+    ctx.fillRect(p.x-2, p.y-2, 4, 4);
+    ctx.fillStyle = '#fff7e0';
+    ctx.fillRect(p.x-1, p.y-1, 2, 2);
+  }
+
+  // bunny
+  drawArenaBunny();
+
+  // particles
+  for(const pt of arena.particles){
+    ctx.globalAlpha = Math.min(1, pt.life/18);
+    ctx.fillStyle = pt.color;
+    ctx.fillRect(pt.x, pt.y, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+
+  drawArenaHUD();
+}
+
+document.getElementById('arenaBtn').addEventListener('click', enterArena);
+document.getElementById('arenaRetryBtn').addEventListener('click', enterArena);
+document.getElementById('arenaMenuBtn').addEventListener('click', ()=>{
+  state = STATE.MENU;
+  showLayer('menu');
+});
+
 // ============ MAIN LOOP (fixed 60Hz timestep) ============
 const FIXED_DT = 1000/60;
 let last = performance.now();
@@ -2720,14 +3448,15 @@ function loop(now){
     if(state === STATE.PLAY) updatePlay();
     else if(state === STATE.TRANSITION) tickTransition();
     else if(state === STATE.CAVE_PLAY) updateCave();
+    else if(state === STATE.ARENA_PLAY) updateArena();
     acc -= FIXED_DT;
     steps++;
   }
   if(steps === 4) acc = 0;
 
-  // joystick zone: only active during PLAY (cave usa tap nativo)
+  // joystick zone: ativo em PLAY (modo plataforma) e ARENA_PLAY (movimento 2D); cave usa tap
   const joyEl = document.getElementById('joy');
-  if(state === STATE.PLAY) joyEl.classList.remove('disabled');
+  if(state === STATE.PLAY || state === STATE.ARENA_PLAY) joyEl.classList.remove('disabled');
   else joyEl.classList.add('disabled');
 
   // pause button só visível durante o jogo principal
@@ -2737,6 +3466,8 @@ function loop(now){
 
   if(state === STATE.CAVE_PLAY || state === STATE.CAVE_GAMEOVER){
     renderCave();
+  } else if(state === STATE.ARENA_PLAY || state === STATE.ARENA_LEVELUP || state === STATE.ARENA_GAMEOVER){
+    renderArena();
   } else {
     render();
   }
