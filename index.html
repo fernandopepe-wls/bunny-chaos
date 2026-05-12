@@ -251,9 +251,34 @@
   .arenaTab-btn:last-child{border-right:0;}
   .arenaTab-btn .ico{font-size:18px;line-height:1;}
   .arenaTab-btn:hover{color:#fff7e0;}
-  .arenaTab-btn:active{background:rgba(255,95,162,.12);}
+  .arenaTab-btn.active{
+    color:#ff5fa2;
+    background:rgba(255,95,162,0.12);
+  }
+  /* botão COMBAT central (volta pro gameplay) */
+  .arenaTab-btn.combat{
+    background:linear-gradient(180deg,#ff5fa2,#c93b7d);
+    color:#fff;
+    border-right:1px solid #2a1f4d;
+  }
+  .arenaTab-btn.combat .ico{
+    font-size:14px;
+    transform:translateY(-2px);
+  }
+  .arenaTab-btn.combat.active{
+    background:linear-gradient(180deg,#ff7ab8,#c93b7d);
+    color:#fff;
+    box-shadow:inset 0 -3px 0 #ffcc3d;
+  }
+  .arenaTab-btn.combat:hover{color:#fff;}
 
-  #arenaTab{justify-content:flex-start;padding:18px 14px;overflow-y:auto;}
+  /* tela de tab (não cobre o tab bar — ele segue clicável) */
+  #arenaTab{
+    justify-content:flex-start;
+    padding:18px 14px;
+    overflow-y:auto;
+    bottom:54px; /* deixa o tab bar visível embaixo */
+  }
   #arenaTab h2{margin-bottom:10px;}
   #arenaTab .stats{margin:6px 0;}
   #arenaTab .em-breve{
@@ -358,11 +383,12 @@
     <!-- arena forge button -->
     <button id="arenaForgeBtn" title="Forjar item">⚒ FORGE</button>
 
-    <!-- arena bottom tab bar -->
+    <!-- arena bottom tab bar (COMBAT no meio) -->
     <div id="arenaTabBar">
       <button class="arenaTab-btn" data-tab="shop"><span class="ico">🛒</span><span>SHOP</span></button>
       <button class="arenaTab-btn" data-tab="hero"><span class="ico">👤</span><span>HERO</span></button>
       <button class="arenaTab-btn" data-tab="growth"><span class="ico">📈</span><span>GROWTH</span></button>
+      <button class="arenaTab-btn combat active" data-tab="combat"><span class="ico">▲</span><span>COMBAT</span></button>
       <button class="arenaTab-btn" data-tab="equipe"><span class="ico">🎽</span><span>EQUIPE</span></button>
       <button class="arenaTab-btn" data-tab="mission"><span class="ico">📋</span><span>MISSION</span></button>
       <button class="arenaTab-btn" data-tab="world"><span class="ico">🗺</span><span>WORLD</span></button>
@@ -498,11 +524,10 @@
       </div>
     </div>
 
-    <!-- arena tab content -->
+    <!-- arena tab content (uma tela por tab, sem botão fechar — basta clicar COMBAT pra voltar) -->
     <div class="layer" id="arenaTab">
       <h2 id="arenaTabTitle">Tab</h2>
       <div id="arenaTabContent"></div>
-      <button class="btn" id="arenaTabClose" style="margin-top:auto">Fechar</button>
     </div>
 
     <!-- arena level up -->
@@ -3789,6 +3814,8 @@ function enterArena(){
   hideAllLayers();
   document.getElementById('hint').style.display='none';
   initArena();
+  // reseta tab ativa pra COMBAT
+  if(typeof setActiveArenaTab === 'function') setActiveArenaTab('combat');
   tryFullscreen();
 }
 
@@ -4332,30 +4359,43 @@ function buildArenaTabContent(key){
   return '<p class="em-breve">Em breve.</p>';
 }
 
-function openArenaTab(key){
-  const titles = {
-    shop:'🛒 SHOP', hero:'👤 HERO', growth:'📈 GROWTH',
-    equipe:'🎽 EQUIPE', mission:'📋 MISSION', world:'🗺 WORLD'
-  };
-  document.getElementById('arenaTabTitle').textContent = titles[key] || key;
-  document.getElementById('arenaTabContent').innerHTML = buildArenaTabContent(key);
-  state = STATE.ARENA_TAB;
-  showLayer('arenaTab');
+const ARENA_TAB_TITLES = {
+  shop:'🛒 SHOP', hero:'👤 HERO', growth:'📈 GROWTH',
+  combat:'▲ COMBAT',
+  equipe:'🎽 EQUIPE', mission:'📋 MISSION', world:'🗺 WORLD'
+};
+
+function setActiveArenaTab(key){
+  for(const btn of document.querySelectorAll('.arenaTab-btn')){
+    btn.classList.toggle('active', btn.dataset.tab === key);
+  }
 }
 
-function closeArenaTab(){
-  state = STATE.ARENA_PLAY;
-  hideAllLayers();
+function switchArenaTab(key){
+  if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
+  // se já está nessa tab, ignora
+  const sameAsCombat = (key === 'combat' && state === STATE.ARENA_PLAY);
+  setActiveArenaTab(key);
+  if(key === 'combat'){
+    // volta pro gameplay
+    document.getElementById('arenaTab').classList.remove('show');
+    state = STATE.ARENA_PLAY;
+    return;
+  }
+  // outras tabs: troca conteúdo, mantém tab bar visível, pausa o jogo
+  document.getElementById('arenaTabTitle').textContent = ARENA_TAB_TITLES[key] || key;
+  document.getElementById('arenaTabContent').innerHTML = buildArenaTabContent(key);
+  // mostra apenas a layer arenaTab (sem hide-all-show pra evitar reset visual de outras)
+  document.getElementById('arenaTab').classList.add('show');
+  state = STATE.ARENA_TAB;
 }
 
 // hook nos botões da tab bar
 for(const btn of document.querySelectorAll('.arenaTab-btn')){
   btn.addEventListener('click', ()=>{
-    if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
-    openArenaTab(btn.dataset.tab);
+    switchArenaTab(btn.dataset.tab);
   });
 }
-document.getElementById('arenaTabClose').addEventListener('click', closeArenaTab);
 
 document.getElementById('arenaBtn').addEventListener('click', enterArena);
 document.getElementById('arenaRetryBtn').addEventListener('click', enterArena);
