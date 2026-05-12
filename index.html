@@ -404,6 +404,33 @@
     color:#9b8fc4;text-align:center;margin-top:30px;font-size:13px;
   }
 
+  /* botão DESAFIAR BOSS — fica visível durante waves 1-4 */
+  #arenaBossBtn{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    top:17%;
+    width:min(60%, 230px);
+    height:36px;
+    border:0;cursor:pointer;
+    border-radius:8px;
+    background:linear-gradient(180deg,#ff5252,#b53030);
+    border:2px solid #ff9b9b;
+    color:#fff7e0;
+    font-size:12px;font-weight:bold;
+    letter-spacing:1.5px;
+    display:none;
+    z-index:6;
+    box-shadow:0 3px 0 #6b1414, 0 0 16px rgba(255,82,82,.4);
+    animation:bossBtnPulse 1.8s infinite;
+  }
+  #arenaBossBtn.show{display:block;}
+  #arenaBossBtn:active{transform:translateX(-50%) translateY(2px);box-shadow:0 1px 0 #6b1414;}
+  @keyframes bossBtnPulse{
+    0%,100%{box-shadow:0 3px 0 #6b1414, 0 0 14px rgba(255,82,82,.3);}
+    50%{box-shadow:0 3px 0 #6b1414, 0 0 22px rgba(255,82,82,.7);}
+  }
+
   /* AUTO toggle (arena) */
   #arenaAutoBtn{
     position:absolute;
@@ -498,6 +525,9 @@
 
     <!-- arena AUTO toggle -->
     <button id="arenaAutoBtn" title="Auto-movimento">AUTO</button>
+
+    <!-- arena BOSS challenge button -->
+    <button id="arenaBossBtn" title="Desafiar o boss da stage">⚔ DESAFIAR BOSS</button>
 
     <!-- arena forge row: spacer + FORGE (centro) + LV + AUTO (direita) -->
     <div id="arenaForgeRow">
@@ -3152,6 +3182,7 @@ const arena = {
   waveSpawnTimer: 0,
   waveTransitionTimer: 0,
   stageClearBannerTimer: 0,
+  deathBannerTimer: 0,
   // hook 4X: regiões "conquistadas" — só counter por enquanto, expansível
   regions:0,
 };
@@ -3258,6 +3289,7 @@ function initArena(){
   arena.waveSpawnTimer = 60; // 1s antes da primeira leva
   arena.waveTransitionTimer = 0;
   arena.stageClearBannerTimer = 0;
+  arena.deathBannerTimer = 0;
   arena.regions = 0;
 }
 
@@ -3315,18 +3347,52 @@ function startNewWave(){
 }
 
 function onWaveClear(){
-  if(arena.wave >= WAVES_PER_STAGE){
-    // era a wave do boss → stage clear
+  if(arena.wave === WAVES_PER_STAGE){
+    // boss derrotado → stage clear, avança
     arena.waveState = 'stage_clear';
-    arena.stageClearBannerTimer = 120; // 2s banner
+    arena.stageClearBannerTimer = 120;
     arena.carrots += 5 + arena.stage;
     spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 36);
     arena.regions++;
+  } else if(arena.wave >= 4){
+    // wave 4 cleared → NÃO avança pro boss automaticamente
+    // volta pra wave 1 e fica em loop até o player clicar "DESAFIAR BOSS"
+    arena.wave = 1;
+    startNewWave();
   } else {
-    // próxima wave (chama startNewWave pra spawnar inimigos / boss corretamente)
+    // waves 1-3 → próxima
     arena.wave++;
     startNewWave();
   }
+}
+
+function challengeBoss(){
+  if(state !== STATE.ARENA_PLAY) return;
+  if(arena.wave === WAVES_PER_STAGE) return; // já tá no boss
+  // limpa inimigos atuais, projéteis e effects de combate
+  arena.enemies = [];
+  arena.swings = [];
+  arena.effects = arena.effects.filter(ef => ef.kind === 'orbiter');
+  // pula direto pra wave do boss
+  arena.wave = WAVES_PER_STAGE;
+  startNewWave();
+}
+
+function onArenaDeath(){
+  // sem game over — volta pra wave 1 do stage atual com HP cheio
+  arena.hp = arena.maxHp;
+  arena.enemies = [];
+  arena.swings = [];
+  arena.effects = arena.effects.filter(ef => ef.kind === 'orbiter');
+  arena.gems = [];
+  arena.bx = (ARENA.LEFT_X + ARENA.RIGHT_X)/2;
+  arena.by = (ARENA.TOP_Y + ARENA.BOT_Y)/2;
+  arena.vx = 0; arena.vy = 0;
+  arena.hurtTimer = 60; // invuln no respawn
+  arena.wave = 1;
+  arena.deathBannerTimer = 90;
+  startNewWave();
+  spawnArenaParticle(arena.bx, arena.by, '#ff5252', 30);
 }
 
 function tickArenaWave(){
@@ -4126,10 +4192,12 @@ function updateArena(){
     if(pt.life<=0) arena.particles.splice(i,1);
   }
 
-  // morte
+  // morte → sem game over, respawn no stage atual com HP cheio
   if(arena.hp <= 0){
-    enterArenaGameOver();
+    onArenaDeath();
   }
+  // ticks de banners
+  if(arena.deathBannerTimer > 0) arena.deathBannerTimer--;
 }
 
 function enterArenaGameOver(){
@@ -4515,6 +4583,26 @@ function drawArenaHUD(){
   }
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
+
+  // banner de MORTE (respawn)
+  if(arena.deathBannerTimer > 0){
+    const lifeT = arena.deathBannerTimer / 90;
+    const alpha = Math.min(1, lifeT*2);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgba(60,0,0,0.55)';
+    ctx.fillRect(0, ARENA.TOP_Y + 80, W, 70);
+    ctx.font = 'bold 24px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#000';
+    ctx.fillText('DERROTADO', W/2+2, ARENA.TOP_Y+114+2);
+    ctx.fillStyle = '#ff5252';
+    ctx.fillText('DERROTADO', W/2, ARENA.TOP_Y+114);
+    ctx.font = 'bold 12px monospace';
+    ctx.fillStyle = '#fff7e0';
+    ctx.fillText(`Stage ${stageLabel(arena.stage)} — Wave 1`, W/2, ARENA.TOP_Y+136);
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
+  }
 
   // banner de STAGE CLEAR
   if(arena.stageClearBannerTimer > 0){
@@ -4936,7 +5024,8 @@ function buildArenaTabContent(key){
       <div class="row"><span>Total kills</span><span>${arena.killCount}</span></div>
       <div class="row"><span>Tempo na arena</span><span>${t}s</span></div>
     </div>
-    <p class="em-breve">Mapa estratégico 4X — em breve.<br/>Cada stage clear = bônus de cenouras + novo tier de inimigos.</p>`;
+    <p class="em-breve">Mapa estratégico 4X — em breve.<br/>Cada stage clear = bônus de cenouras + novo tier de inimigos.</p>
+    <button class="btn secondary" onclick="state=STATE.MENU;hideAllLayers();showLayer('menu');" style="margin-top:14px">↩ Sair pra Menu</button>`;
   }
   if(key === 'shop'){
     const maxTier = FORGE_LEVEL_MAX_TIER[arena.forgeLevel] || 'common';
@@ -4996,6 +5085,7 @@ for(const btn of document.querySelectorAll('.arenaTab-btn')){
 
 document.getElementById('arenaBtn').addEventListener('click', enterArena);
 document.getElementById('arenaRetryBtn').addEventListener('click', enterArena);
+document.getElementById('arenaBossBtn').addEventListener('click', challengeBoss);
 document.getElementById('arenaAutoBtn').addEventListener('click', ()=>{
   arena.autoMove = !arena.autoMove;
   const ab = document.getElementById('arenaAutoBtn');
@@ -5055,6 +5145,14 @@ function loop(now){
   const autoEl = document.getElementById('arenaAutoBtn');
   if(state === STATE.ARENA_PLAY) autoEl.classList.add('show');
   else autoEl.classList.remove('show');
+
+  // BOSS challenge button: visível em ARENA_PLAY quando NÃO está na wave do boss
+  const bossBtn = document.getElementById('arenaBossBtn');
+  if(state === STATE.ARENA_PLAY && arena.wave < WAVES_PER_STAGE && arena.waveState !== 'stage_clear'){
+    bossBtn.classList.add('show');
+  } else {
+    bossBtn.classList.remove('show');
+  }
 
   // Tab bar visível durante ARENA_PLAY e ARENA_TAB (pra poder navegar)
   const tabBarEl = document.getElementById('arenaTabBar');
