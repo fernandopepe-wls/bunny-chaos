@@ -437,7 +437,11 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 function fitCanvas(){
   const r = canvas.getBoundingClientRect();
-  // keep logical W x H, scale crisply
+  if(r.width === 0 || r.height === 0){
+    // layout não pronto ainda — tenta de novo no próximo frame
+    requestAnimationFrame(fitCanvas);
+    return;
+  }
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width  = Math.round(r.width  * dpr);
   canvas.height = Math.round(r.height * dpr);
@@ -445,6 +449,8 @@ function fitCanvas(){
 fitCanvas();
 window.addEventListener('resize', fitCanvas);
 window.addEventListener('orientationchange', ()=>setTimeout(fitCanvas, 100));
+// safety: refita após primeiro paint em caso de timing weird
+requestAnimationFrame(fitCanvas);
 const scaleX = () => canvas.width  / W;
 const scaleY = () => canvas.height / H;
 
@@ -3945,6 +3951,12 @@ setInterval(()=>{
 
 // prevent context menu on long press
 window.addEventListener('contextmenu', e=>e.preventDefault());
+
+// safety net: garante que o menu aparece no load
+if(typeof showLayer === 'function'){
+  showLayer('menu');
+  state = STATE.MENU;
+}
 </script>
 </body>
 </html>
