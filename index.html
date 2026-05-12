@@ -171,6 +171,60 @@
     transform:translate(-50%,-50%);
   }
 
+  /* arena forge button */
+  #arenaForgeBtn{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    bottom:62px;
+    width:60%;max-width:240px;
+    height:42px;
+    border:0;cursor:pointer;
+    border-radius:10px;
+    background:linear-gradient(180deg,#ff7a1a,#c04a0a);
+    border:2px solid #ffcc3d;
+    color:#3a230b;
+    font-size:13px;font-weight:bold;
+    letter-spacing:2px;
+    display:none;
+    z-index:6;
+    box-shadow:0 3px 0 #6b2a05, 0 0 18px rgba(255,140,40,.4);
+  }
+  #arenaForgeBtn.show{display:block;}
+  #arenaForgeBtn:active{transform:translateX(-50%) translateY(2px);box-shadow:0 1px 0 #6b2a05;}
+  #arenaForgeBtn.cooldown{
+    background:linear-gradient(180deg,#5a4499,#3b2a70);
+    color:#9b8fc4;
+    border-color:#5a4499;
+    cursor:not-allowed;
+    box-shadow:0 3px 0 #2a1a55;
+  }
+
+  /* forge comparison popup */
+  #forgeCompare h2{color:#ff7a1a;text-shadow:0 2px 0 #6b2a05;}
+  .forge-cards{display:flex;align-items:stretch;gap:8px;margin:14px 0;}
+  .forge-card{
+    flex:1;
+    background:var(--panel);
+    border-radius:12px;
+    padding:12px 8px;
+    border:2px solid #2a1f4d;
+    display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;
+  }
+  .forge-card.empty{opacity:0.55;}
+  .forge-card .label{font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px;}
+  .forge-card .ico{font-size:32px;line-height:1;}
+  .forge-card .nm{font-weight:bold;font-size:12px;letter-spacing:.4px;}
+  .forge-card .rare{font-size:10px;letter-spacing:.5px;text-transform:uppercase;}
+  .forge-card .stat{font-size:11px;color:var(--ink);}
+  .forge-arrow{align-self:center;color:var(--accent);font-size:22px;font-weight:bold;}
+  .forge-delta{font-size:11px;font-weight:bold;margin-top:4px;}
+  .forge-up{color:var(--good);}
+  .forge-down{color:var(--bad);}
+  .forge-equal{color:var(--muted);}
+  .forge-actions{display:flex;gap:8px;margin-top:14px;}
+  .forge-actions .btn{flex:1;}
+
   /* arena bottom tab bar */
   #arenaTabBar{
     position:absolute;
@@ -301,6 +355,9 @@
     <!-- arena AUTO toggle -->
     <button id="arenaAutoBtn" title="Auto-movimento">AUTO</button>
 
+    <!-- arena forge button -->
+    <button id="arenaForgeBtn" title="Forjar item">⚒ FORGE</button>
+
     <!-- arena bottom tab bar -->
     <div id="arenaTabBar">
       <button class="arenaTab-btn" data-tab="shop"><span class="ico">🛒</span><span>SHOP</span></button>
@@ -424,6 +481,21 @@
         </div>
       </div>
       <button class="btn" id="resumeBtn">Continuar</button>
+    </div>
+
+    <!-- forge comparison popup -->
+    <div class="layer" id="forgeCompare">
+      <h2>⚒ FORGE</h2>
+      <p>Você forjou um novo item! Comparado ao seu equipamento atual:</p>
+      <div class="forge-cards">
+        <div class="forge-card" id="forgeOldCard"></div>
+        <div class="forge-arrow">→</div>
+        <div class="forge-card" id="forgeNewCard"></div>
+      </div>
+      <div class="forge-actions">
+        <button class="btn secondary" id="forgeDiscardBtn">🗑 Descartar</button>
+        <button class="btn" id="forgeEquipBtn">⚡ Equipar</button>
+      </div>
     </div>
 
     <!-- arena tab content -->
@@ -1767,7 +1839,7 @@ function enterGameOver(){
 
 // ============ UI LAYERS ============
 function hideAllLayers(){
-  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaLevelUp','arenaGameover','arenaTab']){
+  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaLevelUp','arenaGameover','arenaTab','forgeCompare']){
     document.getElementById(id).classList.remove('show');
   }
 }
@@ -2868,6 +2940,9 @@ const arena = {
   comboTextTimer:0,
   maxRollBuffFrames:0,  // boost de range nos próximos swings (MAXROLL)
   autoMove: false,      // IA de movimento ON/OFF
+  forgeCooldown: 0,     // frames até próxima forja
+  forgeInterval: 900,   // 15s @ 60fps
+  pendingForgeItem: null,
   particles:[],
   items:{ weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null },
   // base stats (modificados por items + upgrades)
@@ -2920,6 +2995,8 @@ function initArena(){
   arena._aiStuckTimer = 0;
   arena._aiEscape = 0;
   arena._aiEscapeDir = {x:0,y:0};
+  arena.forgeCooldown = 0;
+  arena.pendingForgeItem = null;
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null };
@@ -3489,6 +3566,7 @@ function updateArena(){
   }
   if(arena.comboTextTimer > 0) arena.comboTextTimer--;
   if(arena.maxRollBuffFrames > 0) arena.maxRollBuffFrames--;
+  if(arena.forgeCooldown > 0) arena.forgeCooldown--;
 
   // update efeitos especiais
   updateArenaEffects();
@@ -4114,6 +4192,84 @@ function renderArena(){
   drawArenaHUD();
 }
 
+// ============== FORGE ==============
+function forgeItemCardInner(item){
+  const r = RARITY[item.rarity];
+  return `
+    <div class="ico" style="color:${r.color}">${item.icon}</div>
+    <div class="nm" style="color:${r.color}">${item.name}</div>
+    <div class="rare" style="color:${r.color}">${r.name}</div>
+    <div class="stat">+${item.value.toFixed(2)} ${item.stat}</div>
+  `;
+}
+
+function tryForge(){
+  if(state !== STATE.ARENA_PLAY) return;
+  if(arena.forgeCooldown > 0) return;
+  arena.forgeCooldown = arena.forgeInterval;
+  arena.pendingForgeItem = rollItem();
+  openForgeCompare();
+}
+
+function openForgeCompare(){
+  const newItem = arena.pendingForgeItem;
+  if(!newItem) return;
+  const oldItem = arena.items[newItem.slot];
+
+  const oldCard = document.getElementById('forgeOldCard');
+  const newCard = document.getElementById('forgeNewCard');
+
+  const oldInner = oldItem
+    ? forgeItemCardInner(oldItem)
+    : `<div class="ico" style="color:#5a4499">${ARENA_SLOT_ICONS[newItem.slot]}</div>
+       <div class="nm" style="color:#5a4499">Vazio</div>
+       <div class="rare" style="color:#5a4499">(${newItem.slot})</div>
+       <div class="stat" style="color:#5a4499">—</div>`;
+  oldCard.innerHTML = `<div class="label">EQUIPADO</div>` + oldInner;
+  oldCard.className = 'forge-card' + (oldItem ? '' : ' empty');
+
+  let deltaHtml = '';
+  if(oldItem && oldItem.stat === newItem.stat){
+    const delta = newItem.value - oldItem.value;
+    if(Math.abs(delta) < 0.005){
+      deltaHtml = `<div class="forge-delta forge-equal">= mesmo</div>`;
+    } else if(delta > 0){
+      deltaHtml = `<div class="forge-delta forge-up">▲ +${delta.toFixed(2)}</div>`;
+    } else {
+      deltaHtml = `<div class="forge-delta forge-down">▼ ${delta.toFixed(2)}</div>`;
+    }
+  } else if(!oldItem){
+    deltaHtml = `<div class="forge-delta forge-up">▲ NOVO SLOT</div>`;
+  } else {
+    deltaHtml = `<div class="forge-delta forge-equal">stat diferente</div>`;
+  }
+
+  newCard.innerHTML = `<div class="label">NOVO</div>` + forgeItemCardInner(newItem) + deltaHtml;
+  newCard.className = 'forge-card';
+
+  state = STATE.ARENA_TAB;
+  showLayer('forgeCompare');
+}
+
+function closeForge(){
+  arena.pendingForgeItem = null;
+  hideAllLayers();
+  state = STATE.ARENA_PLAY;
+}
+
+document.getElementById('arenaForgeBtn').addEventListener('click', tryForge);
+document.getElementById('forgeEquipBtn').addEventListener('click', ()=>{
+  if(arena.pendingForgeItem){
+    arena.items[arena.pendingForgeItem.slot] = arena.pendingForgeItem;
+    // efeito visual: partícula no coelho
+    if(typeof spawnArenaParticle === 'function'){
+      spawnArenaParticle(arena.bx, arena.by, RARITY[arena.pendingForgeItem.rarity].color, 18);
+    }
+  }
+  closeForge();
+});
+document.getElementById('forgeDiscardBtn').addEventListener('click', closeForge);
+
 function buildArenaTabContent(key){
   if(key === 'hero'){
     const ms = arena.baseMoveSpeed * (1 + arenaTotalStat('moveSpeed'));
@@ -4254,6 +4410,21 @@ function loop(now){
   const tabBarEl = document.getElementById('arenaTabBar');
   if(state === STATE.ARENA_PLAY || state === STATE.ARENA_TAB) tabBarEl.classList.add('show');
   else tabBarEl.classList.remove('show');
+
+  // FORGE button: só em ARENA_PLAY; mostra cooldown
+  const forgeBtn = document.getElementById('arenaForgeBtn');
+  if(state === STATE.ARENA_PLAY){
+    forgeBtn.classList.add('show');
+    if(arena.forgeCooldown > 0){
+      forgeBtn.classList.add('cooldown');
+      forgeBtn.textContent = `⚒ FORGE ${Math.ceil(arena.forgeCooldown/60)}s`;
+    } else {
+      forgeBtn.classList.remove('cooldown');
+      forgeBtn.textContent = '⚒ FORGE';
+    }
+  } else {
+    forgeBtn.classList.remove('show');
+  }
 
   if(state === STATE.CAVE_PLAY || state === STATE.CAVE_GAMEOVER){
     renderCave();
