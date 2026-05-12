@@ -132,15 +132,15 @@
   #pauseBtn{
     position:absolute;
     left:6px;
-    bottom:10px;
-    width:42px;height:42px;
+    top:7.7%; /* alinhado com a linha dos dados no HUD de cima */
+    width:38px;height:38px;
     z-index:6;
     border:0;cursor:pointer;
-    border-radius:10px;
+    border-radius:9px;
     background:linear-gradient(180deg,#5a4499,#3b2a70);
     border:2px solid #ffcc3d;
     color:#ffcc3d;
-    font-size:20px;font-weight:bold;
+    font-size:18px;font-weight:bold;
     box-shadow:0 3px 0 #2a1a55, 0 0 14px rgba(255,204,61,.3);
     display:none;
     line-height:1;
@@ -1457,11 +1457,15 @@ function drawHUDTop(){
   ctx.fillText(`SCORE ${game.score}`, W-10, 30);
   ctx.textAlign = 'left';
 
-  // dice slots (movidos pro HUD de cima, 10% menores)
-  const slotW = 45, slotH = 45, gap = 6;
+  // separação sutil entre infos e dados
+  ctx.fillStyle = 'rgba(255, 247, 224, 0.13)';
+  ctx.fillRect(40, 46, W-80, 1);
+
+  // dice slots (movidos pro HUD de cima, mais 10% menores)
+  const slotW = 40, slotH = 40, gap = 6;
   const totalW = 5*slotW + 4*gap;
   let dsx = (W-totalW)/2;
-  const dsy = 47;
+  const dsy = 51;
   for(let i=0;i<5;i++){
     const has = i < dice.length;
     ctx.fillStyle = has ? '#fff7e0' : '#241a44';
@@ -1472,9 +1476,9 @@ function drawHUDTop(){
       drawDieFace(dsx, dsy, slotW, slotH, dice[i].value);
     } else {
       ctx.fillStyle = '#3b2a70';
-      ctx.font = 'bold 20px monospace';
+      ctx.font = 'bold 18px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('?', dsx+slotW/2, dsy+slotH/2-9);
+      ctx.fillText('?', dsx+slotW/2, dsy+slotH/2-8);
       ctx.textAlign = 'left';
     }
     dsx += slotW+gap;
