@@ -47,16 +47,16 @@
   }
   #frame{
     position:relative;
-    width:  min(100vw, calc(100vh * 9 / 16));
-    height: min(100vh, calc(100vw * 16 / 9));
+    width:  min(100vw, calc(100vh * 9 / 20));
+    height: min(100vh, calc(100vw * 20 / 9));
     background:#0a0716;
     overflow:hidden;
   }
-  /* desktop: cap como "moldura" de celular */
+  /* desktop: cap como "moldura" de celular moderno (9:20) */
   @media (min-width: 768px) and (min-height: 600px){
     #frame{
-      max-width:480px;
-      max-height:854px;
+      max-width:432px;
+      max-height:960px;
       border-radius:12px;
       box-shadow:0 0 40px rgba(255,95,162,.25), inset 0 0 0 2px #2a1a55;
     }
@@ -568,7 +568,7 @@
 "use strict";
 
 // ============ CONFIG ============
-const W = 360, H = 640; // logical portrait resolution
+const W = 360, H = 800; // logical portrait resolution (9:20 — modern phones)
 const HUD_TOP = 96;
 const HUD_BOT = 56;
 const PLAY_TOP = HUD_TOP;
