@@ -4678,9 +4678,22 @@ function loop(now){
   if(steps === 4) acc = 0;
 
   // joystick zone: ativo em PLAY (modo plataforma) e ARENA_PLAY (movimento 2D); cave usa tap
+  // No arena, restringe a zona apenas à play area (grid onde o coelho pode andar)
   const joyEl = document.getElementById('joy');
-  if(state === STATE.PLAY || state === STATE.ARENA_PLAY) joyEl.classList.remove('disabled');
-  else joyEl.classList.add('disabled');
+  if(state === STATE.ARENA_PLAY){
+    joyEl.style.top = (ARENA.TOP_Y/H*100) + '%';
+    joyEl.style.bottom = ((H-ARENA.BOT_Y)/H*100) + '%';
+    joyEl.style.height = 'auto';
+    joyEl.classList.remove('disabled');
+  } else if(state === STATE.PLAY){
+    // restaura defaults da CSS: bottom 42%
+    joyEl.style.top = '';
+    joyEl.style.bottom = '';
+    joyEl.style.height = '';
+    joyEl.classList.remove('disabled');
+  } else {
+    joyEl.classList.add('disabled');
+  }
 
   // pause button só visível durante o jogo principal
   const pauseEl = document.getElementById('pauseBtn');
