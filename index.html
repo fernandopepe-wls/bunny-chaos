@@ -366,6 +366,21 @@
     letter-spacing:.6px;
     border-right:1px solid #2a1f4d;
     transition:color .12s, background .12s;
+    position:relative;
+  }
+  /* tabs bloqueadas */
+  .arenaTab-btn[disabled]{
+    opacity:0.35;
+    cursor:not-allowed;
+    filter:grayscale(0.7);
+    pointer-events:none;
+  }
+  .arenaTab-btn[disabled]::after{
+    content:'🔒';
+    position:absolute;
+    top:2px;right:4px;
+    font-size:9px;
+    opacity:0.9;
   }
   .arenaTab-btn:last-child{border-right:0;}
   .arenaTab-btn .ico{font-size:18px;line-height:1;}
@@ -542,15 +557,15 @@
     <!-- contador de cenouras logo abaixo do FORGE -->
     <div id="arenaCarrotsBelow"><span id="arenaCarrotsCount">🥕 50</span></div>
 
-    <!-- arena bottom tab bar (COMBAT no meio) -->
+    <!-- arena bottom tab bar (só COMBAT está ativo; outros bloqueados) -->
     <div id="arenaTabBar">
-      <button class="arenaTab-btn" data-tab="shop"><span class="ico">🛒</span><span>SHOP</span></button>
-      <button class="arenaTab-btn" data-tab="hero"><span class="ico">👤</span><span>HERO</span></button>
-      <button class="arenaTab-btn" data-tab="growth"><span class="ico">📈</span><span>GROWTH</span></button>
+      <button class="arenaTab-btn" data-tab="shop"    disabled><span class="ico">🛒</span><span>SHOP</span></button>
+      <button class="arenaTab-btn" data-tab="hero"    disabled><span class="ico">👤</span><span>HERO</span></button>
+      <button class="arenaTab-btn" data-tab="growth"  disabled><span class="ico">📈</span><span>GROWTH</span></button>
       <button class="arenaTab-btn combat active" data-tab="combat"><span class="ico">▲</span><span>COMBAT</span></button>
-      <button class="arenaTab-btn" data-tab="equipe"><span class="ico">🎽</span><span>EQUIPE</span></button>
-      <button class="arenaTab-btn" data-tab="mission"><span class="ico">📋</span><span>MISSION</span></button>
-      <button class="arenaTab-btn" data-tab="world"><span class="ico">🗺</span><span>WORLD</span></button>
+      <button class="arenaTab-btn" data-tab="equipe"  disabled><span class="ico">🎽</span><span>EQUIPE</span></button>
+      <button class="arenaTab-btn" data-tab="mission" disabled><span class="ico">📋</span><span>MISSION</span></button>
+      <button class="arenaTab-btn" data-tab="world"   disabled><span class="ico">🗺</span><span>WORLD</span></button>
     </div>
 
     <!-- main menu -->
