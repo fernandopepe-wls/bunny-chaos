@@ -3709,7 +3709,7 @@ function drawArenaHUD(){
   // cooldown ring (barra abaixo)
   const cdW = totalDiceW;
   const cdX = (W - cdW)/2;
-  const cdY = dy0 + slotSize + 2;
+  const cdY = dy0 + dSize + 2;
   const pct = 1 - arena.diceRollTimer / arena.diceRollInterval;
   ctx.fillStyle = '#3b2a70';
   ctx.fillRect(cdX, cdY, cdW, 2);
