@@ -3166,7 +3166,7 @@ function initArena(){
   arena.forgeLevel = 1;
   arena.forgeInterval = 900;
   arena.autoForge = false;
-  arena.carrots = 0;
+  arena.carrots = 50; // saldo inicial pra forjar 10 vezes
   arena.power = arenaPower();
   arena.powerDelta = 0;
   arena.powerDeltaTimer = 0;
@@ -3176,6 +3176,11 @@ function initArena(){
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null };
+  // arma inicial: galho (a pior arma do jogo)
+  arena.items.weapon = {
+    slot:'weapon', name:'Galho', stat:'dmg', base:1, value:1,
+    icon:'🌿', rarity:'common',
+  };
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
   arena.baseDodge = 0; arena.baseXpMult = 1; arena.basePickupRange = 50;
@@ -4335,6 +4340,8 @@ function drawArenaHUD(){
   for(const slot of ARENA_SLOTS){
     const it = arena.items[slot];
     const col = it ? RARITY[it.rarity].color : '#241a44';
+    // slots vazios ficam apagados (visualmente menos chamativos)
+    if(!it) ctx.globalAlpha = 0.4;
     // borda colorida pela raridade
     ctx.fillStyle = col;
     ctx.fillRect(sx, sy, slotW, slotH);
@@ -4368,6 +4375,7 @@ function drawArenaHUD(){
       const lbl = (ARENA_SLOT_LABELS[slot] || slot).toUpperCase();
       ctx.fillText(lbl, sx+slotW/2, sy+slotH-9);
     }
+    ctx.globalAlpha = 1;
     sx += slotW + gap;
   }
   ctx.textAlign = 'left';
