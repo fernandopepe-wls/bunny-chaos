@@ -255,13 +255,13 @@
           </div>
           <div>▶</div>
         </div>
-        <div class="mode locked">
-          <div class="icon">🥕</div>
+        <div class="mode active" id="caveBtn" style="border-color:#5fb0d8;">
+          <div class="icon" style="background:linear-gradient(180deg,#5fb0d8,#3a8db8);color:#0d2a3a;">🥕</div>
           <div class="info">
-            <div class="name">Carrot Defense</div>
-            <div class="desc">Em breve</div>
+            <div class="name">Carrot Cave</div>
+            <div class="desc">Caverna infinita. Esquive e colete cenouras.</div>
           </div>
-          <div class="badge">🔒</div>
+          <div>▶</div>
         </div>
         <div class="mode locked">
           <div class="icon">⚔️</div>
@@ -357,6 +357,14 @@
       <button class="btn" id="resumeBtn">Continuar</button>
     </div>
 
+    <!-- cave game over -->
+    <div class="layer" id="caveGameover">
+      <h1 style="color:#5fb0d8;text-shadow:0 3px 0 #1e4660">FIM DA CAVERNA</h1>
+      <div class="stats" id="caveGoStats"></div>
+      <button class="btn" id="caveRetryBtn">Tentar de novo</button>
+      <button class="btn secondary" id="caveMenuBtn">Menu</button>
+    </div>
+
     <!-- game over -->
     <div class="layer" id="gameover">
       <h1 style="color:var(--bad);text-shadow:0 3px 0 #6b1414">GAME OVER</h1>
@@ -402,7 +410,7 @@ const COMBO = {
 };
 
 // ============ STATE ============
-const STATE = { MENU:0, PLAY:1, UPGRADE:2, GAMEOVER:3, TRANSITION:4, PAUSED:5 };
+const STATE = { MENU:0, PLAY:1, UPGRADE:2, GAMEOVER:3, TRANSITION:4, PAUSED:5, CAVE_PLAY:6, CAVE_GAMEOVER:7 };
 let state = STATE.MENU;
 
 const game = {
@@ -1662,7 +1670,7 @@ function enterGameOver(){
 
 // ============ UI LAYERS ============
 function hideAllLayers(){
-  for(const id of ['menu','upgrade','gameover','comboSheet']){
+  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover']){
     document.getElementById(id).classList.remove('show');
   }
 }
@@ -1788,6 +1796,472 @@ rollDice = function(){
   }
 };
 
+// ============================ CAVE MODE ============================
+const CAVE = {
+  COLS: 7,
+  COL_W: 0,
+  ROW_H: 0,
+  TOP_Y: 0,
+  BOT_Y: 0,
+  VISIBLE_ROWS: 0,
+  SCROLL_SPEED: 0.55,
+  BUNNY_ROW: 11, // logical row index do coelho no array (fixo)
+};
+
+const cave = {
+  rows: [],
+  rowsGenerated: 0,
+  scrollOffset: 0,
+  bunnyCol: 3,
+  bunnyTargetCol: 3,
+  bunnyAnimX: 0,
+  bunnyHurtTimer: 0,
+  shootTimer: 0,
+  projectiles: [],
+  particles: [],
+  distance: 0,
+  coins: 0,
+  hp: 3,
+  maxHp: 3,
+  startTime: 0,
+};
+
+function initCaveLayout(){
+  CAVE.COL_W = W / CAVE.COLS;
+  CAVE.ROW_H = CAVE.COL_W; // square
+  CAVE.TOP_Y = HUD_TOP;
+  CAVE.BOT_Y = H - HUD_BOT;
+  CAVE.VISIBLE_ROWS = Math.ceil((CAVE.BOT_Y - CAVE.TOP_Y) / CAVE.ROW_H) + 2;
+  // BUNNY_ROW: 2 from bottom of visible
+  CAVE.BUNNY_ROW = CAVE.VISIBLE_ROWS - 3;
+}
+
+function genCaveRow(idx){
+  const row = new Array(CAVE.COLS).fill(null);
+  if(idx < 6) return row; // safe start
+  const difficulty = Math.min(0.6, idx / 200);
+  for(let c=0;c<CAVE.COLS;c++){
+    const r = Math.random();
+    if(r < 0.13 + difficulty*0.08) row[c] = {type:'rock'};
+    else if(r < 0.18 + difficulty*0.05) row[c] = {type:'coin'};
+    else if(r < 0.24 + difficulty*0.08) row[c] = {type:'enemy', hp: 2, hurtTimer:0};
+  }
+  // garante pelo menos 2 colunas livres pra player passar
+  let passable = row.filter(c => c === null || (c && c.type === 'coin')).length;
+  let tries = 0;
+  while(passable < 2 && tries < 5){
+    row[(Math.random()*CAVE.COLS)|0] = null;
+    passable = row.filter(c => c === null || (c && c.type === 'coin')).length;
+    tries++;
+  }
+  return row;
+}
+
+function initCave(){
+  initCaveLayout();
+  cave.rows = [];
+  cave.rowsGenerated = 0;
+  cave.scrollOffset = 0;
+  cave.bunnyCol = 3;
+  cave.bunnyTargetCol = 3;
+  cave.bunnyAnimX = 3 * CAVE.COL_W;
+  cave.bunnyHurtTimer = 0;
+  cave.shootTimer = 0;
+  cave.projectiles = [];
+  cave.particles = [];
+  cave.distance = 0;
+  cave.coins = 0;
+  cave.hp = cave.maxHp = 3;
+  cave.startTime = performance.now();
+  for(let i=0;i<CAVE.VISIBLE_ROWS+2;i++){
+    cave.rows.push(genCaveRow(i));
+    cave.rowsGenerated++;
+  }
+}
+
+// y do topo da linha [i] do array
+function caveTileY(i){
+  return CAVE.TOP_Y - CAVE.ROW_H + (i+1)*CAVE.ROW_H - CAVE.ROW_H + cave.scrollOffset + i*CAVE.ROW_H;
+}
+// simplificando: y = TOP_Y + (i-1)*ROW_H + scrollOffset
+function caveTileYFinal(i){
+  return CAVE.TOP_Y + (i-1)*CAVE.ROW_H + cave.scrollOffset;
+}
+
+function caveBunnyY(){
+  return caveTileYFinal(CAVE.BUNNY_ROW);
+}
+
+function spawnCaveParticle(x,y,color,count){
+  for(let i=0;i<count;i++){
+    cave.particles.push({
+      x,y,
+      vx:(Math.random()-0.5)*3,
+      vy:(Math.random()-0.5)*3 - 1,
+      life: 18+((Math.random()*8)|0),
+      color,
+    });
+  }
+}
+
+function updateCave(){
+  // scroll
+  cave.scrollOffset += CAVE.SCROLL_SPEED;
+  cave.distance += CAVE.SCROLL_SPEED / 6;
+
+  // shift de row quando passa um tile inteiro
+  if(cave.scrollOffset >= CAVE.ROW_H){
+    cave.scrollOffset -= CAVE.ROW_H;
+    cave.rows.pop();
+    cave.rows.unshift(genCaveRow(cave.rowsGenerated++));
+    // colisão na linha do coelho (a célula que agora ficou em cima do coelho)
+    const cell = cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol];
+    if(cell){
+      if(cell.type === 'rock'){
+        if(cave.bunnyHurtTimer<=0){
+          cave.hp--;
+          cave.bunnyHurtTimer = 50;
+          spawnCaveParticle((cave.bunnyCol+0.5)*CAVE.COL_W, caveBunnyY()+CAVE.ROW_H/2, '#ff5252', 10);
+        }
+        cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
+      } else if(cell.type === 'coin'){
+        cave.coins++;
+        spawnCaveParticle((cave.bunnyCol+0.5)*CAVE.COL_W, caveBunnyY()+CAVE.ROW_H/2, '#ffcc3d', 8);
+        cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
+      } else if(cell.type === 'enemy'){
+        if(cave.bunnyHurtTimer<=0){
+          cave.hp--;
+          cave.bunnyHurtTimer = 50;
+          spawnCaveParticle((cave.bunnyCol+0.5)*CAVE.COL_W, caveBunnyY()+CAVE.ROW_H/2, '#ff5252', 10);
+        }
+        cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
+      }
+    }
+    // ajusta projéteis (mundo desceu 1 row, projétil também precisa "descer" 1 row visual pra ficar coerente)
+    for(const p of cave.projectiles) p.y += CAVE.ROW_H;
+  }
+
+  // bunny smooth
+  const targetX = cave.bunnyTargetCol * CAVE.COL_W;
+  const diff = targetX - cave.bunnyAnimX;
+  if(Math.abs(diff) > 0.5) cave.bunnyAnimX += diff * 0.28;
+  else { cave.bunnyAnimX = targetX; cave.bunnyCol = cave.bunnyTargetCol; }
+
+  if(cave.bunnyHurtTimer>0) cave.bunnyHurtTimer--;
+
+  // auto-shoot pra cima
+  cave.shootTimer--;
+  if(cave.shootTimer <= 0){
+    const bx = cave.bunnyAnimX + CAVE.COL_W/2;
+    const by = caveBunnyY() + 8;
+    cave.projectiles.push({x:bx, y:by, vy:-6, col: cave.bunnyCol});
+    cave.shootTimer = 30;
+  }
+
+  // projéteis
+  for(let i=cave.projectiles.length-1;i>=0;i--){
+    const p = cave.projectiles[i];
+    p.y += p.vy;
+    if(p.y < CAVE.TOP_Y - 20){ cave.projectiles.splice(i,1); continue; }
+    // colisão com células enemy/rock no mesmo column
+    // descobre row pelo y
+    const rowIdx = Math.floor((p.y - CAVE.TOP_Y - cave.scrollOffset) / CAVE.ROW_H) + 1;
+    if(rowIdx >= 0 && rowIdx < cave.rows.length){
+      const cell = cave.rows[rowIdx][p.col];
+      if(cell && (cell.type === 'enemy' || cell.type === 'rock')){
+        if(cell.type === 'enemy'){
+          cell.hp--;
+          cell.hurtTimer = 6;
+          spawnCaveParticle(p.x, p.y, '#ff5252', 5);
+          if(cell.hp <= 0){
+            cave.rows[rowIdx][p.col] = null;
+            cave.coins++; // bônus por matar inimigo
+            spawnCaveParticle((p.col+0.5)*CAVE.COL_W, p.y, '#ffcc3d', 10);
+          }
+        } else {
+          // rock: 1 hit
+          cave.rows[rowIdx][p.col] = null;
+          spawnCaveParticle(p.x, p.y, '#888', 6);
+        }
+        cave.projectiles.splice(i,1);
+      }
+    }
+  }
+
+  // particles
+  for(let i=cave.particles.length-1;i>=0;i--){
+    const pt = cave.particles[i];
+    pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.2; pt.life--;
+    if(pt.life<=0) cave.particles.splice(i,1);
+  }
+
+  // tick hurtTimer das células enemy
+  for(const row of cave.rows){
+    for(const cell of row){
+      if(cell && cell.hurtTimer > 0) cell.hurtTimer--;
+    }
+  }
+
+  // game over
+  if(cave.hp <= 0){
+    enterCaveGameOver();
+  }
+}
+
+function drawCaveRock(x,y){
+  const m = 6;
+  ctx.fillStyle = '#3a3a3a';
+  ctx.fillRect(x+m, y+m+CAVE.ROW_H-m*2-3, CAVE.COL_W-m*2, 3);
+  ctx.fillStyle = '#6a6a6a';
+  ctx.fillRect(x+m, y+m, CAVE.COL_W-m*2, CAVE.ROW_H-m*2);
+  ctx.fillStyle = '#8a8a8a';
+  ctx.fillRect(x+m+2, y+m+2, CAVE.COL_W-m*2-4, 4);
+  ctx.fillStyle = '#4a4a4a';
+  ctx.fillRect(x+m+4, y+m+CAVE.ROW_H-m*2-8, 4, 4);
+}
+
+function drawCaveCoin(x,y){
+  const t = performance.now()/180;
+  const xs = Math.cos(t + x/30);
+  const widthScale = Math.max(0.2, Math.abs(xs));
+  const w = CAVE.COL_W * 0.45 * widthScale;
+  const h = CAVE.ROW_H * 0.5;
+  const cx = x + CAVE.COL_W/2;
+  const cy = y + CAVE.ROW_H/2 + Math.sin(t*0.6)*1.5;
+  ctx.fillStyle = xs > 0 ? '#b3791f' : '#8a5e10';
+  ctx.fillRect(cx-w/2, cy-h/2, w, h);
+  ctx.fillStyle = xs > 0 ? '#ffcc3d' : '#e6a823';
+  ctx.fillRect(cx-w/2+1, cy-h/2+1, Math.max(1,w-2), h-2);
+  if(widthScale > 0.5){
+    ctx.fillStyle = '#b3791f';
+    ctx.fillRect(cx-1, cy-h/2+3, 2, h-6);
+  }
+}
+
+function drawCaveEnemy(x,y,cell){
+  const m = 5;
+  const flash = cell.hurtTimer > 0;
+  ctx.fillStyle = flash ? '#fff' : '#3a3a3a';
+  ctx.fillRect(x+m, y+m+CAVE.ROW_H-m*2-3, CAVE.COL_W-m*2, 3);
+  ctx.fillStyle = flash ? '#fff' : '#a83a3a';
+  ctx.fillRect(x+m, y+m, CAVE.COL_W-m*2, CAVE.ROW_H-m*2);
+  if(!flash){
+    // eyes
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x+m+4, y+m+6, 4, 5);
+    ctx.fillRect(x+CAVE.COL_W-m-8, y+m+6, 4, 5);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x+m+5, y+m+7, 2, 3);
+    ctx.fillRect(x+CAVE.COL_W-m-7, y+m+7, 2, 3);
+    // teeth
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x+m+5, y+CAVE.ROW_H-m-6, 2, 2);
+    ctx.fillRect(x+m+9, y+CAVE.ROW_H-m-6, 2, 2);
+    ctx.fillRect(x+CAVE.COL_W-m-7, y+CAVE.ROW_H-m-6, 2, 2);
+  }
+}
+
+function drawCaveBunny(){
+  const x = cave.bunnyAnimX;
+  const y = caveBunnyY();
+  const flash = cave.bunnyHurtTimer>0 && (cave.bunnyHurtTimer%6<3);
+  if(flash) ctx.globalAlpha = 0.4;
+  const m = Math.max(3, Math.floor(CAVE.COL_W*0.12));
+  const bw = CAVE.COL_W - m*2;
+  const bh = CAVE.ROW_H - m*2;
+  // body
+  ctx.fillStyle = '#fff7e0';
+  ctx.fillRect(x+m, y+m+8, bw, bh-8);
+  // head
+  ctx.fillRect(x+m+3, y+m+3, bw-6, 12);
+  // ears
+  ctx.fillRect(x+m+4, y+m-4, 4, 8);
+  ctx.fillRect(x+CAVE.COL_W-m-8, y+m-4, 4, 8);
+  ctx.fillStyle = '#ff5fa2';
+  ctx.fillRect(x+m+5, y+m-2, 2, 4);
+  ctx.fillRect(x+CAVE.COL_W-m-7, y+m-2, 2, 4);
+  // eyes
+  ctx.fillStyle = '#0d0a1a';
+  ctx.fillRect(x+m+6, y+m+7, 2, 2);
+  ctx.fillRect(x+CAVE.COL_W-m-8, y+m+7, 2, 2);
+  // nose
+  ctx.fillStyle = '#ff5fa2';
+  ctx.fillRect(x+CAVE.COL_W/2-1, y+m+11, 2, 1);
+  ctx.globalAlpha = 1;
+}
+
+function drawCaveHUD(){
+  ctx.fillStyle = 'rgba(13,10,26,0.92)';
+  ctx.fillRect(0,0,W,HUD_TOP);
+  ctx.fillStyle = '#5a4499';
+  ctx.fillRect(0,HUD_TOP-2,W,2);
+
+  // distance (left)
+  ctx.fillStyle = '#ffcc3d';
+  ctx.font = 'bold 16px monospace';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`${Math.floor(cave.distance)} M`, 10, 8);
+
+  // coin counter
+  const cix = 110, ciy = 10;
+  ctx.fillStyle = '#b3791f';
+  ctx.fillRect(cix, ciy, 12, 12);
+  ctx.fillStyle = '#ffcc3d';
+  ctx.fillRect(cix+1, ciy+1, 10, 10);
+  ctx.fillStyle = '#b3791f';
+  ctx.fillRect(cix+5, ciy+3, 2, 6);
+  ctx.fillStyle = '#ffcc3d';
+  ctx.font = 'bold 14px monospace';
+  ctx.fillText(`× ${String(cave.coins).padStart(2,'0')}`, cix+18, 9);
+
+  // hearts (right)
+  for(let i=0;i<cave.maxHp;i++){
+    const hx = W - 90 + i*26;
+    const hy = 10;
+    const full = i < cave.hp;
+    ctx.fillStyle = full ? '#ff5252' : '#3b2a70';
+    // pixel heart
+    ctx.fillRect(hx+2, hy+2, 4, 4);
+    ctx.fillRect(hx+10, hy+2, 4, 4);
+    ctx.fillRect(hx, hy+4, 16, 6);
+    ctx.fillRect(hx+2, hy+10, 12, 2);
+    ctx.fillRect(hx+5, hy+12, 6, 2);
+    ctx.fillRect(hx+7, hy+14, 2, 1);
+  }
+
+  // separator
+  ctx.fillStyle = 'rgba(255, 247, 224, 0.13)';
+  ctx.fillRect(40, 46, W-80, 1);
+
+  // label
+  ctx.fillStyle = '#9b8fc4';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('CARROT CAVE', W/2, 62);
+  ctx.textAlign = 'left';
+}
+
+function renderCave(){
+  setupCtx();
+  ctx.clearRect(0,0,W,H);
+
+  // bg
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#1a2a55');
+  grad.addColorStop(1,'#0a142a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  // grid
+  for(let r=0;r<cave.rows.length;r++){
+    const y = caveTileYFinal(r);
+    if(y < CAVE.TOP_Y - CAVE.ROW_H || y > CAVE.BOT_Y) continue;
+    for(let c=0;c<CAVE.COLS;c++){
+      const x = c * CAVE.COL_W;
+      const shade = (r+c) % 2 === 0 ? '#2a4470' : '#244060';
+      ctx.fillStyle = shade;
+      ctx.fillRect(x, y, CAVE.COL_W, CAVE.ROW_H);
+      // grid lines
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(x, y, CAVE.COL_W, 1);
+      ctx.fillRect(x, y, 1, CAVE.ROW_H);
+
+      const cell = cave.rows[r][c];
+      if(!cell) continue;
+      if(cell.type === 'rock') drawCaveRock(x, y);
+      else if(cell.type === 'coin') drawCaveCoin(x, y);
+      else if(cell.type === 'enemy') drawCaveEnemy(x, y, cell);
+    }
+  }
+
+  // projectiles
+  for(const p of cave.projectiles){
+    ctx.fillStyle = '#ffcc3d';
+    ctx.fillRect(p.x-3, p.y-7, 6, 14);
+    ctx.fillStyle = '#fff7e0';
+    ctx.fillRect(p.x-2, p.y-6, 4, 4);
+  }
+
+  // bunny
+  drawCaveBunny();
+
+  // particles
+  for(const pt of cave.particles){
+    ctx.globalAlpha = Math.min(1, pt.life/18);
+    ctx.fillStyle = pt.color;
+    ctx.fillRect(pt.x, pt.y, 3, 3);
+  }
+  ctx.globalAlpha = 1;
+
+  // HUD
+  drawCaveHUD();
+}
+
+function moveCaveBunny(dir){
+  // dir: -1 ou +1
+  const next = cave.bunnyTargetCol + dir;
+  if(next < 0 || next >= CAVE.COLS) return;
+  cave.bunnyTargetCol = next;
+}
+
+function enterCave(){
+  state = STATE.CAVE_PLAY;
+  hideAllLayers();
+  document.getElementById('hint').style.display='none';
+  initCave();
+  tryFullscreen();
+}
+
+function enterCaveGameOver(){
+  state = STATE.CAVE_GAMEOVER;
+  const stats = document.getElementById('caveGoStats');
+  const time = ((performance.now()-cave.startTime)/1000).toFixed(1);
+  stats.innerHTML = `
+    <div class="row"><span>Distância</span><span>${Math.floor(cave.distance)} M</span></div>
+    <div class="row"><span>Cenouras</span><span>${cave.coins}</span></div>
+    <div class="row"><span>Tempo</span><span>${time}s</span></div>
+  `;
+  showLayer('caveGameover');
+}
+
+// menu hooks
+document.getElementById('caveBtn').addEventListener('click', enterCave);
+document.getElementById('caveRetryBtn').addEventListener('click', enterCave);
+document.getElementById('caveMenuBtn').addEventListener('click', ()=>{
+  state = STATE.MENU;
+  showLayer('menu');
+});
+
+// CAVE INPUT: tap left/right halves do frame, ou setas
+const frameEl = document.getElementById('frame');
+frameEl.addEventListener('touchstart', e=>{
+  if(state !== STATE.CAVE_PLAY) return;
+  // ignora se for o botão de pause ou layers
+  if(e.target.closest('.layer') || e.target.id === 'pauseBtn') return;
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const rect = frameEl.getBoundingClientRect();
+  const localX = t.clientX - rect.left;
+  if(localX < rect.width/2) moveCaveBunny(-1);
+  else moveCaveBunny(1);
+},{passive:false});
+
+frameEl.addEventListener('mousedown', e=>{
+  if(state !== STATE.CAVE_PLAY) return;
+  if(e.target.closest('.layer') || e.target.id === 'pauseBtn') return;
+  const rect = frameEl.getBoundingClientRect();
+  const localX = e.clientX - rect.left;
+  if(localX < rect.width/2) moveCaveBunny(-1);
+  else moveCaveBunny(1);
+});
+
+// teclado pro cave (handler já existe, mas só dispara em PLAY; adiciono cave aqui)
+window.addEventListener('keydown', e=>{
+  if(state !== STATE.CAVE_PLAY) return;
+  if(e.key === 'ArrowLeft' || e.key === 'a') moveCaveBunny(-1);
+  else if(e.key === 'ArrowRight' || e.key === 'd') moveCaveBunny(1);
+});
+
 // ============ MAIN LOOP (fixed 60Hz timestep) ============
 const FIXED_DT = 1000/60;
 let last = performance.now();
@@ -1802,22 +2276,27 @@ function loop(now){
   while(acc >= FIXED_DT && steps < 4){
     if(state === STATE.PLAY) updatePlay();
     else if(state === STATE.TRANSITION) tickTransition();
+    else if(state === STATE.CAVE_PLAY) updateCave();
     acc -= FIXED_DT;
     steps++;
   }
   if(steps === 4) acc = 0;
 
-  // joystick zone: only active during PLAY
+  // joystick zone: only active during PLAY (cave usa tap nativo)
   const joyEl = document.getElementById('joy');
   if(state === STATE.PLAY) joyEl.classList.remove('disabled');
   else joyEl.classList.add('disabled');
 
-  // pause button só visível durante o jogo
+  // pause button só visível durante o jogo principal
   const pauseEl = document.getElementById('pauseBtn');
   if(state === STATE.PLAY) pauseEl.classList.add('show');
   else pauseEl.classList.remove('show');
 
-  render();
+  if(state === STATE.CAVE_PLAY || state === STATE.CAVE_GAMEOVER){
+    renderCave();
+  } else {
+    render();
+  }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
