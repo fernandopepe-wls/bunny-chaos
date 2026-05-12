@@ -597,13 +597,6 @@
       <div id="arenaTabContent"></div>
     </div>
 
-    <!-- arena level up -->
-    <div class="layer" id="arenaLevelUp">
-      <h2 style="color:#ff5fa2;">⬆ LEVEL UP!</h2>
-      <p id="arenaLvlSub">Escolha um upgrade.</p>
-      <div id="arenaLvlOptions" style="margin-top:14px;"></div>
-    </div>
-
     <!-- arena game over -->
     <div class="layer" id="arenaGameover">
       <h1 style="color:#ff5fa2;text-shadow:0 3px 0 #6b1454">FIM DA ARENA</h1>
@@ -1931,8 +1924,9 @@ function enterGameOver(){
 
 // ============ UI LAYERS ============
 function hideAllLayers(){
-  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaLevelUp','arenaGameover','arenaTab','forgeCompare','forgeLevelLayer']){
-    document.getElementById(id).classList.remove('show');
+  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaGameover','arenaTab','forgeCompare','forgeLevelLayer']){
+    const el = document.getElementById(id);
+    if(el) el.classList.remove('show');
   }
 }
 function showLayer(id){
@@ -3879,14 +3873,13 @@ function updateArena(){
     }
   }
 
-  // level up
+  // level up (sem popup de upgrade — removido pra mover pra outro metagame)
   if(arena.xp >= arena.xpToNext){
     arena.xp -= arena.xpToNext;
     arena.level++;
     arena.xpToNext = Math.round(8 + arena.level*4 + arena.level*arena.level*0.5);
     arena.hp = arena.maxHp; // cura ao subir
-    enterArenaLevelUp();
-    return; // pausa update
+    spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 18);
   }
 
   // particles
@@ -3900,48 +3893,6 @@ function updateArena(){
   if(arena.hp <= 0){
     enterArenaGameOver();
   }
-}
-
-const ARENA_UPGRADES = [
-  { name:'+20% Dano',           color:'#ff5252', apply:()=>arena.baseDmg *= 1.2 },
-  { name:'+15% Vel. Ataque',    color:'#ffcc3d', apply:()=>arena.baseAtkSpeed *= 1.15 },
-  { name:'+20 HP Máximo',       color:'#ff5fa2', apply:()=>{ arena.baseMaxHp += 20; arena.hp += 20; } },
-  { name:'+10% Vel. Movimento', color:'#4cf08e', apply:()=>arena.baseMoveSpeed *= 1.10 },
-  { name:'+1 Lâmina',           color:'#a86bff', apply:()=>arena.baseProjectiles += 1 },
-  { name:'+8% Crit',            color:'#ff5fa2', apply:()=>arena.baseCrit += 0.08 },
-  { name:'+30 Raio Coleta',     color:'#5fb0d8', apply:()=>arena.basePickupRange += 30 },
-  { name:'+15% XP',             color:'#4cf08e', apply:()=>arena.baseXpMult += 0.15 },
-  { name:'Cura completa',       color:'#ff5fa2', apply:()=>{ arena.hp = arena.maxHp; } },
-  { name:'+1 Dado 🎲',          color:'#ffcc3d', apply:()=>{ if(arena.dice.length < 5) arena.dice.push({value:1}); } },
-  { name:'-15% Cooldown Dados', color:'#5fb0d8', apply:()=>{ arena.diceRollInterval = Math.max(120, Math.round(arena.diceRollInterval*0.85)); } },
-];
-
-function enterArenaLevelUp(){
-  state = STATE.ARENA_LEVELUP;
-  const wrap = document.getElementById('arenaLvlOptions');
-  wrap.innerHTML = '';
-  // 3 opções aleatórias distintas
-  const pool = [...ARENA_UPGRADES];
-  const chosen = [];
-  for(let i=0;i<3 && pool.length;i++){
-    const idx = (Math.random()*pool.length)|0;
-    chosen.push(pool[idx]);
-    pool.splice(idx,1);
-  }
-  for(const up of chosen){
-    const card = document.createElement('div');
-    card.className = 'upgrade-card';
-    card.style.borderColor = up.color;
-    card.innerHTML = `<div class="head"><div class="title" style="color:${up.color}">${up.name}</div></div>`;
-    card.addEventListener('click', ()=>{
-      up.apply();
-      hideAllLayers();
-      state = STATE.ARENA_PLAY;
-    });
-    wrap.appendChild(card);
-  }
-  document.getElementById('arenaLvlSub').textContent = `Nível ${arena.level} • Escolha um upgrade.`;
-  showLayer('arenaLevelUp');
 }
 
 function enterArenaGameOver(){
@@ -4811,7 +4762,7 @@ function loop(now){
 
   if(state === STATE.CAVE_PLAY || state === STATE.CAVE_GAMEOVER){
     renderCave();
-  } else if(state === STATE.ARENA_PLAY || state === STATE.ARENA_LEVELUP || state === STATE.ARENA_GAMEOVER){
+  } else if(state === STATE.ARENA_PLAY || state === STATE.ARENA_GAMEOVER || state === STATE.ARENA_TAB){
     renderArena();
   } else {
     render();
