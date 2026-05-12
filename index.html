@@ -2905,10 +2905,17 @@ const ARENA = {
   BUNNY_R: 10,
 };
 
-// 6 slots de equipamento
-const ARENA_SLOTS = ['weapon','helmet','armor','boots','ring','amulet'];
+// 8 slots de equipamento (ordem da fileira no HUD)
+const ARENA_SLOTS = ['weapon','helmet','armor','gloves','belt','boots','amulet','ring'];
 const ARENA_SLOT_ICONS = {
-  weapon:'⚔️', helmet:'🪖', armor:'🛡️', boots:'🥾', ring:'💍', amulet:'📿',
+  weapon:'⚔️', helmet:'🪖', armor:'🛡️',
+  gloves:'🧤', belt:'🎗️',
+  boots:'🥾', amulet:'📿', ring:'💍',
+};
+const ARENA_SLOT_LABELS = {
+  weapon:'Arma', helmet:'Capacete', armor:'Roupa',
+  gloves:'Luvas', belt:'Cinto',
+  boots:'Botas', amulet:'Colar', ring:'Anel',
 };
 const RARITY = {
   common:    { color:'#9b8fc4', mult:1.0,  name:'Comum'    },
@@ -2933,18 +2940,26 @@ const ARENA_ITEM_POOL = [
   // helmet
   { slot:'helmet', name:'Capacete',   stat:'maxHp',       base:12,   icon:'⛑️' },
   { slot:'helmet', name:'Coroa',      stat:'xpMult',      base:0.15, icon:'👑' },
-  // armor
+  // armor (roupa)
   { slot:'armor',  name:'Couraça',    stat:'maxHp',       base:18,   icon:'🦺' },
   { slot:'armor',  name:'Manto',      stat:'dodge',       base:0.05, icon:'🧥' },
+  // gloves (luvas) — foco em ataque
+  { slot:'gloves', name:'Luvas',      stat:'atkSpeed',    base:0.08, icon:'🧤' },
+  { slot:'gloves', name:'Manopla',    stat:'crit',        base:0.06, icon:'✊' },
+  { slot:'gloves', name:'Garra',      stat:'dmg',         base:2,    icon:'🦅' },
+  // belt (cinto) — foco em defesa/utilidade
+  { slot:'belt',   name:'Cinto',      stat:'maxHp',       base:8,    icon:'🎗️' },
+  { slot:'belt',   name:'Faixa',      stat:'dodge',       base:0.04, icon:'➿' },
+  { slot:'belt',   name:'Bandoleira', stat:'pickupRange', base:15,   icon:'🪢' },
   // boots
   { slot:'boots',  name:'Botas',      stat:'moveSpeed',   base:0.12, icon:'👢' },
   { slot:'boots',  name:'Sandália',   stat:'pickupRange', base:20,   icon:'🩴' },
-  // ring
-  { slot:'ring',   name:'Anel',       stat:'crit',        base:0.08, icon:'💍' },
-  { slot:'ring',   name:'Selo',       stat:'dmg',         base:2,    icon:'🔮' },
-  // amulet
+  // amulet (colar)
   { slot:'amulet', name:'Amuleto',    stat:'atkSpeed',    base:0.08, icon:'🧿' },
   { slot:'amulet', name:'Talismã',    stat:'maxHp',       base:8,    icon:'⭐' },
+  // ring (anel)
+  { slot:'ring',   name:'Anel',       stat:'crit',        base:0.08, icon:'💍' },
+  { slot:'ring',   name:'Selo',       stat:'dmg',         base:2,    icon:'🔮' },
 ];
 
 const arena = {
@@ -2969,7 +2984,7 @@ const arena = {
   forgeInterval: 900,   // 15s @ 60fps
   pendingForgeItem: null,
   particles:[],
-  items:{ weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null },
+  items:{ weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null },
   // base stats (modificados por items + upgrades)
   baseDmg:5, baseAtkSpeed:1.0, baseMoveSpeed:0.616, baseMaxHp:100,
   baseProjectiles:1, baseCrit:0, baseDodge:0, baseXpMult:1, basePickupRange:50,
@@ -3024,7 +3039,7 @@ function initArena(){
   arena.pendingForgeItem = null;
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
-  arena.items = { weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null };
+  arena.items = { weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null };
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
   arena.baseDodge = 0; arena.baseXpMult = 1; arena.basePickupRange = 50;
@@ -4065,11 +4080,12 @@ function drawArenaHUD(){
   ctx.fillStyle = '#5a4499';
   ctx.fillRect(0, ARENA.BOT_Y+4, W, 2);
 
-  const slotSize = 34, gap = 6;
+  // 8 slots — slotsize menor pra caber
+  const slotSize = 30, gap = 4;
   const totalW = ARENA_SLOTS.length*slotSize + (ARENA_SLOTS.length-1)*gap;
   let sx = (W-totalW)/2;
   const sy = ARENA.BOT_Y + 14;
-  ctx.font = 'bold 16px monospace';
+  ctx.font = 'bold 14px monospace';
   for(const slot of ARENA_SLOTS){
     const it = arena.items[slot];
     const col = it ? RARITY[it.rarity].color : '#241a44';
@@ -4079,14 +4095,14 @@ function drawArenaHUD(){
     ctx.fillRect(sx+2, sy+2, slotSize-4, slotSize-4);
     if(it){
       ctx.fillStyle = col;
-      ctx.font = 'bold 18px monospace';
+      ctx.font = 'bold 16px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(it.icon, sx+slotSize/2, sy+4);
+      ctx.fillText(it.icon, sx+slotSize/2, sy+3);
     } else {
       ctx.fillStyle = '#3b2a70';
-      ctx.font = '18px monospace';
+      ctx.font = '15px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(ARENA_SLOT_ICONS[slot], sx+slotSize/2, sy+4);
+      ctx.fillText(ARENA_SLOT_ICONS[slot], sx+slotSize/2, sy+3);
     }
     ctx.textAlign = 'left';
     sx += slotSize + gap;
@@ -4246,11 +4262,12 @@ function openForgeCompare(){
   const oldCard = document.getElementById('forgeOldCard');
   const newCard = document.getElementById('forgeNewCard');
 
+  const slotLabel = ARENA_SLOT_LABELS[newItem.slot] || newItem.slot;
   const oldInner = oldItem
     ? forgeItemCardInner(oldItem)
     : `<div class="ico" style="color:#5a4499">${ARENA_SLOT_ICONS[newItem.slot]}</div>
        <div class="nm" style="color:#5a4499">Vazio</div>
-       <div class="rare" style="color:#5a4499">(${newItem.slot})</div>
+       <div class="rare" style="color:#5a4499">(${slotLabel})</div>
        <div class="stat" style="color:#5a4499">—</div>`;
   oldCard.innerHTML = `<div class="label">EQUIPADO</div>` + oldInner;
   oldCard.className = 'forge-card' + (oldItem ? '' : ' empty');
@@ -4318,20 +4335,21 @@ function buildArenaTabContent(key){
     let html = '';
     for(const slot of ARENA_SLOTS){
       const it = arena.items[slot];
+      const slotLabel = ARENA_SLOT_LABELS[slot] || slot;
       if(it){
         html += `<div class="row" style="color:${RARITY[it.rarity].color}">
-          <span>${it.icon} ${it.name}</span>
+          <span>${it.icon} ${it.name} <small style="opacity:.6">(${slotLabel})</small></span>
           <span>${RARITY[it.rarity].name} • +${it.value} ${it.stat}</span>
         </div>`;
       } else {
         html += `<div class="row">
-          <span style="color:#9b8fc4">${ARENA_SLOT_ICONS[slot]} ${slot}</span>
+          <span style="color:#9b8fc4">${ARENA_SLOT_ICONS[slot]} ${slotLabel}</span>
           <span style="color:#5a4499">vazio</span>
         </div>`;
       }
     }
     return `<div class="stats">${html}</div>
-      <p style="color:#9b8fc4;font-size:11px;margin-top:10px;text-align:center">Itens dropam dos inimigos. Slots auto-equipam o melhor.</p>`;
+      <p style="color:#9b8fc4;font-size:11px;margin-top:10px;text-align:center">Itens dropam dos inimigos ou via FORGE. Slots auto-equipam o melhor.</p>`;
   }
   if(key === 'world'){
     const t = Math.floor((performance.now()-arena.startTime)/1000);
