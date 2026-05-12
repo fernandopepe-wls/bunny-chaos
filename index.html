@@ -258,6 +258,13 @@
     box-shadow:0 3px 0 #1a6a3a;
   }
   #arenaForgeAutoBtn:active{transform:translateY(1px);}
+  /* desabilitado temporariamente (bug com proximas waves) */
+  #arenaForgeAutoBtn[disabled]{
+    opacity:0.4;
+    cursor:not-allowed;
+    filter:grayscale(0.6);
+    pointer-events:none;
+  }
 
   /* forge comparison popup */
   #forgeCompare h2{color:#ff7a1a;text-shadow:0 2px 0 #6b2a05;}
@@ -446,7 +453,7 @@
       <button id="arenaForgeLevelBtn" title="Upgrade da forja">
         <span>LV</span><span class="lvNum" id="forgeLevelNum">1</span>
       </button>
-      <button id="arenaForgeAutoBtn" title="Auto-forge">AUTO</button>
+      <button id="arenaForgeAutoBtn" title="Auto-forge (desabilitado temporariamente)" disabled>AUTO</button>
     </div>
 
     <!-- arena bottom tab bar (COMBAT no meio) -->
@@ -3849,10 +3856,10 @@ function updateArena(){
   if(arena.powerDeltaTimer > 0) arena.powerDeltaTimer--;
   if(arena.powerPulseTimer > 0) arena.powerPulseTimer--;
   bumpArenaPower();
-  // auto-forge: rola e auto-equipa se for melhor; só limitado por cenouras
-  if(arena.autoForge && arena.carrots >= FORGE_COST){
-    autoForgeStep();
-  }
+  // auto-forge: desabilitado temporariamente (bug nas waves seguintes)
+  // if(arena.autoForge && arena.carrots >= FORGE_COST){
+  //   autoForgeStep();
+  // }
 
   // update efeitos especiais
   updateArenaEffects();
