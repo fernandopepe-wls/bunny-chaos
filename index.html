@@ -284,6 +284,41 @@
     pointer-events:none;
   }
 
+  /* forge level probabilities (estilo tabela) */
+  .forge-level-cols{
+    display:flex;align-items:center;gap:8px;
+    padding:0 10px;margin:10px 0 4px;
+    font-size:10px;color:#9b8fc4;
+    letter-spacing:.5px;
+  }
+  .forge-level-cols .spacer{flex:1;}
+  .forge-level-cols .col-cur,
+  .forge-level-cols .col-next{
+    min-width:46px;text-align:right;font-weight:bold;
+  }
+  .forge-level-cols .col-cur{color:#fff7e0;}
+  .forge-level-cols .col-next{color:#ffcc3d;}
+  .forge-prob-list{display:flex;flex-direction:column;gap:3px;}
+  .forge-prob-row{
+    display:flex;align-items:center;gap:8px;
+    border-radius:6px;
+    padding:7px 10px;
+    border:1px solid rgba(255,255,255,0.08);
+  }
+  .forge-prob-row.locked{opacity:0.45;}
+  .forge-prob-row .ico{font-size:18px;width:24px;text-align:center;line-height:1;}
+  .forge-prob-row .name{
+    flex:1;font-size:12px;font-weight:bold;
+    color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.6);
+    letter-spacing:.3px;
+  }
+  .forge-prob-row .pct{
+    font-size:11px;font-weight:bold;
+    min-width:46px;text-align:right;
+    color:#fff;text-shadow:0 1px 0 rgba(0,0,0,0.7);
+  }
+  .forge-prob-row .pct.next{opacity:0.7;}
+
   /* forge comparison popup */
   #forgeCompare h2{color:#ff7a1a;text-shadow:0 2px 0 #6b2a05;}
   .forge-cards{display:flex;align-items:stretch;gap:8px;margin:14px 0;}
@@ -605,8 +640,8 @@
 
     <!-- forge LEVEL upgrade popup -->
     <div class="layer" id="forgeLevelLayer">
-      <h2 style="color:#5fb0d8;text-shadow:0 2px 0 #1a4a6a">⚙ FORGE LEVEL</h2>
-      <p>Cada nível destrava uma raridade superior nos drops da forja. Custo: kills acumulados.</p>
+      <h2 style="color:#5fb0d8;text-shadow:0 2px 0 #1a4a6a">⚙ Probabilidades de Forja</h2>
+      <p>Chance de cada raridade no drop. Melhore o nível pra destravar tiers superiores.</p>
       <div id="forgeLevelInfo" style="margin-top:14px;"></div>
       <div class="forge-actions">
         <button class="btn secondary" id="forgeLevelCloseBtn">Voltar</button>
@@ -4655,25 +4690,71 @@ function canUpgradeForge(){
       && arena.killCount >= FORGE_THRESHOLDS[arena.forgeLevel]; // próximo threshold
 }
 
+const TIER_ICONS = {
+  common:'🌿', uncommon:'🗡️', rare:'🏹', epic:'🔮',
+  legendary:'👑', mythic:'💎', divine:'✨',
+};
+
+function rarityProbsForLevel(lvl){
+  const maxTier = FORGE_LEVEL_MAX_TIER[lvl] || 'common';
+  const maxIdx = RARITY_KEYS.indexOf(maxTier);
+  const allowed = RARITY_WEIGHTS.filter(([k,_])=> RARITY_KEYS.indexOf(k) <= maxIdx);
+  const total = allowed.reduce((s,[,w])=>s+w, 0);
+  const probs = {};
+  for(const k of RARITY_KEYS) probs[k] = 0;
+  for(const [k,w] of allowed) probs[k] = total > 0 ? (w/total)*100 : 0;
+  return probs;
+}
+
+function fmtPct(p){
+  if(p === 0) return '0%';
+  if(p < 1) return p.toFixed(1) + '%';
+  if(p < 10) return p.toFixed(1) + '%';
+  return Math.round(p) + '%';
+}
+
 function buildForgeLevelInfo(){
   const lvl = arena.forgeLevel;
   const atMax = lvl >= FORGE_MAX_LEVEL;
-  const curMaxTier = FORGE_LEVEL_MAX_TIER[lvl] || 'common';
-  let html = `<div class="stats">
-    <div class="row"><span>Nível</span><span style="color:#5fb0d8">${lvl} / ${FORGE_MAX_LEVEL}</span></div>
-    <div class="row"><span>Raridade máx</span><span style="color:${RARITY[curMaxTier].color}">${RARITY[curMaxTier].name}</span></div>`;
+  const curProbs = rarityProbsForLevel(lvl);
+  const nextProbs = atMax ? curProbs : rarityProbsForLevel(lvl+1);
+
+  // header com Nível atual ▶ Próximo
+  let header = `<div class="forge-level-cols">
+    <span class="spacer"></span>
+    <span class="col-cur">Nível ${lvl}</span>
+    <span class="col-next">${atMax ? 'MAX' : '▶ Nível '+(lvl+1)}</span>
+  </div>`;
+
+  // uma linha por raridade
+  let rows = '';
+  for(const k of RARITY_KEYS){
+    const r = RARITY[k];
+    const cur = curProbs[k];
+    const next = nextProbs[k];
+    const locked = (cur === 0 && next === 0);
+    // background gradiente da cor da raridade pra escuro
+    const bg = `linear-gradient(90deg, ${r.color}cc 0%, ${r.color}55 60%, ${r.color}22 100%)`;
+    rows += `
+      <div class="forge-prob-row${locked ? ' locked' : ''}" style="background:${bg};">
+        <span class="ico">${TIER_ICONS[k]}</span>
+        <span class="name">${r.name}</span>
+        <span class="pct cur">${fmtPct(cur)}</span>
+        <span class="pct next">${fmtPct(next)}</span>
+      </div>`;
+  }
+
+  // status do upgrade (kills necessárias)
+  let footer = '';
   if(!atMax){
-    const nextMaxTier = FORGE_LEVEL_MAX_TIER[lvl+1];
     const reqKills = FORGE_THRESHOLDS[lvl];
     const enough = arena.killCount >= reqKills;
-    html += `
-      <div class="row"><span>Próxima raridade</span><span style="color:${RARITY[nextMaxTier].color}">${RARITY[nextMaxTier].name}</span></div>
-      <div class="row"><span>Kills necessárias</span><span style="color:${enough?'#4cf08e':'#ff5252'}">${arena.killCount} / ${reqKills}</span></div>`;
-  } else {
-    html += `<div class="row"><span style="color:#ffcc3d">NÍVEL MÁXIMO</span><span></span></div>`;
+    footer = `<p style="text-align:center;margin-top:10px;font-size:11px;color:#9b8fc4">
+      Kills: <b style="color:${enough?'#4cf08e':'#ff5252'}">${arena.killCount} / ${reqKills}</b>
+    </p>`;
   }
-  html += `</div>`;
-  return html;
+
+  return header + `<div class="forge-prob-list">${rows}</div>` + footer;
 }
 
 function openForgeLevel(){
@@ -4682,11 +4763,15 @@ function openForgeLevel(){
   if(canUpgradeForge()){
     upBtn.disabled = false;
     upBtn.style.opacity = '1';
-    upBtn.textContent = '⚡ Upgrade';
+    upBtn.textContent = '⚡ Melhorar';
+  } else if(arena.forgeLevel >= FORGE_MAX_LEVEL){
+    upBtn.disabled = true;
+    upBtn.style.opacity = '0.5';
+    upBtn.textContent = 'MAX';
   } else {
     upBtn.disabled = true;
     upBtn.style.opacity = '0.5';
-    upBtn.textContent = arena.forgeLevel >= FORGE_MAX_LEVEL ? 'MAX' : '⚡ Upgrade';
+    upBtn.textContent = '⚡ Melhorar';
   }
   state = STATE.ARENA_TAB;
   showLayer('forgeLevelLayer');
