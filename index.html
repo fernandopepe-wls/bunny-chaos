@@ -171,6 +171,32 @@
     transform:translate(-50%,-50%);
   }
 
+  /* AUTO toggle (arena) */
+  #arenaAutoBtn{
+    position:absolute;
+    top:11%;
+    right:8px;
+    padding:7px 10px;
+    background:#3b2a70;
+    color:var(--ink);
+    border:2px solid #7a5fc4;
+    border-radius:8px;
+    font-size:11px;font-weight:bold;
+    letter-spacing:1px;
+    cursor:pointer;
+    display:none;
+    z-index:6;
+    box-shadow:0 2px 0 #2a1a55;
+  }
+  #arenaAutoBtn.show{display:block;}
+  #arenaAutoBtn.active{
+    background:linear-gradient(180deg,#4cf08e,#2aa860);
+    color:#0d2a1a;
+    border-color:#88f0a8;
+    box-shadow:0 2px 0 #1a6a3a;
+  }
+  #arenaAutoBtn:active{transform:translateY(1px);}
+
   /* pause button (combo sheet) */
   #pauseBtn{
     position:absolute;
@@ -236,6 +262,9 @@
 
     <!-- pause / combo sheet button -->
     <button id="pauseBtn" title="Combos">📖</button>
+
+    <!-- arena AUTO toggle -->
+    <button id="arenaAutoBtn" title="Auto-movimento">AUTO</button>
 
     <!-- main menu -->
     <div class="layer show" id="menu">
@@ -2786,6 +2815,7 @@ const arena = {
   lastCombo:'NONE',
   comboTextTimer:0,
   maxRollBuffFrames:0,  // boost de range nos próximos swings (MAXROLL)
+  autoMove: false,      // IA de movimento ON/OFF
   particles:[],
   items:{ weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null },
   // base stats (modificados por items + upgrades)
@@ -2831,6 +2861,9 @@ function initArena(){
   arena.lastCombo = 'NONE';
   arena.comboTextTimer = 0;
   arena.maxRollBuffFrames = 0;
+  arena.autoMove = false;
+  const ab = document.getElementById('arenaAutoBtn');
+  if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, boots:null, ring:null, amulet:null };
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 1.54;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
@@ -3213,13 +3246,85 @@ function arenaSwing(){
   }
 }
 
+function computeArenaAI(){
+  // 1) range ideal pra ataque: dentro do alcance da espada com folga
+  const swordRange = 38 + Math.max(1, Math.round(arenaTotalStat('projectiles'))) * 6;
+  const idealNear = 32;
+  const idealFar  = Math.max(46, swordRange - 8);
+  const dangerR   = 60;
+
+  // 2) acha inimigo mais próximo + vetor de fuga somado
+  let nearest=null, nearestD=Infinity;
+  let fleeX=0, fleeY=0, dangerCount=0;
+  for(const e of arena.enemies){
+    const ddx = arena.bx - e.x, ddy = arena.by - e.y;
+    const d = Math.hypot(ddx, ddy);
+    if(d < nearestD){ nearestD = d; nearest = e; }
+    if(d < dangerR && d > 0.1){
+      const w = (dangerR - d) / dangerR; // mais perto = mais peso
+      fleeX += (ddx/d) * w;
+      fleeY += (ddy/d) * w;
+      dangerCount++;
+    }
+  }
+
+  let dx=0, dy=0;
+  if(nearest){
+    const tdx = nearest.x - arena.bx, tdy = nearest.y - arena.by;
+    const d = nearestD || 0.001;
+    if(d < idealNear){
+      // muito perto: foge na direção oposta
+      dx = -tdx/d; dy = -tdy/d;
+    } else if(d > idealFar){
+      // muito longe: aproxima
+      dx = tdx/d; dy = tdy/d;
+    } else {
+      // sweet spot: estafar perpendicular (kiting)
+      dx = -tdy/d * 0.6;
+      dy =  tdx/d * 0.6;
+    }
+  }
+
+  // 3) blend com vetor de fuga (peso maior se múltiplos inimigos perto)
+  if(dangerCount > 0){
+    const fleeMag = Math.min(1, dangerCount * 0.4);
+    dx += fleeX * fleeMag;
+    dy += fleeY * fleeMag;
+  }
+
+  // 4) coleta de XP gems quando seguro
+  if(dangerCount === 0 || nearestD > 70){
+    let bestGem=null, bestGemD=Infinity;
+    for(const g of arena.gems){
+      const d = Math.hypot(g.x-arena.bx, g.y-arena.by);
+      if(d < bestGemD){ bestGemD = d; bestGem = g; }
+    }
+    if(bestGem && bestGemD > (arena.basePickupRange + arenaTotalStat('pickupRange') - 10)){
+      const gx = bestGem.x - arena.bx, gy = bestGem.y - arena.by;
+      const d = Math.hypot(gx, gy) || 1;
+      dx += (gx/d) * 0.4;
+      dy += (gy/d) * 0.4;
+    }
+  }
+
+  // 5) repele das bordas pra não encurralar
+  const margin = 28;
+  if(arena.bx < ARENA.LEFT_X + margin)  dx += 0.6;
+  if(arena.bx > ARENA.RIGHT_X - margin) dx -= 0.6;
+  if(arena.by < ARENA.TOP_Y + margin)   dy += 0.6;
+  if(arena.by > ARENA.BOT_Y - margin)   dy -= 0.6;
+
+  return { dx, dy };
+}
+
 function updateArena(){
   // input movement
   let dx = 0, dy = 0;
-  if(input.active){
-    // joystick 2D (axisX já existe; pra Y precisamos do delta vertical)
+  if(arena.autoMove){
+    const ai = computeArenaAI();
+    dx = ai.dx; dy = ai.dy;
+  } else if(input.active){
     dx = input.axisX || 0;
-    // grava Y também via joystick (vou usar input.axisY se existir, senão 0)
     dy = input.axisY || 0;
   } else {
     // teclado
@@ -3893,6 +3998,12 @@ function renderArena(){
 
 document.getElementById('arenaBtn').addEventListener('click', enterArena);
 document.getElementById('arenaRetryBtn').addEventListener('click', enterArena);
+document.getElementById('arenaAutoBtn').addEventListener('click', ()=>{
+  arena.autoMove = !arena.autoMove;
+  const ab = document.getElementById('arenaAutoBtn');
+  ab.classList.toggle('active', arena.autoMove);
+  ab.textContent = arena.autoMove ? 'AUTO ✓' : 'AUTO';
+});
 document.getElementById('arenaMenuBtn').addEventListener('click', ()=>{
   state = STATE.MENU;
   showLayer('menu');
@@ -3928,6 +4039,11 @@ function loop(now){
   const pauseEl = document.getElementById('pauseBtn');
   if(state === STATE.PLAY) pauseEl.classList.add('show');
   else pauseEl.classList.remove('show');
+
+  // AUTO toggle só visível na arena
+  const autoEl = document.getElementById('arenaAutoBtn');
+  if(state === STATE.ARENA_PLAY) autoEl.classList.add('show');
+  else autoEl.classList.remove('show');
 
   if(state === STATE.CAVE_PLAY || state === STATE.CAVE_GAMEOVER){
     renderCave();
