@@ -1113,8 +1113,8 @@ const SUBSTAT_TO_ARENA = {
 
 // Custo da forja em hammers (carrots reaproveitados como hammers)
 const FORGE_BASE_COST = 3;   // hammers pra rolagem inicial
-const FORGE_REROLL_COST = 1; // hammers por reroll
-const FORGE_MAX_REROLLS = 7;
+const FORGE_REROLL_COST = 0; // hammers por reroll (grátis)
+const FORGE_MAX_REROLLS = 3;
 // alias antigo (alguns lugares ainda chamam FORGE_COST)
 const FORGE_COST = FORGE_BASE_COST;
 // stats por slot
@@ -2968,7 +2968,7 @@ function renderForgeDice(){
     const canReroll = forgeRoll.rerollsLeft > 0 && arena.carrots >= FORGE_REROLL_COST;
     rollBtn.disabled = !canReroll;
     rollBtn.textContent = canReroll
-      ? `🔁 REROLAR (${FORGE_REROLL_COST}🥕) · ${forgeRoll.rerollsLeft} restantes`
+      ? `🔁 REROLAR · ${forgeRoll.rerollsLeft} restantes`
       : '🔁 SEM REROLLS';
     confirmBtn.style.display = '';
     confirmBtn.disabled = false;
@@ -3194,7 +3194,7 @@ function buildArenaTabContent(key){
     const bestEra = ERAS[bestIdx];
     return `<div class="stats">
       <div class="row"><span>🥕 Cenouras</span><span style="color:#ff9b3a">${arena.carrots}</span></div>
-      <div class="row"><span>Custo da forja</span><span style="color:#ffcc3d">${FORGE_BASE_COST} 🥕 + ${FORGE_REROLL_COST}/reroll</span></div>
+      <div class="row"><span>Custo da forja</span><span style="color:#ffcc3d">${FORGE_BASE_COST} 🥕 · ${FORGE_MAX_REROLLS} rerolls grátis</span></div>
       <div class="row"><span>Era mais provável (forge lv ${arena.forgeLevel})</span><span style="color:${bestEra.color}">${bestEra.name} ${(bestP*100).toFixed(0)}%</span></div>
     </div>
     <p class="em-breve">Cenouras dropam de cada inimigo (bosses dão +10).<br/>Use no botão FORGE pra rolar os dados e forjar.</p>`;
