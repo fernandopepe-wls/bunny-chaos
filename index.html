@@ -204,7 +204,15 @@
     aspect-ratio:1/1;
     width:auto;height:auto;
     min-width:0;
-    font-size:24px;
+    font-size:48px;
+    line-height:0.95;
+  }
+  /* o glifo Unicode tem padding interno; ampliamos visualmente via scale
+     pra ele preencher mais o quadrado do dado */
+  .forge-dice-row .forge-die .face{
+    display:inline-block;
+    transform:scale(1.35);
+    transform-origin:center center;
   }
   .forge-side-col{
     display:flex;flex-direction:column;gap:4px;
