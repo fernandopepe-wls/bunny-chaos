@@ -3414,26 +3414,36 @@ function hideItemPopup(){
   const popupEl = document.getElementById('itemPopup');
   const backdropEl = document.getElementById('itemPopupBackdrop');
 
-  // backdrop fecha a popup, mas só quando o clique foi no backdrop em si
-  // (não em algum filho — a popup agora vive dentro do backdrop)
-  backdropEl.addEventListener('click', (e)=>{
-    if(e.target === backdropEl) hideItemPopup();
-  });
+  // ======= GATE GLOBAL: enquanto a popup está aberta, qualquer click
+  // que NÃO seja dentro do card da popup é absorvido — fecha a popup
+  // e bloqueia qualquer outra ação (item slot, botão de forge, tab bar
+  // etc.) usando capture-phase + stopImmediatePropagation. =======
+  frame.addEventListener('click', (e)=>{
+    if(!popupEl.classList.contains('show')) return;
+    if(popupEl.contains(e.target)) return; // clique dentro do card: ignora
+    hideItemPopup();
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }, true); // capture: roda ANTES dos handlers de target/bubble
 
-  // listener principal de clique
+  // bloqueia também eventos de pointer/touch durante o gate, pra evitar
+  // que botões com handlers em pointerdown/touchstart escapem
+  for(const evt of ['pointerdown','mousedown','touchstart']){
+    frame.addEventListener(evt, (e)=>{
+      if(!popupEl.classList.contains('show')) return;
+      if(popupEl.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    }, true);
+  }
+
+  // listener principal de clique pra abrir a popup ao clicar num slot
   frame.addEventListener('click', (e)=>{
     if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
-
-    const isOpen = popupEl.classList.contains('show');
-
-    // Se a popup está aberta e o clique foi em qualquer botão/elemento fora dela,
-    // fechamos a popup. O click do botão segue normalmente (sem stop).
-    if(isOpen && !popupEl.contains(e.target) && !backdropEl.contains(e.target)){
-      hideItemPopup();
-      return;
-    }
-    // Se foi DENTRO da popup, não faz nada (segue padrão).
-    if(popupEl.contains(e.target)) return;
+    // se a popup já está aberta, o gate acima já tratou — nada a fazer
+    if(popupEl.classList.contains('show')) return;
 
     // Verifica se o clique caiu na região do items strip (canvas)
     const rect = frame.getBoundingClientRect();
