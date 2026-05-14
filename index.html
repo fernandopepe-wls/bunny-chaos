@@ -387,6 +387,29 @@
     100% { transform:translateY(0) rotate(-8deg); }
   }
   .forge-die.disabled{opacity:0.6;pointer-events:none;}
+
+  /* Glow nos dados que participam do combo atual; cor vem de --combo-color
+     (definido inline em JS). Amarelo → vermelho conforme o tier. */
+  .forge-die.combo-glow{
+    border-color: var(--combo-color, #FFCC3D);
+    box-shadow:
+      0 3px 0 #6b4a05,
+      0 0 14px var(--combo-color, #FFCC3D),
+      0 0 4px var(--combo-color, #FFCC3D) inset;
+    animation: comboPulse 1.1s ease-in-out infinite;
+  }
+  /* mantém a animação se o dado também estiver held (mas troca a sombra base) */
+  .forge-die.combo-glow.held{
+    border-color: var(--combo-color, #FFCC3D);
+    box-shadow:
+      0 3px 0 #0c447c,
+      0 0 14px var(--combo-color, #FFCC3D),
+      0 0 4px var(--combo-color, #FFCC3D) inset;
+  }
+  @keyframes comboPulse{
+    0%, 100% { filter: brightness(1); }
+    50%      { filter: brightness(1.25); }
+  }
   #forgeComboLabel{
     text-align:center;font-size:18px;font-weight:bold;letter-spacing:.4px;
     margin:6px 0 4px;
@@ -1074,6 +1097,72 @@ const COMBO_DATA = {
   MAXROLL:  { id:'MAXROLL',  name:'Lançamento Máx.', mult:1.5,  tierUp:0.00, doubleUp:0.00, color:'#5F5E5A' },
   NONE:     { id:'NONE',     name:'—',               mult:1.0,  tierUp:0.00, doubleUp:0.00, color:'#5F5E5A' },
 };
+
+// Cor de glow nos dados conforme o tier do combo: degradê amarelo → vermelho.
+// Par simples = amarelo (mais frio), Cinco Iguais = vermelho (mais quente).
+// MAXROLL não tem combo "real", então não brilha.
+const COMBO_GLOW_COLOR = {
+  PAIR:     '#FFCC3D', // amarelo
+  TWOPAIR:  '#FFA82F', // amarelo-laranja
+  THREE:    '#FF8420', // laranja
+  STRAIGHT: '#FF6018', // laranja escuro
+  FULL:     '#FF4815', // vermelho-laranja
+  FOUR:     '#FF2D2D', // vermelho claro
+  FIVE:     '#FF1010', // vermelho intenso
+};
+
+// Retorna os indices dos dados que participam do combo atual.
+// `diceValues` é um array de números 1..6 (não de objetos).
+function getComboDiceIndices(diceValues, comboId){
+  if(!comboId || comboId === 'NONE' || comboId === 'MAXROLL') return [];
+  // mapa valor → [índices]
+  const groups = {};
+  for(let i=0; i<diceValues.length; i++){
+    const v = diceValues[i];
+    if(!groups[v]) groups[v] = [];
+    groups[v].push(i);
+  }
+  const indices = [];
+  if(comboId === 'FIVE' || comboId === 'FULL'){
+    // todos os dados participam
+    return diceValues.map((_,i)=>i);
+  }
+  if(comboId === 'FOUR'){
+    for(const v in groups) if(groups[v].length === 4) return groups[v];
+    return [];
+  }
+  if(comboId === 'THREE'){
+    for(const v in groups) if(groups[v].length === 3) return groups[v];
+    return [];
+  }
+  if(comboId === 'TWOPAIR'){
+    for(const v in groups){
+      if(groups[v].length === 2) indices.push(...groups[v]);
+    }
+    return indices;
+  }
+  if(comboId === 'PAIR'){
+    for(const v in groups){
+      if(groups[v].length === 2) return groups[v];
+    }
+    return [];
+  }
+  if(comboId === 'STRAIGHT'){
+    // qualquer dado cujo valor esteja num run de 4 consecutivos
+    const distinct = Object.keys(groups).map(Number).sort((a,b)=>a-b);
+    const inSeq = new Set();
+    for(let i=0; i<=distinct.length-4; i++){
+      if(distinct[i+1] === distinct[i]+1
+      && distinct[i+2] === distinct[i]+2
+      && distinct[i+3] === distinct[i]+3){
+        for(let k=0; k<4; k++) inSeq.add(distinct[i+k]);
+      }
+    }
+    for(const v of inSeq) indices.push(...groups[v]);
+    return indices;
+  }
+  return [];
+}
 
 // ============== SUBSTATS (design.md §7) ==============
 // max = valor máximo possível na rolagem; arenaImpact converte pra ganho real de combate
@@ -2922,6 +3011,19 @@ function diceFace(v){
 }
 
 function renderForgeDice(){
+  // pré-computa combo + indices participantes pra aplicar glow nos dados certos
+  let activeCombo = null;
+  let highlightSet = null;
+  if(forgeRoll.phase === 'after-roll'){
+    const comboKey = evalComboArr(forgeRoll.dice.map(v=>({value:v})));
+    activeCombo = COMBO_DATA[comboKey] || COMBO_DATA.NONE;
+    forgeRoll.currentCombo = activeCombo;
+    const glowColor = COMBO_GLOW_COLOR[activeCombo.id];
+    if(glowColor){
+      const idxs = getComboDiceIndices(forgeRoll.dice, activeCombo.id);
+      highlightSet = { set: new Set(idxs), color: glowColor };
+    }
+  }
   for(let i=0; i<5; i++){
     const el = _forgeDie(i);
     if(!el) continue;
@@ -2929,6 +3031,14 @@ function renderForgeDice(){
     el.classList.toggle('held', !!forgeRoll.held[i]);
     // dados só são interativos depois da rolagem (pra travar/destravar)
     el.classList.toggle('disabled', forgeRoll.phase !== 'after-roll');
+    // combo glow
+    if(highlightSet && highlightSet.set.has(i)){
+      el.classList.add('combo-glow');
+      el.style.setProperty('--combo-color', highlightSet.color);
+    } else {
+      el.classList.remove('combo-glow');
+      el.style.removeProperty('--combo-color');
+    }
   }
   // combo + cenoura inline
   const comboEl = document.getElementById('forgeComboInline');
@@ -2941,12 +3051,9 @@ function renderForgeDice(){
     } else if(forgeRoll.phase === 'rolling'){
       comboEl.textContent = '…rolando';
       comboEl.style.color = '#9b8fc4';
-    } else {
-      const comboKey = evalComboArr(forgeRoll.dice.map(v=>({value:v})));
-      const combo = COMBO_DATA[comboKey] || COMBO_DATA.NONE;
-      forgeRoll.currentCombo = combo;
+    } else if(activeCombo){
       const rr = forgeRoll.rerollsLeft;
-      comboEl.innerHTML = `<span style="color:${combo.color}">${combo.name} ×${combo.mult.toFixed(1)}</span> · rerolls ${rr}`;
+      comboEl.innerHTML = `<span style="color:${activeCombo.color}">${activeCombo.name} ×${activeCombo.mult.toFixed(1)}</span> · rerolls ${rr}`;
     }
   }
   // botões
