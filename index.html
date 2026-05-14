@@ -2920,19 +2920,10 @@ function drawArenaHUD(){
       ctx.fillStyle = col;
       ctx.font = 'bold 26px monospace';
       ctx.fillText(it.icon, sx+slotW/2, sy + 26);
-      // stat value embaixo (escalado por currentLevel via baseStat)
-      ctx.fillStyle = '#fff7e0';
-      ctx.font = 'bold 9px monospace';
-      const raw = getDisplayedBaseStat(it);
-      const isFlat = (it.stat === 'dmg' || it.stat === 'maxHp' || it.stat === 'pickupRange' || it.stat === 'projectiles');
-      const statTxt = isFlat
-        ? (raw < 10 ? `+${raw.toFixed(1)}` : `+${Math.round(raw)}`)
-        : `+${Math.round(raw*100)}%`;
-      ctx.fillText(statTxt, sx+slotW/2, sy+slotH-15);
-      // pequena badge de level abaixo do stat (Lv X)
+      // só level embaixo (sem stat numérico — o detalhe vai pra popup)
       ctx.fillStyle = '#88daf0';
-      ctx.font = 'bold 8px monospace';
-      ctx.fillText(`Lv ${it.currentLevel || it.level || 1}`, sx+slotW/2, sy+slotH-6);
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText(`Lv ${it.currentLevel || it.level || 1}`, sx+slotW/2, sy+slotH-9);
     } else {
       ctx.fillStyle = '#3b2a70';
       ctx.font = '26px monospace';
