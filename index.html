@@ -254,6 +254,64 @@
     min-height:22px;
     display:flex;align-items:center;justify-content:center;
   }
+
+  /* ===== POPUP DE DETALHE DE ITEM (cobre só a metade de baixo) ===== */
+  /* Backdrop escurece só dos items pra baixo; o grid de gameplay
+     em cima fica visível. Aparece quando .show é adicionada via JS. */
+  #itemPopupBackdrop{
+    position:absolute;
+    left:0;right:0;
+    /* topo do items strip = ARENA.BOT_Y+4 = 506 lógico / 800 = 63.25% */
+    top: 63.25%;
+    bottom:0;
+    background: rgba(0,0,0,0.75);
+    display:none;
+    z-index:8;
+    cursor:pointer;
+  }
+  #itemPopupBackdrop.show{display:block;}
+  #itemPopup{
+    position:absolute;
+    left:4%;right:4%;
+    bottom:62px; /* logo acima do tab bar */
+    background:linear-gradient(180deg,#1a1330,#0d0a1a);
+    border:2px solid #5a4499;
+    border-radius:12px;
+    padding:12px 14px 10px;
+    display:none;
+    z-index:9;
+    color:var(--ink);
+    box-shadow:0 6px 24px rgba(0,0,0,0.6);
+  }
+  #itemPopup.show{display:block;}
+  #itemPopup .head{
+    display:flex;align-items:center;gap:10px;
+    padding-bottom:8px;border-bottom:1px solid #2a1f4d;
+    margin-bottom:8px;
+  }
+  #itemPopup .ico{font-size:32px;line-height:1;}
+  #itemPopup .head-info{flex:1;min-width:0;}
+  #itemPopup .nm{font-size:15px;font-weight:bold;letter-spacing:.4px;}
+  #itemPopup .meta{font-size:11px;color:#9b8fc4;margin-top:2px;}
+  #itemPopup .slot-label{
+    font-size:9px;color:#5a4499;letter-spacing:1.2px;
+    padding:2px 6px;background:#241a44;border-radius:4px;
+  }
+  #itemPopup .primary{
+    font-size:13px;font-weight:bold;color:#ffcc3d;
+    text-align:center;margin:4px 0 8px;
+    text-shadow:0 1px 0 #6b4a05;
+  }
+  #itemPopup .primary.empty{color:#5a4499;font-weight:normal;}
+  #itemPopup .subs{
+    display:flex;flex-direction:column;gap:4px;
+    max-height:35vh;overflow-y:auto;
+  }
+  #itemPopup .subs .substat-row{font-size:11px;}
+  #itemPopup .footer-hint{
+    text-align:center;font-size:10px;color:#5a4499;
+    margin-top:8px;letter-spacing:.5px;
+  }
   /* combo agora ocupa o centro inteiro, maior */
   #forgeComboInline{
     color:#9b8fc4;
@@ -701,6 +759,22 @@
       <button class="arenaTab-btn" data-tab="equipe"  disabled><span class="ico">🎽</span><span>EQUIPE</span></button>
       <button class="arenaTab-btn" data-tab="mission" disabled><span class="ico">📋</span><span>MISSION</span></button>
       <button class="arenaTab-btn" data-tab="world"   disabled><span class="ico">🗺</span><span>WORLD</span></button>
+    </div>
+
+    <!-- popup de detalhes do item (aparece ao clicar num slot do items strip) -->
+    <div id="itemPopupBackdrop"></div>
+    <div id="itemPopup">
+      <div class="head">
+        <span class="ico" id="itemPopupIcon">⚔️</span>
+        <div class="head-info">
+          <div class="nm" id="itemPopupName">—</div>
+          <div class="meta" id="itemPopupMeta">—</div>
+        </div>
+        <span class="slot-label" id="itemPopupSlot">SLOT</span>
+      </div>
+      <div class="primary" id="itemPopupPrimary"></div>
+      <div class="subs" id="itemPopupSubs"></div>
+      <div class="footer-hint">Toque fora pra fechar</div>
     </div>
 
     <!-- forge LEVEL upgrade popup -->
@@ -2601,8 +2675,11 @@ function drawArenaHUD(){
       // stat value embaixo
       ctx.fillStyle = '#fff7e0';
       ctx.font = 'bold 9px monospace';
-      const statTxt = it.stat === 'maxHp' || it.stat === 'pickupRange' || it.stat === 'projectiles'
-        ? `+${it.value.toFixed(0)}`
+      // stats flat (numero absoluto): dmg, maxHp, pickupRange, projectiles.
+      // resto (atkSpeed, crit, dodge, xpMult, moveSpeed) sao fracoes => %
+      const isFlat = (it.stat === 'dmg' || it.stat === 'maxHp' || it.stat === 'pickupRange' || it.stat === 'projectiles');
+      const statTxt = isFlat
+        ? `+${it.value.toFixed(it.value < 10 ? 1 : 0)}`
         : `+${Math.round(it.value*100)}%`;
       ctx.fillText(statTxt, sx+slotW/2, sy+slotH-9);
     } else {
@@ -3269,6 +3346,109 @@ for(const el of document.querySelectorAll('#arenaDiceRow .forge-die')){
     forgeToggleHold(+el.getAttribute('data-i'));
   });
 }
+
+// ============== ITEM DETAIL POPUP ==============
+// Mostra detalhes do item ao clicar no slot do items strip (renderizado no canvas).
+function showItemPopup(slotKey){
+  const popup    = document.getElementById('itemPopup');
+  const backdrop = document.getElementById('itemPopupBackdrop');
+  const iconEl   = document.getElementById('itemPopupIcon');
+  const nameEl   = document.getElementById('itemPopupName');
+  const metaEl   = document.getElementById('itemPopupMeta');
+  const slotEl   = document.getElementById('itemPopupSlot');
+  const primaryEl= document.getElementById('itemPopupPrimary');
+  const subsEl   = document.getElementById('itemPopupSubs');
+  if(!popup) return;
+
+  const it = arena.items[slotKey];
+  slotEl.textContent = (ARENA_SLOT_LABELS[slotKey] || slotKey).toUpperCase();
+
+  if(!it){
+    iconEl.textContent = ARENA_SLOT_ICONS[slotKey] || '⬜';
+    iconEl.style.color = '#5a4499';
+    nameEl.textContent = 'Vazio';
+    nameEl.style.color = '#9b8fc4';
+    metaEl.textContent = 'Sem item equipado neste slot';
+    primaryEl.className = 'primary empty';
+    primaryEl.textContent = '— · forje um item pra equipar';
+    subsEl.innerHTML = '';
+  } else {
+    const era = eraOfItem(it);
+    iconEl.textContent = it.icon || '⚔️';
+    iconEl.style.color = era.color;
+    nameEl.textContent = it.name;
+    nameEl.style.color = era.color;
+    const lvl = it.level ? `Lv ${it.level}` : '';
+    const combo = it.combo ? ` · ${it.combo}` : '';
+    metaEl.innerHTML = `<span style="color:${era.color}">${era.name}</span>${lvl?' · '+lvl:''}${combo}`;
+    // stat primário — flat (dmg/maxHp/pickup/projectiles) vs %
+    const isFlat = (it.stat === 'dmg' || it.stat === 'maxHp' || it.stat === 'pickupRange' || it.stat === 'projectiles');
+    const statTxt = isFlat
+      ? `+${(+it.value).toFixed(it.value < 10 ? 1 : 0)} ${it.stat}`
+      : `+${Math.round((+it.value)*100)}% ${it.stat}`;
+    primaryEl.className = 'primary';
+    primaryEl.textContent = statTxt;
+    // substats
+    subsEl.innerHTML = buildSubstatsHtml(it, null) || '';
+  }
+
+  popup.classList.add('show');
+  backdrop.classList.add('show');
+}
+
+function hideItemPopup(){
+  document.getElementById('itemPopup').classList.remove('show');
+  document.getElementById('itemPopupBackdrop').classList.remove('show');
+}
+
+// Click handler no frame: detecta clique no items strip (canvas) e abre popup.
+// Como os items são desenhados no canvas, convertemos coord CSS → coord lógica
+// e checamos a região de cada slot.
+(function setupItemPopupClicks(){
+  const frame = document.getElementById('frame');
+  const popupEl = document.getElementById('itemPopup');
+  const backdropEl = document.getElementById('itemPopupBackdrop');
+
+  // backdrop fecha a popup
+  backdropEl.addEventListener('click', hideItemPopup);
+
+  // listener principal de clique
+  frame.addEventListener('click', (e)=>{
+    if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
+
+    const isOpen = popupEl.classList.contains('show');
+
+    // Se a popup está aberta e o clique foi em qualquer botão/elemento fora dela,
+    // fechamos a popup. O click do botão segue normalmente (sem stop).
+    if(isOpen && !popupEl.contains(e.target) && !backdropEl.contains(e.target)){
+      hideItemPopup();
+      return;
+    }
+    // Se foi DENTRO da popup, não faz nada (segue padrão).
+    if(popupEl.contains(e.target)) return;
+
+    // Verifica se o clique caiu na região do items strip (canvas)
+    const rect = frame.getBoundingClientRect();
+    if(rect.width === 0 || rect.height === 0) return;
+    const cssX = e.clientX - rect.left;
+    const cssY = e.clientY - rect.top;
+    const lx = cssX / rect.width  * W;
+    const ly = cssY / rect.height * H;
+
+    const slotW = 42, slotH = 68, gap = 2;
+    const sy = ARENA.BOT_Y + 12;
+    if(ly < sy || ly > sy + slotH) return;
+
+    const totalW = ARENA_SLOTS.length*slotW + (ARENA_SLOTS.length-1)*gap;
+    const sx0 = (W - totalW)/2;
+    if(lx < sx0 || lx > sx0 + totalW) return;
+    const offset = lx - sx0;
+    const slotIdx = Math.floor(offset / (slotW + gap));
+    if(slotIdx < 0 || slotIdx >= ARENA_SLOTS.length) return;
+    const slot = ARENA_SLOTS[slotIdx];
+    showItemPopup(slot);
+  });
+})();
 
 function buildArenaTabContent(key){
   if(key === 'hero'){
