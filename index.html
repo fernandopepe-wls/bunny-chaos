@@ -1034,7 +1034,11 @@ function evalComboArr(diceArr){
 }
 
 // ============== FORGE — PIPELINE (design.md §5–9) ==============
-const ERA_PEAK_OFFSET = 4;   // pico = unlock + 4
+// ERA_PEAK_OFFSET ajustado de 4 → 2: a fórmula original (peak=unlock+4)
+// faria Divine (unlock 33) picar em lvl 37, fora do range MAX_FORGE_LEVEL=35,
+// resultando em Underworld dominante no late game. Com offset=2, Divine picа
+// em lvl 35 e domina (~75%) como o design §5.4 prevê.
+const ERA_PEAK_OFFSET = 2;
 const ERA_VARIANCE   = 8;    // denominador na gaussiana
 const ERA_MIN_WEIGHT = 0.5;  // piso pra eras antigas não sumirem
 
@@ -3178,12 +3182,15 @@ function renderForgeDice(){
     rollBtn.textContent = '…rolando';
     confirmBtn.style.display = 'none';
   } else if(forgeRoll.phase === 'after-roll'){
-    rollBtn.style.display = '';
+    // Botão de reroll só aparece se há rerolls disponíveis (design §14)
     const canReroll = forgeRoll.rerollsLeft > 0 && arena.carrots >= FORGE_REROLL_COST;
-    rollBtn.disabled = !canReroll;
-    rollBtn.textContent = canReroll
-      ? `🔁 REROLAR · ${forgeRoll.rerollsLeft} restantes`
-      : '🔁 SEM REROLLS';
+    if(canReroll){
+      rollBtn.style.display = '';
+      rollBtn.disabled = false;
+      rollBtn.textContent = `🔁 REROLAR · ${forgeRoll.rerollsLeft} restantes`;
+    } else {
+      rollBtn.style.display = 'none';
+    }
     confirmBtn.style.display = '';
     confirmBtn.disabled = false;
     confirmBtn.textContent = '⚡ FORJAR';
