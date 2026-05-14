@@ -268,22 +268,26 @@
     display:none;
     z-index:8;
     cursor:pointer;
+    /* flex centra a popup verticalmente entre o items strip e o tab bar */
+    align-items:center;
+    justify-content:center;
+    padding: 8px 4%;
+    padding-bottom: 62px; /* reserva espaço pro tab bar */
+    box-sizing:border-box;
   }
-  #itemPopupBackdrop.show{display:block;}
+  #itemPopupBackdrop.show{display:flex;}
   #itemPopup{
-    position:absolute;
-    left:4%;right:4%;
-    bottom:62px; /* logo acima do tab bar */
+    position:relative;
+    width:100%;
+    max-width:380px;
     background:linear-gradient(180deg,#1a1330,#0d0a1a);
     border:2px solid #5a4499;
     border-radius:12px;
     padding:12px 14px 10px;
-    display:none;
-    z-index:9;
     color:var(--ink);
     box-shadow:0 6px 24px rgba(0,0,0,0.6);
+    cursor:default;
   }
-  #itemPopup.show{display:block;}
   #itemPopup .head{
     display:flex;align-items:center;gap:10px;
     padding-bottom:8px;border-bottom:1px solid #2a1f4d;
@@ -762,19 +766,20 @@
     </div>
 
     <!-- popup de detalhes do item (aparece ao clicar num slot do items strip) -->
-    <div id="itemPopupBackdrop"></div>
-    <div id="itemPopup">
-      <div class="head">
-        <span class="ico" id="itemPopupIcon">⚔️</span>
-        <div class="head-info">
-          <div class="nm" id="itemPopupName">—</div>
-          <div class="meta" id="itemPopupMeta">—</div>
+    <div id="itemPopupBackdrop">
+      <div id="itemPopup">
+        <div class="head">
+          <span class="ico" id="itemPopupIcon">⚔️</span>
+          <div class="head-info">
+            <div class="nm" id="itemPopupName">—</div>
+            <div class="meta" id="itemPopupMeta">—</div>
+          </div>
+          <span class="slot-label" id="itemPopupSlot">SLOT</span>
         </div>
-        <span class="slot-label" id="itemPopupSlot">SLOT</span>
+        <div class="primary" id="itemPopupPrimary"></div>
+        <div class="subs" id="itemPopupSubs"></div>
+        <div class="footer-hint">Toque fora pra fechar</div>
       </div>
-      <div class="primary" id="itemPopupPrimary"></div>
-      <div class="subs" id="itemPopupSubs"></div>
-      <div class="footer-hint">Toque fora pra fechar</div>
     </div>
 
     <!-- forge LEVEL upgrade popup -->
@@ -3409,8 +3414,11 @@ function hideItemPopup(){
   const popupEl = document.getElementById('itemPopup');
   const backdropEl = document.getElementById('itemPopupBackdrop');
 
-  // backdrop fecha a popup
-  backdropEl.addEventListener('click', hideItemPopup);
+  // backdrop fecha a popup, mas só quando o clique foi no backdrop em si
+  // (não em algum filho — a popup agora vive dentro do backdrop)
+  backdropEl.addEventListener('click', (e)=>{
+    if(e.target === backdropEl) hideItemPopup();
+  });
 
   // listener principal de clique
   frame.addEventListener('click', (e)=>{
