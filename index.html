@@ -172,15 +172,15 @@
   }
 
   /* ===== ARENA FORGE INLINE (substitui forgeDice popup) ===== */
-  /* Centralizado verticalmente no gap entre o items strip (acaba em ~72.75% da altura
-     do frame, baseado em ARENA.BOT_Y+80) e o tab bar (top = frame_height - 54).
-     Posição calculada via `bottom: calc(13.6% - 38px)` que aproxima o meio do gap
-     em qualquer tamanho de frame (9:20 portrait). */
+  /* Items strip vai do logical y=404 a y=480 (51% a 60% do frame).
+     Tab bar é 54px CSS no rodapé. O forge widget fica centralizado no gap
+     entre items strip e tab bar, com calc responsiva.
+     Para frame 852 → bottom ≈ 117; para 960 → bottom ≈ 138; para 720 → ≈ 92. */
   #arenaForgeInline{
     position:absolute;
     left:50%;
     transform:translateX(-50%);
-    bottom: calc(13.6% - 38px);
+    bottom: calc(19.4% - 48px);
     width:min(96%, 380px);
     display:none;
     flex-direction:column;
@@ -261,8 +261,8 @@
   #itemPopupBackdrop{
     position:absolute;
     left:0;right:0;
-    /* topo do items strip = ARENA.BOT_Y+4 = 506 lógico / 800 = 63.25% */
-    top: 63.25%;
+    /* topo do items strip = ARENA.BOT_Y+4 = 404 lógico / 800 = 50.5% (grid trava em 50%) */
+    top: 50.5%;
     bottom:0;
     background: rgba(0,0,0,0.75);
     display:none;
@@ -671,10 +671,11 @@
     50%{box-shadow:0 3px 0 #6b1414, 0 0 22px rgba(255,82,82,.7);}
   }
 
-  /* AUTO toggle (arena) — dentro do play grid, no canto inferior direito */
+  /* AUTO toggle (arena) — dentro do play grid, no canto inferior direito.
+     Grid trava em 50% → AUTO fica logo acima do items strip (bottom: 50% + margem). */
   #arenaAutoBtn{
     position:absolute;
-    bottom:36%;
+    bottom:calc(50% + 6px);
     right:10px;
     padding:7px 10px;
     background:#3b2a70;
@@ -1643,11 +1644,11 @@ function bumpArenaPower(){
 }
 
 function initArenaLayout(){
-  // Grid sem topo reservado: vai até o limite do frame, com HUD sobreposto como pills flutuantes
+  // Grid de gameplay vai do topo até EXATAMENTE 50% da altura do frame.
+  // A metade de baixo é toda dedicada à UI (items strip + forge dice + tab bar).
+  // Mantém proporção responsiva em qualquer altura de smartphone moderno.
   ARENA.TOP_Y = 0;
-  // bottom area: items strip (90) + forge inline widget (~150 lógico) + tab bar (~40)
-  // forge inline ocupa: dados (~52) + action row (~38) + info row (~14) + gaps (~10) ≈ 114; +bottom offset = ~150
-  ARENA.BOT_Y = H - HUD_BOT - 90 - 152;
+  ARENA.BOT_Y = H * 0.5;
   ARENA.LEFT_X = 0;
   ARENA.RIGHT_X = W;
 }
