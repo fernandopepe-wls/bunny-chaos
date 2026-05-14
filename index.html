@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" type="image/svg+xml" href="icon.svg" />
 <link rel="apple-touch-icon" href="icon.svg" />
-<title>Bunny Chaos! Jump Jump! — MVP</title>
+<title>Bunny Chaos! Loot Arena — MVP</title>
 <style>
   :root{
     --bg:#0d0a1a; --panel:#1a1330; --panel2:#241a44;
@@ -171,79 +171,92 @@
     transform:translate(-50%,-50%);
   }
 
-  /* contador de cenouras abaixo do botão FORGE */
-  #arenaCarrotsBelow{
+  /* ===== ARENA FORGE INLINE (substitui forgeDice popup) ===== */
+  /* Centralizado verticalmente no gap entre o items strip (acaba em ~72.75% da altura
+     do frame, baseado em ARENA.BOT_Y+80) e o tab bar (top = frame_height - 54).
+     Posição calculada via `bottom: calc(13.6% - 38px)` que aproxima o meio do gap
+     em qualquer tamanho de frame (9:20 portrait). */
+  #arenaForgeInline{
     position:absolute;
     left:50%;
     transform:translateX(-50%);
-    bottom:64px;
-    z-index:6;
+    bottom: calc(13.6% - 38px);
+    width:min(96%, 380px);
     display:none;
-    color:#ff9b3a;
-    font-size:13px;
-    font-weight:bold;
-    letter-spacing:1px;
-    text-shadow:0 1px 2px rgba(0,0,0,.7);
-    pointer-events:none;
-    white-space:nowrap;
-  }
-  #arenaCarrotsBelow.show{display:block;}
-
-  /* arena forge row: spacer invisível + FORGE (centro) + LV + AUTO (direita) */
-  #arenaForgeRow{
-    position:absolute;
-    left:50%;
-    transform:translateX(-50%);
-    bottom:88px;
-    width:min(94%, 360px);
-    display:none;
-    gap:4px;
-    align-items:stretch;
+    flex-direction:column;
+    gap:8px;
     z-index:6;
   }
-  #arenaForgeRow.show{display:flex;}
-
-  /* spacer esquerdo invisível, do mesmo tamanho do grupo direito,
-     pra deixar o FORGE visualmente centralizado */
-  .forge-spacer{
-    width:88px; /* 42 + 4 + 42 = mesmo que LV + gap + AUTO */
-    flex-shrink:0;
+  #arenaForgeInline.show{display:flex;}
+  .forge-dice-strip{
+    display:flex;align-items:stretch;gap:6px;
   }
-
-  /* FORGE central (20% maior: 42→50px altura, full flex width até 240) */
-  #arenaForgeBtn{
+  .forge-dice-row{
     flex:1;
-    height:50px;
-    max-width:240px;
+    display:flex;justify-content:space-between;gap:4px;
+    background:rgba(13,10,26,0.6);
+    border:2px solid #5a4499;
+    border-radius:8px;
+    padding:4px;
+  }
+  .forge-dice-row .forge-die{
+    flex:1;
+    aspect-ratio:1/1;
+    width:auto;height:auto;
+    min-width:0;
+    font-size:24px;
+  }
+  .forge-side-col{
+    display:flex;flex-direction:column;gap:4px;
+    width:44px;flex-shrink:0;
+  }
+  .forge-action-row{
+    display:flex;gap:6px;
+  }
+  .forge-main-btn{
+    flex:1;
+    height:38px;
     border:0;cursor:pointer;
-    border-radius:10px;
+    border-radius:8px;
     background:linear-gradient(180deg,#ff7a1a,#c04a0a);
     border:2px solid #ffcc3d;
     color:#3a230b;
-    font-size:14px;font-weight:bold;
-    letter-spacing:2px;
-    box-shadow:0 3px 0 #6b2a05, 0 0 18px rgba(255,140,40,.4);
+    font-size:13px;font-weight:bold;letter-spacing:1.5px;
+    box-shadow:0 3px 0 #6b2a05, 0 0 16px rgba(255,140,40,.35);
   }
-  #arenaForgeBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #6b2a05;}
-  #arenaForgeBtn.cooldown{
+  .forge-main-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #6b2a05;}
+  .forge-main-btn.confirm{
+    background:linear-gradient(180deg,#4cf08e,#2aa860);
+    border-color:#88f0a8;
+    color:#0d2a1a;
+    box-shadow:0 3px 0 #1a6a3a, 0 0 16px rgba(76,240,142,.35);
+  }
+  .forge-main-btn[disabled]{
+    opacity:0.55;cursor:not-allowed;
     background:linear-gradient(180deg,#5a4499,#3b2a70);
-    color:#9b8fc4;
-    border-color:#5a4499;
-    cursor:not-allowed;
+    border-color:#5a4499;color:#9b8fc4;
     box-shadow:0 3px 0 #2a1a55;
   }
+  .forge-info-row{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:11px;font-weight:bold;letter-spacing:.5px;
+    padding:0 4px;
+    text-shadow:0 1px 2px rgba(0,0,0,.8);
+  }
+  #forgeComboInline{color:#9b8fc4;}
+  #arenaCarrotsCount{color:#ff9b3a;}
 
-  /* LV e AUTO compactos na direita (42x50, mesma altura que FORGE) */
+  /* LV e AUTO compactos (lado direito da strip de dados) */
   #arenaForgeLevelBtn, #arenaForgeAutoBtn{
-    width:42px;
-    height:50px;
+    width:100%;
+    height:30px;
     border:0;cursor:pointer;
-    border-radius:8px;
+    border-radius:6px;
     font-weight:bold;letter-spacing:.5px;
-    padding:2px;font-size:8px;
+    padding:1px;font-size:8px;
     display:flex;flex-direction:column;
     align-items:center;justify-content:center;
-    line-height:1.1;
+    line-height:1;
     flex-shrink:0;
   }
   #arenaForgeLevelBtn{
@@ -253,7 +266,7 @@
     box-shadow:0 3px 0 #1a4a6a, 0 0 10px rgba(95,176,216,.3);
   }
   #arenaForgeLevelBtn:active{transform:translateY(1px);}
-  #arenaForgeLevelBtn .lvNum{font-size:15px;color:#0d2a3a;line-height:1;}
+  #arenaForgeLevelBtn .lvNum{font-size:13px;color:#0d2a3a;line-height:1;}
   #arenaForgeLevelBtn.upgradable{
     animation:forgePulse 1s infinite;
     border-color:#ffcc3d;
@@ -341,8 +354,75 @@
   .forge-up{color:var(--good);}
   .forge-down{color:var(--bad);}
   .forge-equal{color:var(--muted);}
-  .forge-actions{display:flex;gap:8px;margin-top:14px;}
-  .forge-actions .btn{flex:1;}
+  .forge-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+  .forge-actions .btn{flex:1;min-width:0;}
+
+  /* === FORGE — DICE ROLL POPUP === */
+  #forgeDice h2{color:#ffcc3d;text-shadow:0 2px 0 #6b4a05;}
+  #forgeDiceArea{
+    display:flex;justify-content:center;gap:8px;margin:18px 0 12px;
+  }
+  .forge-die{
+    width:52px;height:52px;
+    background:#fff7e0;color:#0d0a1a;
+    border:2px solid #b3791f;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:30px;line-height:1;
+    cursor:pointer;
+    transition:transform .06s, background .12s;
+    box-shadow:0 3px 0 #6b4a05;
+    user-select:none;
+  }
+  .forge-die.held{
+    background:#378ADD;color:#fff7e0;
+    border-color:#185FA5;
+    box-shadow:0 3px 0 #0c447c, 0 0 14px rgba(55,138,221,.4);
+  }
+  .forge-die.rolling{
+    animation:diceRoll .08s infinite;
+  }
+  @keyframes diceRoll{
+    0%   { transform:translateY(0) rotate(0deg); }
+    50%  { transform:translateY(-3px) rotate(8deg); }
+    100% { transform:translateY(0) rotate(-8deg); }
+  }
+  .forge-die.disabled{opacity:0.6;pointer-events:none;}
+  #forgeComboLabel{
+    text-align:center;font-size:18px;font-weight:bold;letter-spacing:.4px;
+    margin:6px 0 4px;
+    text-shadow:0 2px 0 rgba(0,0,0,.6);
+  }
+  #forgeComboLabel .combo-mult{font-size:14px;color:#9b8fc4;font-weight:normal;}
+  #forgeHammerInfo{
+    text-align:center;font-size:12px;color:#9b8fc4;margin-bottom:6px;
+  }
+  #forgeHammerInfo b{color:#ff9b3a;}
+
+  /* === FORGE — SUBSTATS LIST NO COMPARE === */
+  #forgeSubstats{margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+  .substat-row{
+    display:flex;align-items:center;gap:6px;
+    padding:4px 8px;background:rgba(26,19,48,.6);
+    border-radius:6px;font-size:11px;
+  }
+  .substat-row .nm{flex:1;color:var(--ink);}
+  .substat-row .val{font-weight:bold;color:#ffcc3d;min-width:54px;text-align:right;}
+  .substat-row .bar{
+    width:64px;height:6px;background:rgba(0,0,0,.35);
+    border-radius:3px;overflow:hidden;
+  }
+  .substat-row .bar > span{display:block;height:100%;background:#4cf08e;}
+  .substat-row.tier-high .bar > span{background:#4cf08e;}
+  .substat-row.tier-mid  .bar > span{background:#5fb0d8;}
+  .substat-row.tier-low  .bar > span{background:#ffcc3d;}
+  .substat-row.tier-poor .bar > span{background:#9b8fc4;}
+  .tierup-badge{
+    display:inline-block;font-size:10px;font-weight:bold;
+    padding:2px 6px;border-radius:4px;
+    background:#1D9E75;color:#0d0a1a;letter-spacing:.4px;
+    margin-top:4px;
+  }
+  .tierup-badge.double{background:#ffcc3d;}
 
   /* arena bottom tab bar */
   #arenaTabBar{
@@ -533,29 +613,38 @@
     <div id="joy"></div>
     <div id="joyBase"></div>
     <div id="joyKnob"></div>
-    <div class="hint" id="hint">Arraste na metade inferior para mover • Solte para pular</div>
-
-    <!-- pause / combo sheet button -->
-    <button id="pauseBtn" title="Combos">📖</button>
-
     <!-- arena AUTO toggle -->
     <button id="arenaAutoBtn" title="Auto-movimento">AUTO</button>
 
     <!-- arena BOSS challenge button -->
     <button id="arenaBossBtn" title="Desafiar o boss da stage">⚔ DESAFIAR BOSS</button>
 
-    <!-- arena forge row: spacer + FORGE (centro) + LV + AUTO (direita) -->
-    <div id="arenaForgeRow">
-      <span class="forge-spacer" aria-hidden="true"></span>
-      <button id="arenaForgeBtn" title="Forjar item">⚒ FORGE</button>
-      <button id="arenaForgeLevelBtn" title="Upgrade da forja">
-        <span>LV</span><span class="lvNum" id="forgeLevelNum">1</span>
-      </button>
-      <button id="arenaForgeAutoBtn" title="Auto-forge (desabilitado temporariamente)" disabled>AUTO</button>
+    <!-- arena forge inline: 5 dados + ROLL/REROLL/FORJAR + LV + AUTO -->
+    <div id="arenaForgeInline">
+      <div class="forge-dice-strip">
+        <div class="forge-dice-row" id="arenaDiceRow">
+          <div class="forge-die" data-i="0"><span class="face">·</span></div>
+          <div class="forge-die" data-i="1"><span class="face">·</span></div>
+          <div class="forge-die" data-i="2"><span class="face">·</span></div>
+          <div class="forge-die" data-i="3"><span class="face">·</span></div>
+          <div class="forge-die" data-i="4"><span class="face">·</span></div>
+        </div>
+        <div class="forge-side-col">
+          <button id="arenaForgeLevelBtn" title="Upgrade da forja">
+            <span>LV</span><span class="lvNum" id="forgeLevelNum">1</span>
+          </button>
+          <button id="arenaForgeAutoBtn" title="Auto-forge (desabilitado temporariamente)" disabled>AUTO</button>
+        </div>
+      </div>
+      <div class="forge-action-row">
+        <button id="arenaForgeRollBtn" class="forge-main-btn">🎲 ROLL FORGE</button>
+        <button id="arenaForgeConfirmBtn" class="forge-main-btn confirm">⚡ FORJAR</button>
+      </div>
+      <div class="forge-info-row">
+        <span id="forgeComboInline">—</span>
+        <span id="arenaCarrotsCount">🥕 50</span>
+      </div>
     </div>
-
-    <!-- contador de cenouras logo abaixo do FORGE -->
-    <div id="arenaCarrotsBelow"><span id="arenaCarrotsCount">🥕 50</span></div>
 
     <!-- arena bottom tab bar (só COMBAT está ativo; outros bloqueados) -->
     <div id="arenaTabBar">
@@ -566,121 +655,6 @@
       <button class="arenaTab-btn" data-tab="equipe"  disabled><span class="ico">🎽</span><span>EQUIPE</span></button>
       <button class="arenaTab-btn" data-tab="mission" disabled><span class="ico">📋</span><span>MISSION</span></button>
       <button class="arenaTab-btn" data-tab="world"   disabled><span class="ico">🗺</span><span>WORLD</span></button>
-    </div>
-
-    <!-- main menu -->
-    <div class="layer show" id="menu">
-      <h1>BUNNY CHAOS!<small>JUMP • JUMP!</small></h1>
-      <p>Suba a torre. Defenda as cenouras. Role os dados.</p>
-      <div class="modes">
-        <div class="mode active" id="playBtn">
-          <div class="icon">🐰</div>
-          <div class="info">
-            <div class="name">Tower Ascension</div>
-            <div class="desc">Suba andares infinitos. Toque para jogar.</div>
-          </div>
-          <div>▶</div>
-        </div>
-        <div class="mode active" id="caveBtn" style="border-color:#5fb0d8;">
-          <div class="icon" style="background:linear-gradient(180deg,#5fb0d8,#3a8db8);color:#0d2a3a;">🥕</div>
-          <div class="info">
-            <div class="name">Carrot Cave</div>
-            <div class="desc">Caverna infinita. Esquive e colete cenouras.</div>
-          </div>
-          <div>▶</div>
-        </div>
-        <div class="mode active" id="arenaBtn" style="border-color:#ff5fa2;">
-          <div class="icon" style="background:linear-gradient(180deg,#ff5fa2,#c93b7d);color:#3a0a1f;">⚔️</div>
-          <div class="info">
-            <div class="name">Loot Arena</div>
-            <div class="desc">Sobreviva às hordas. Suba de nível e equipe loot.</div>
-          </div>
-          <div>▶</div>
-        </div>
-        <div class="mode locked">
-          <div class="icon">🎲</div>
-          <div class="info">
-            <div class="name">Daily Dice</div>
-            <div class="desc">Em breve</div>
-          </div>
-          <div class="badge">🔒</div>
-        </div>
-      </div>
-      <div class="combo-table">
-        <div class="row"><span>Max Roll (6)</span><b>×1.5</b></div>
-        <div class="row"><span>One Pair</span><b>×2.0</b></div>
-        <div class="row"><span>Two Pair</span><b>×2.5</b></div>
-        <div class="row"><span>Three of a Kind</span><b>×3.0</b></div>
-        <div class="row"><span>Straight</span><b>×3.5</b></div>
-        <div class="row"><span>Full House</span><b>×4.0</b></div>
-        <div class="row"><span>Four of a Kind</span><b>×5.5</b></div>
-        <div class="row"><span>Five of a Kind</span><b>×10.5</b></div>
-      </div>
-    </div>
-
-    <!-- upgrade screen -->
-    <div class="layer" id="upgrade">
-      <h2>🎲 Escolha seu Upgrade</h2>
-      <p id="upgradeSub">A cada 3 andares você ganha um dado novo ou melhora um existente.</p>
-      <div id="upgradeOptions" style="margin-top:14px;"></div>
-      <button class="btn secondary" id="skipUpgrade">Pular</button>
-    </div>
-
-    <!-- combo sheet (pause) -->
-    <div class="layer" id="comboSheet">
-      <h2>📖 Lançamento de Dados</h2>
-      <p>Multiplicador de dano por combinação dos seus dados ativos.</p>
-      <div class="combo-list">
-        <div class="combo-row">
-          <div class="icon">👑</div>
-          <div class="name">Cinco Iguais</div>
-          <div class="dice">⚅⚅⚅⚅⚅</div>
-          <div class="mult">×10.5</div>
-        </div>
-        <div class="combo-row">
-          <div class="icon">🗡️</div>
-          <div class="name">Quatro Iguais</div>
-          <div class="dice">⚄⚄⚄⚄</div>
-          <div class="mult">×5.5</div>
-        </div>
-        <div class="combo-row">
-          <div class="icon">🔮</div>
-          <div class="name">Full House</div>
-          <div class="dice">⚂⚂⚂⚄⚄</div>
-          <div class="mult">×4.0</div>
-        </div>
-        <div class="combo-row">
-          <div class="icon">🎵</div>
-          <div class="name">Sequência</div>
-          <div class="dice">⚀⚁⚂⚃⚄</div>
-          <div class="mult">×3.5</div>
-        </div>
-        <div class="combo-row">
-          <div class="icon">⚡</div>
-          <div class="name">Três Iguais</div>
-          <div class="dice">⚂⚂⚂</div>
-          <div class="mult">×3.0</div>
-        </div>
-        <div class="combo-row">
-          <div class="icon">⚖️</div>
-          <div class="name">Dois Pares</div>
-          <div class="dice">⚀⚀⚂⚂</div>
-          <div class="mult">×2.5</div>
-        </div>
-        <div class="combo-row">
-          <div class="icon">🪶</div>
-          <div class="name">Um Par</div>
-          <div class="dice">⚀⚀</div>
-          <div class="mult">×2.0</div>
-        </div>
-        <div class="combo-row">
-          <div class="icon">🏆</div>
-          <div class="name">Lançamento Máx.</div>
-          <div class="dice">⚅</div>
-          <div class="mult">×1.5</div>
-        </div>
-      </div>
-      <button class="btn" id="resumeBtn">Continuar</button>
     </div>
 
     <!-- forge LEVEL upgrade popup -->
@@ -696,13 +670,14 @@
 
     <!-- forge comparison popup -->
     <div class="layer" id="forgeCompare">
-      <h2>⚒ FORGE</h2>
-      <p>Você forjou um novo item! Comparado ao seu equipamento atual:</p>
+      <h2>⚒ FORJA — Item Gerado</h2>
+      <p>Resultado da forja. Compare com o que você já tem:</p>
       <div class="forge-cards">
         <div class="forge-card" id="forgeOldCard"></div>
         <div class="forge-arrow">→</div>
         <div class="forge-card" id="forgeNewCard"></div>
       </div>
+      <div id="forgeSubstats"></div>
       <div class="forge-actions">
         <button class="btn secondary" id="forgeDiscardBtn">🗑 Descartar</button>
         <button class="btn" id="forgeEquipBtn">⚡ Equipar</button>
@@ -720,23 +695,6 @@
       <h1 style="color:#ff5fa2;text-shadow:0 3px 0 #6b1454">FIM DA ARENA</h1>
       <div class="stats" id="arenaGoStats"></div>
       <button class="btn" id="arenaRetryBtn">Tentar de novo</button>
-      <button class="btn secondary" id="arenaMenuBtn">Menu</button>
-    </div>
-
-    <!-- cave game over -->
-    <div class="layer" id="caveGameover">
-      <h1 style="color:#5fb0d8;text-shadow:0 3px 0 #1e4660">FIM DA CAVERNA</h1>
-      <div class="stats" id="caveGoStats"></div>
-      <button class="btn" id="caveRetryBtn">Tentar de novo</button>
-      <button class="btn secondary" id="caveMenuBtn">Menu</button>
-    </div>
-
-    <!-- game over -->
-    <div class="layer" id="gameover">
-      <h1 style="color:var(--bad);text-shadow:0 3px 0 #6b1414">GAME OVER</h1>
-      <div class="stats" id="goStats"></div>
-      <button class="btn" id="retryBtn">Tentar de novo</button>
-      <button class="btn secondary" id="menuBtn">Menu</button>
     </div>
 
   </div>
@@ -762,31 +720,33 @@ const LAND_SHOOT_BUFFER = 12;  // 0.2s @ 60fps before shooting after landing
 const WALL_SLIDE_VY = 1.6;     // velocidade máxima de queda enquanto desliza na parede
 const DICE_REROLL_INTERVAL = 60; // frames
 
-// poker combos (multipliers from GDD)
-const COMBO = {
-  NONE:    {name:'No Combo',       mult:1.0,  icon:'·'},
-  MAXROLL: {name:'Max Roll (6)',   mult:1.5,  icon:'⚀'},
-  PAIR:    {name:'One Pair',       mult:2.0,  icon:'⚁⚁'},
-  TWOPAIR: {name:'Two Pair',       mult:2.5,  icon:'⚂⚂'},
-  THREE:   {name:'Three of a Kind',mult:3.0,  icon:'⚃⚃⚃'},
-  STRAIGHT:{name:'Straight',       mult:3.5,  icon:'⚀⚁⚂⚃⚄'},
-  FULL:    {name:'Full House',     mult:4.0,  icon:'F.H.'},
-  FOUR:    {name:'Four of a Kind', mult:5.5,  icon:'⚄×4'},
-  FIVE:    {name:'Five of a Kind', mult:10.5, icon:'⚅×5'},
-};
+// (Tabela legada COMBO foi removida — apenas COMBO_DATA é usado, definido junto da forja.)
 
 // ============ STATE ============
-const STATE = { MENU:0, PLAY:1, UPGRADE:2, GAMEOVER:3, TRANSITION:4, PAUSED:5, CAVE_PLAY:6, CAVE_GAMEOVER:7, ARENA_PLAY:8, ARENA_LEVELUP:9, ARENA_GAMEOVER:10, ARENA_TAB:11 };
-let state = STATE.MENU;
+const STATE = { ARENA_PLAY:8, ARENA_LEVELUP:9, ARENA_GAMEOVER:10, ARENA_TAB:11 };
+let state = STATE.ARENA_PLAY;
 
-const game = {
-  floor: 1,
-  score: 0,
-  coins: 0,
-  enemiesKilled: 0,
-  bestCombo: 'NONE',
-  startTime: 0,
-};
+function hideAllLayers(){
+  for(const id of ['arenaGameover','arenaTab','forgeCompare','forgeLevelLayer']){
+    const el = document.getElementById(id);
+    if(el) el.classList.remove('show');
+  }
+}
+function showLayer(id){
+  hideAllLayers();
+  document.getElementById(id).classList.add('show');
+}
+
+function tryFullscreen(){
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if(req){
+    try { req.call(el).catch(()=>{}); } catch(e){}
+  }
+  if(screen.orientation && screen.orientation.lock){
+    try { screen.orientation.lock('portrait').catch(()=>{}); } catch(e){}
+  }
+}
 
 // ============ CANVAS SETUP ============
 const canvas = document.getElementById('game');
@@ -810,6 +770,29 @@ requestAnimationFrame(fitCanvas);
 const scaleX = () => canvas.width  / W;
 const scaleY = () => canvas.height / H;
 
+function setupCtx(){
+  ctx.imageSmoothingEnabled = false;
+  ctx.setTransform(scaleX(),0,0,scaleY(),0,0);
+}
+
+function drawDieFace(x,y,w,h,value){
+  ctx.fillStyle = '#0d0a1a';
+  const pipMap = {
+    1:[[1,1]],
+    2:[[0,0],[2,2]],
+    3:[[0,0],[1,1],[2,2]],
+    4:[[0,0],[2,0],[0,2],[2,2]],
+    5:[[0,0],[2,0],[1,1],[0,2],[2,2]],
+    6:[[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]],
+  };
+  const pips = pipMap[value] || [];
+  const px = x+8, py = y+10;
+  const cellW = (w-16)/3, cellH = (h-16)/3;
+  for(const [cx,cy] of pips){
+    ctx.fillRect(px+cx*cellW+cellW/2-2, py+cy*cellH+cellH/2-2, 4, 4);
+  }
+}
+
 // ============ INPUT (joystick + keyboard) ============
 const input = { axisX: 0, axisY: 0, jumpQueued: false, active: false, releaseAxis: 0, downHold: false, chargedJump: false };
 const joyZone = document.getElementById('joy');
@@ -831,21 +814,12 @@ function moveJoy(x,y){
   if(!joyOrigin) return;
   let dx = x - joyOrigin.x;
   let dy = y - joyOrigin.y;
-  const rawDx = dx;
   const lenX = Math.abs(dx);
   if(lenX > JOY_RADIUS) dx = (dx/lenX) * JOY_RADIUS;
-  // axisY: clampa dy ao raio também (usado em ARENA_PLAY pra movimento 2D)
   const dyClamped = Math.max(-JOY_RADIUS, Math.min(JOY_RADIUS, dy));
   input.axisY = dyClamped / JOY_RADIUS;
-
-  // down-hold só faz sentido no modo plataforma (STATE.PLAY)
-  if(state === STATE.PLAY && dy > JOY_RADIUS * 0.45 && Math.abs(rawDx) < dy * 0.466){
-    input.axisX = 0;
-    input.downHold = true;
-  } else {
-    input.axisX = dx / JOY_RADIUS;
-    input.downHold = false;
-  }
+  input.axisX = dx / JOY_RADIUS;
+  input.downHold = false;
 
   const frameRect = document.getElementById('frame').getBoundingClientRect();
   const knobX = joyOrigin.x + dx - frameRect.left;
@@ -853,19 +827,6 @@ function moveJoy(x,y){
   joyKnob.style.left = knobX+'px'; joyKnob.style.top = knobY+'px';
 }
 function endJoy(){
-  if(input.active && state === STATE.PLAY){
-    if(input.downHold){
-      // soltou estando em down-hold: só pula se estiver carregado (charged jump)
-      if(bunny.charged){
-        input.jumpQueued = true;
-        input.chargedJump = true;
-        input.releaseAxis = 0;
-      }
-    } else {
-      input.jumpQueued = true;
-      input.releaseAxis = input.axisX; // captura direção pra pulo diagonal
-    }
-  }
   input.active = false; input.axisX = 0; input.downHold = false; joyOrigin = null;
   joyBase.style.display='none'; joyKnob.style.display='none';
 }
@@ -893,17 +854,18 @@ window.addEventListener('mouseup', ()=>{ if(mouseDown){ mouseDown=false; endJoy(
 // keyboard fallback
 const keys = {};
 function syncKeyboardInput(){
-  if(state !== STATE.PLAY) return;
-  const down  = keys['ArrowDown']  || keys['s'];
   const left  = keys['ArrowLeft']  || keys['a'];
   const right = keys['ArrowRight'] || keys['d'];
+  const up    = keys['ArrowUp']    || keys['w'];
+  const down  = keys['ArrowDown']  || keys['s'];
 
   if(left && !right) input.axisX = -1;
   else if(right && !left) input.axisX = 1;
   else input.axisX = 0;
 
-  // downHold só quando ↓ é a única direcional (sem horizontais)
-  input.downHold = down && !left && !right;
+  if(up && !down) input.axisY = -1;
+  else if(down && !up) input.axisY = 1;
+  else input.axisY = 0;
 }
 
 window.addEventListener('keydown', e=>{
@@ -912,2172 +874,154 @@ window.addEventListener('keydown', e=>{
 });
 window.addEventListener('keyup', e=>{
   keys[e.key]=false;
-
-  const isLeft  = (e.key==='ArrowLeft' ||e.key==='a');
-  const isRight = (e.key==='ArrowRight'||e.key==='d');
-  const isDown  = (e.key==='ArrowDown' ||e.key==='s');
-
-  const anyLeft  = keys['ArrowLeft'] ||keys['a'];
-  const anyRight = keys['ArrowRight']||keys['d'];
-  const anyDown  = keys['ArrowDown'] ||keys['s'];
-  const anyHoriz = anyLeft || anyRight;
-
-  if(state === STATE.PLAY){
-    if(isDown && !anyDown && !anyHoriz){
-      // soltou ↓ sozinho: charged jump se carregou
-      if(bunny.charged){
-        input.jumpQueued = true;
-        input.chargedJump = true;
-        input.releaseAxis = 0;
-      }
-    } else if((isLeft || isRight) && !anyHoriz && !anyDown){
-      // soltou horizontal sem ↓ segurado: release-jump normal
-      input.jumpQueued = true;
-      input.releaseAxis = isLeft ? -1 : 1;
-    }
-    // demais combinações: sem jump (down-hold em vigor ou outra horizontal segurando)
-  }
-
   syncKeyboardInput();
 });
 
-// ============ ENTITIES ============
-const bunny = {
-  x:W/2, y:0, vx:0, vy:0, w:BUNNY_W, h:BUNNY_H,
-  grounded:false, hp:5, maxHp:5,
-  faceX:1, shootTimer:0, hurtTimer:0, dustTimer:0, landBuffer:0,
-  wallSliding:false, wallSlideSide:0, wallJumpLock:0,
-  chargeTimer:0, charged:false,
-};
-
-const enemies = [];
-const projectiles = [];   // player bullets
-const eProjectiles = [];  // enemy bullets
-const particles = [];
-const coins = [];
-const damageNumbers = [];
-
-let platforms = [];
-
-// ============ DICE ============
-const dice = []; // each: {value:1-6, level:1}
-function rollDice(){
-  for(const d of dice){
-    d.value = 1 + ((Math.random()*6)|0);
-  }
-}
 function evalComboArr(diceArr){
-  if(diceArr.length===0) return 'NONE';
-  const counts = [0,0,0,0,0,0,0];
+  // Detector de combo com a precedência do design.md §4.2
+  // Sequência = 4 consecutivos quaisquer (1-2-3-4, 2-3-4-5 ou 3-4-5-6).
+  // Lançamento Máx. = todos diferentes E sem sequência.
+  if(!diceArr || diceArr.length===0) return 'NONE';
+  const counts = {};
   const values = diceArr.map(d=>d.value);
-  for(const v of values) counts[v]++;
-  let pairs=0, threes=0, fours=0, fives=0;
-  for(let i=1;i<=6;i++){
-    if(counts[i]===5) fives++;
-    else if(counts[i]===4) fours++;
-    else if(counts[i]===3) threes++;
-    else if(counts[i]===2) pairs++;
-  }
-  if(fives) return 'FIVE';
-  if(fours) return 'FOUR';
-  if(threes && pairs) return 'FULL';
-  if(diceArr.length>=5){
-    const uniq = [...new Set(values)].sort((a,b)=>a-b);
-    for(let i=0;i+4<uniq.length;i++){
-      if(uniq[i+4]-uniq[i]===4) return 'STRAIGHT';
+  for(const v of values) counts[v] = (counts[v]||0)+1;
+  const countVals = Object.values(counts).sort((a,b)=>b-a);
+  const distinct = Object.keys(counts).map(Number).sort((a,b)=>a-b);
+
+  let hasStraight = false;
+  for(let i=0; i<=distinct.length-4; i++){
+    if(distinct[i+1] === distinct[i]+1
+    && distinct[i+2] === distinct[i]+2
+    && distinct[i+3] === distinct[i]+3){
+      hasStraight = true;
+      break;
     }
   }
-  if(threes) return 'THREE';
-  if(pairs>=2) return 'TWOPAIR';
-  if(pairs===1) return 'PAIR';
-  if(values.includes(6)) return 'MAXROLL';
-  return 'NONE';
-}
-function evalCombo(){ return evalComboArr(dice); }
-function comboMult(){ return COMBO[evalCombo()].mult; }
 
-// ============ FLOORS ============
-// 6 handcrafted layouts (relative to PLAY area)
-function makePlat(x,y,w,h,oneWay){
-  // plataformas finas (h<=14) viram jump-through por padrão; pilares/paredes ficam sólidos
-  if(oneWay === undefined) oneWay = (h <= 14);
-  return {x,y,w,h,oneWay};
+  if(countVals[0] === 5) return 'FIVE';
+  if(countVals[0] === 4) return 'FOUR';
+  if(countVals[0] === 3 && countVals[1] === 2) return 'FULL';
+  if(hasStraight) return 'STRAIGHT';
+  if(countVals[0] === 3) return 'THREE';
+  if(countVals[0] === 2 && countVals[1] === 2) return 'TWOPAIR';
+  if(countVals[0] === 2) return 'PAIR';
+  return 'MAXROLL';
 }
-const FLOORS = [
-  // 0: tutorial — dummies parados pra testar controle
-  () => ({
-    plats: [
-      makePlat(0, PLAY_BOT-12, W, 12),
-      makePlat(60, PLAY_BOT-90, 80, 10),
-      makePlat(220, PLAY_BOT-90, 80, 10),
-      makePlat(140, PLAY_BOT-160, 80, 10),
-      // upper
-      makePlat(30, PLAY_BOT-230, 80, 10),
-      makePlat(W-110, PLAY_BOT-230, 80, 10),
-      makePlat(W/2-40, PLAY_BOT-310, 80, 10),
-    ],
-    enemies: [
-      {kind:'dummy', x:90,  y:PLAY_BOT-32},
-      {kind:'dummy', x:260, y:PLAY_BOT-32},
-      {kind:'dummy', x:170, y:PLAY_BOT-180},
-    ],
-  }),
-  // 1: vertical chase — fase 2 ainda só com dummies pro player praticar controle
-  () => ({
-    plats: [
-      makePlat(0, PLAY_BOT-12, W, 12),
-      makePlat(0, PLAY_BOT-80, 110, 10),
-      makePlat(W-110, PLAY_BOT-150, 110, 10),
-      makePlat(0, PLAY_BOT-220, 110, 10),
-      makePlat(W-110, PLAY_BOT-290, 110, 10),
-      // upper
-      makePlat(0, PLAY_BOT-360, 110, 10),
-      makePlat(W-110, PLAY_BOT-430, 110, 10),
-    ],
-    enemies: [
-      {kind:'dummy', x:50,    y:PLAY_BOT-100},
-      {kind:'dummy', x:W-55,  y:PLAY_BOT-170},
-      {kind:'dummy', x:50,    y:PLAY_BOT-240},
-      {kind:'dummy', x:W-55,  y:PLAY_BOT-310},
-    ],
-  }),
-  // 2: ranged duel
-  () => ({
-    plats: [
-      makePlat(0, PLAY_BOT-12, W, 12),
-      makePlat(40, PLAY_BOT-80, 70, 10),
-      makePlat(W-110, PLAY_BOT-80, 70, 10),
-      makePlat(W/2-40, PLAY_BOT-170, 80, 10),
-      // upper
-      makePlat(30, PLAY_BOT-250, 80, 10),
-      makePlat(W-110, PLAY_BOT-250, 80, 10),
-      makePlat(W/2-50, PLAY_BOT-330, 100, 10),
-    ],
-    enemies: [
-      {kind:'shooter', x:60, y:PLAY_BOT-100},
-      {kind:'shooter', x:W-60, y:PLAY_BOT-100},
-    ],
-  }),
-  // 3: narrow bridge
-  () => ({
-    plats: [
-      makePlat(40, PLAY_BOT-12, W-80, 12),
-      makePlat(0, PLAY_BOT-100, 80, 10),
-      makePlat(W-80, PLAY_BOT-100, 80, 10),
-      makePlat(W/2-50, PLAY_BOT-180, 100, 10),
-      // upper
-      makePlat(0, PLAY_BOT-260, 80, 10),
-      makePlat(W-80, PLAY_BOT-260, 80, 10),
-      makePlat(W/2-60, PLAY_BOT-340, 120, 10),
-    ],
-    enemies: [
-      {kind:'chaser', x:W/2, y:PLAY_TOP+50},
-      {kind:'chaser', x:60, y:PLAY_TOP+80},
-      {kind:'chaser', x:W-60, y:PLAY_TOP+80},
-    ],
-  }),
-  // 4: dodge gauntlet
-  () => ({
-    plats: [
-      makePlat(0, PLAY_BOT-12, W, 12),
-      makePlat(80, PLAY_BOT-70, 60, 10),
-      makePlat(220, PLAY_BOT-70, 60, 10),
-      makePlat(80, PLAY_BOT-140, 60, 10),
-      makePlat(220, PLAY_BOT-140, 60, 10),
-      makePlat(W/2-30, PLAY_BOT-210, 60, 10),
-      // upper
-      makePlat(80, PLAY_BOT-280, 60, 10),
-      makePlat(220, PLAY_BOT-280, 60, 10),
-      makePlat(W/2-30, PLAY_BOT-350, 60, 10),
-    ],
-    enemies: [
-      {kind:'shooter', x:W/2, y:PLAY_TOP+30},
-      {kind:'chaser',  x:50, y:PLAY_BOT-90},
-      {kind:'chaser',  x:W-50, y:PLAY_BOT-90},
-    ],
-  }),
-  // 5: pillars
-  () => ({
-    plats: [
-      makePlat(0, PLAY_BOT-12, W, 12),
-      makePlat(40, PLAY_BOT-80, 30, 80),
-      makePlat(W-70, PLAY_BOT-80, 30, 80),
-      makePlat(W/2-15, PLAY_BOT-150, 30, 150),
-      // upper
-      makePlat(0, PLAY_BOT-230, 80, 10),
-      makePlat(W-80, PLAY_BOT-230, 80, 10),
-      makePlat(W/2-50, PLAY_BOT-310, 100, 10),
-    ],
-    enemies: [
-      {kind:'shooter', x:60, y:PLAY_BOT-100},
-      {kind:'shooter', x:W-60, y:PLAY_BOT-100},
-      {kind:'chaser',  x:W/2, y:PLAY_TOP+30},
-    ],
-  }),
-];
 
-function loadFloor(idx){
-  const layout = FLOORS[idx % FLOORS.length]();
-  platforms = layout.plats;
-  enemies.length = 0;
-  projectiles.length = 0;
-  eProjectiles.length = 0;
-  particles.length = 0;
-  coins.length = 0;
-  damageNumbers.length = 0;
-  // scale enemy hp/dmg with floor
-  const lvl = 1 + (game.floor-1)*0.18;
-  for(const e of layout.enemies){
-    enemies.push(makeEnemy(e.kind, e.x, e.y, lvl));
+// ============== FORGE — PIPELINE (design.md §5–9) ==============
+const ERA_PEAK_OFFSET = 4;   // pico = unlock + 4
+const ERA_VARIANCE   = 8;    // denominador na gaussiana
+const ERA_MIN_WEIGHT = 0.5;  // piso pra eras antigas não sumirem
+
+function getEraProbabilities(forgeLvl){
+  // peso(era) = max(0.5, 100·exp(-(lvl-(unlock+4))²/8)) se lvl≥unlock, senão 0
+  const weights = ERAS.map(era=>{
+    if(forgeLvl < era.unlock) return 0;
+    const dist = forgeLvl - (era.unlock + ERA_PEAK_OFFSET);
+    return Math.max(ERA_MIN_WEIGHT, 100 * Math.exp(-(dist*dist)/ERA_VARIANCE));
+  });
+  const total = weights.reduce((a,b)=>a+b, 0);
+  return weights.map(w => total > 0 ? (w/total) : 0);
+}
+
+function sampleEra(forgeLvl){
+  const probs = getEraProbabilities(forgeLvl);
+  let r = Math.random();
+  for(let i=0; i<probs.length; i++){
+    r -= probs[i];
+    if(r <= 0) return i;
   }
-  placeCoins();
-  // place bunny
-  bunny.x = W/2; bunny.y = PLAY_BOT - 40;
-  bunny.vx = 0; bunny.vy = 0;
-  bunny.shootTimer = 0;
-  bunny.hurtTimer = 0;
-  rollDice();
+  return ERAS.length - 1;
 }
 
-function placeCoins(){
-  // pick non-ground platforms (algumas plataformas elevadas)
-  const candidates = platforms.filter(p => p.y < PLAY_BOT - 30 && p.h <= 14);
-  if(candidates.length === 0) return;
-  const count = 1 + ((Math.random()*3)|0); // 1..3
-  const shuffled = [...candidates].sort(()=>Math.random()-0.5);
-  const n = Math.min(count, shuffled.length);
-  for(let i=0; i<n; i++){
-    const p = shuffled[i];
-    coins.push({
-      x: p.x + p.w/2 - 6,
-      y: p.y - 16,
-      w: 12, h: 14,
-      phase: Math.random()*Math.PI*2,
+function applyTierUp(baseEraIdx, combo){
+  let eraIdx = baseEraIdx;
+  let tiersUp = 0;
+  if(Math.random() < combo.tierUp && eraIdx < ERAS.length - 1){
+    eraIdx++; tiersUp++;
+    if(combo.doubleUp > 0 && Math.random() < combo.doubleUp && eraIdx < ERAS.length - 1){
+      eraIdx++; tiersUp++;
+    }
+  }
+  return { eraIdx, tiersUp };
+}
+
+function rollSubstatValue(maxValue, combo){
+  // percentil 0..1 mapeado de mult 1.5..10.5
+  const pct = (combo.mult - 1.5) / 9;
+  const low  = Math.max(1, pct * maxValue * 0.6);
+  const high = maxValue * (0.4 + pct * 0.6);
+  return Math.max(1, Math.round(low + Math.random() * (high - low)));
+}
+
+function rollSubstats(slotCount, combo){
+  if(slotCount <= 0) return [];
+  const pool = [...SUBSTATS];
+  const result = [];
+  for(let i=0; i<slotCount && pool.length; i++){
+    const idx = (Math.random() * pool.length) | 0;
+    const type = pool.splice(idx, 1)[0];
+    const value = rollSubstatValue(type.max, combo);
+    result.push({
+      id: type.id,
+      name: type.name,
+      value, unit: type.unit, max: type.max,
+      percentOfMax: Math.round((value / type.max) * 100),
     });
   }
+  return result;
 }
 
-function makeEnemy(kind, x, y, lvl){
-  if(kind==='dummy'){
-    return {
-      kind, x, y, w:20, h:20,
-      vx:0, vy:0, grounded:false,
-      hp: 6, maxHp: 6,
-      speed: 0,
-      contactDmg:0, hurtTimer:0, color:'#6a8c4a',
-    };
-  }
-  if(kind==='chaser'){
-    return {
-      kind, x, y, w:18, h:18,
-      vx:0, vy:0, grounded:false,
-      hp: Math.round(8*lvl), maxHp: Math.round(8*lvl),
-      speed: 0.8 + Math.random()*0.2,
-      contactDmg:1, hurtTimer:0, color:'#ff5252',
-    };
-  } else { // shooter
-    return {
-      kind, x, y, w:20, h:20,
-      vx:0, vy:0, grounded:false,
-      hp: Math.round(10*lvl), maxHp: Math.round(10*lvl),
-      speed: 0.4,
-      shootTimer: 90 + (Math.random()*60)|0,
-      contactDmg:1, hurtTimer:0, color:'#a86bff',
-    };
-  }
+function rollItemLevel(forgeLvl, combo){
+  const variance = Math.floor(forgeLvl / 4);
+  const base = forgeLvl + ((Math.random() * (variance*2 + 1))|0) - variance;
+  const pct = (combo.mult - 1.5) / 9;
+  return Math.max(1, Math.round(base * (0.85 + pct * 0.4)));
 }
 
-// ============ PHYSICS ============
-function aabb(a,b){
-  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
-}
+// Pipeline completo: combina template do slot (icone/nome/stat primário) +
+// era + substats numa peça que o combate consome.
+function generateForgedItem(forgeLvl, combo, slotOverride){
+  // 1. template (icon / nome / stat primário)
+  const pool = slotOverride
+    ? ARENA_ITEM_POOL.filter(p => p.slot === slotOverride)
+    : ARENA_ITEM_POOL;
+  const def = pool[(Math.random() * pool.length) | 0] || ARENA_ITEM_POOL[0];
 
-function isAgainstWall(side){
-  // side: -1 (esquerda) ou 1 (direita). Probe 1px pro lado.
-  // borda do play area
-  if(side < 0 && bunny.x <= 0) return true;
-  if(side > 0 && bunny.x + bunny.w >= W) return true;
-  // plataformas sólidas (pilares/paredes); jump-through não conta
-  const probe = {
-    x: bunny.x + (side > 0 ? 1 : -1),
-    y: bunny.y + 4,
-    w: bunny.w,
-    h: bunny.h - 8,
+  // 2. era base (gaussiana por forge level)
+  const baseEraIdx = sampleEra(forgeLvl);
+  // 3. tier-up
+  const { eraIdx, tiersUp } = applyTierUp(baseEraIdx, combo);
+  const era = ERAS[eraIdx];
+
+  // 4. item level
+  const itemLevel = rollItemLevel(forgeLvl, combo);
+  // 5. substats (depende da era)
+  const substats = rollSubstats(era.substats, combo);
+
+  // valor do stat primário = base × era.mult (mantém balanceamento de combate)
+  const value = +(def.base * era.mult).toFixed(2);
+
+  return {
+    ...def,
+    value,
+    // shim antigo pra compat com código que usa item.rarity
+    rarity: era.key,
+    // novos campos do design doc
+    era: era.name,
+    eraKey: era.key,
+    eraIdx,
+    eraColor: era.color,
+    originalEraIdx: baseEraIdx,
+    tiersUp,
+    level: itemLevel,
+    substats,
+    combo: combo.name,
+    comboId: combo.id,
+    multiplier: combo.mult,
+    forgeLevel: forgeLvl,
   };
-  for(const p of platforms){
-    if(p.oneWay) continue;
-    if(aabb(probe, p)) return true;
-  }
-  return false;
 }
-
-function resolvePlatforms(ent){
-  ent.grounded = false;
-  // X
-  ent.x += ent.vx;
-  for(const p of platforms){
-    if(p.oneWay) continue; // jump-through: sem colisão lateral
-    const e = {x:ent.x, y:ent.y, w:ent.w, h:ent.h};
-    if(aabb(e,p)){
-      if(ent.vx > 0) ent.x = p.x - ent.w;
-      else if(ent.vx < 0) ent.x = p.x + p.w;
-      ent.vx = 0;
-    }
-  }
-  // Y
-  const prevY = ent.y; // posição vertical antes de aplicar vy
-  ent.y += ent.vy;
-  for(const p of platforms){
-    const e = {x:ent.x, y:ent.y, w:ent.w, h:ent.h};
-    if(aabb(e,p)){
-      if(ent.vy > 0){
-        // descendo: só pousa
-        if(p.oneWay){
-          // pousa SOMENTE se estava acima da plataforma na frame anterior (vindo de cima)
-          if(prevY + ent.h <= p.y + 1){
-            ent.y = p.y - ent.h; ent.grounded = true; ent.vy = 0;
-          }
-        } else {
-          ent.y = p.y - ent.h; ent.grounded = true; ent.vy = 0;
-        }
-      } else if(ent.vy < 0){
-        // subindo: bonk só em platforma sólida; jump-through deixa passar
-        if(!p.oneWay){
-          ent.y = p.y + p.h; ent.vy = 0;
-        }
-      }
-    }
-  }
-  // bounds
-  if(ent.x < 0) ent.x = 0;
-  if(ent.x + ent.w > W) ent.x = W - ent.w;
-  if(ent.y + ent.h > PLAY_BOT){ ent.y = PLAY_BOT - ent.h; ent.grounded = true; ent.vy = 0; }
-  if(ent.y < PLAY_TOP){ ent.y = PLAY_TOP; ent.vy = 0; }
-}
-
-// ============ UPDATE ============
-function nearestEnemy(){
-  let best=null, bestD=Infinity;
-  for(const e of enemies){
-    const dx = (e.x+e.w/2)-(bunny.x+bunny.w/2);
-    const dy = (e.y+e.h/2)-(bunny.y+bunny.h/2);
-    const d = dx*dx + dy*dy;
-    if(d < bestD){ bestD = d; best = e; }
-  }
-  return best;
-}
-
-function spawnDamageNumber(x, y, value, kind){
-  // kind: 'normal' (yellow), 'crit' (red+!), 'fatal' (pink "FATAL HIT")
-  kind = kind || 'normal';
-  damageNumbers.push({
-    x: x + (Math.random()-0.5)*4,
-    y: y - 6,
-    text: typeof value === 'string' ? value : `${value}`,
-    kind,
-    vy: kind === 'fatal' ? -1.9 : -1.6,
-    life: kind === 'fatal' ? 70 : 50,
-    maxLife: kind === 'fatal' ? 70 : 50,
-  });
-}
-
-function spawnParticle(x,y,color,count=6,spread=2){
-  for(let i=0;i<count;i++){
-    particles.push({
-      x,y,
-      vx:(Math.random()-.5)*spread*2,
-      vy:(Math.random()-.5)*spread*2 - 0.5,
-      life: 16+((Math.random()*10)|0),
-      color
-    });
-  }
-}
-
-function updatePlay(){
-  const wasGrounded = bunny.grounded;
-
-  // horizontal
-  if(bunny.grounded){
-    bunny.vx = input.axisX * MOVE_SPEED;
-  } else if(Math.abs(input.axisX) > 0.05 && bunny.wallJumpLock <= 0){
-    // controle no ar com 72.7% da velocidade (63.25% + 15%)
-    bunny.vx = input.axisX * MOVE_SPEED * 0.727375;
-  }
-  // senão (no ar sem input ou em lock pós wall jump): mantém a velocidade do lançamento
-  if(bunny.wallJumpLock > 0) bunny.wallJumpLock--;
-  if(bunny.vx > 0.05) bunny.faceX = 1;
-  else if(bunny.vx < -0.05) bunny.faceX = -1;
-
-  // auto-jump on release: when grounded and not actively pressing → jump
-  // and when jump explicitly queued
-  const wantsJump = (bunny.grounded && !input.active && !input.downHold && Math.abs(input.axisX)<0.05) || input.jumpQueued;
-  if(wantsJump && bunny.grounded){
-    const isCharged = input.chargedJump && bunny.charged;
-    bunny.vy = JUMP_VY * (isCharged ? 1.5 : 1);
-    // se soltou andando, pula na diagonal usando a direção que tinha
-    if(Math.abs(input.releaseAxis) > 0.05){
-      bunny.vx = input.releaseAxis * MOVE_SPEED;
-      bunny.faceX = input.releaseAxis > 0 ? 1 : -1;
-    }
-    if(isCharged){
-      bunny.charged = false;
-      bunny.chargeTimer = 0;
-      // explosão de partículas amarelas no charged jump
-      spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h, '#ffcc3d', 18, 3);
-      spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h, '#ff5fa2', 8, 2);
-    }
-    input.releaseAxis = 0;
-    input.chargedJump = false;
-    bunny.grounded = false;
-    bunny.dustTimer = 6;
-    spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h, '#fff7e0', 4, 1.2);
-  }
-  // wall jump: solta durante slide → pula no sentido oposto da parede
-  else if(wantsJump && !bunny.grounded && bunny.wallSliding){
-    bunny.vy = JUMP_VY;
-    bunny.vx = -bunny.wallSlideSide * MOVE_SPEED;
-    bunny.faceX = -bunny.wallSlideSide;
-    bunny.wallSliding = false;
-    bunny.wallJumpLock = 12; // ~0.2s sem air control pra preservar trajetória
-    input.releaseAxis = 0;
-    spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h/2, '#fff7e0', 8, 1.8);
-  }
-  input.jumpQueued = false;
-
-  // gravity
-  bunny.vy += GRAVITY;
-  if(bunny.vy > 12) bunny.vy = 12;
-
-  resolvePlatforms(bunny);
-
-  // wall slide: se está no ar caindo e empurrando contra uma parede, cap a velocidade
-  let sliding = false;
-  if(!bunny.grounded && bunny.vy > 0 && Math.abs(input.axisX) > 0.05){
-    const side = input.axisX > 0 ? 1 : -1;
-    if(isAgainstWall(side)){
-      if(bunny.vy > WALL_SLIDE_VY) bunny.vy = WALL_SLIDE_VY;
-      sliding = true;
-      bunny.wallSlideSide = side;
-      // poeirinha de fricção
-      if(Math.random() < 0.35){
-        const px = side > 0 ? bunny.x + bunny.w : bunny.x;
-        particles.push({
-          x: px, y: bunny.y + bunny.h - 4 - Math.random()*8,
-          vx: -side * (0.3 + Math.random()*0.6),
-          vy: -0.2 - Math.random()*0.3,
-          life: 12 + ((Math.random()*6)|0),
-          color: '#fff7e0',
-        });
-      }
-    }
-  }
-  bunny.wallSliding = sliding;
-
-  // charge jump: segurar pra baixo 3s parado no chão = pulo +50%
-  if(input.downHold && bunny.grounded){
-    bunny.chargeTimer++;
-    // partículas subindo enquanto carrega
-    if(bunny.chargeTimer > 30 && bunny.chargeTimer % 5 === 0){
-      const color = bunny.charged ? '#ffcc3d' : '#ff5fa2';
-      const intensity = Math.min(1, bunny.chargeTimer/180);
-      particles.push({
-        x: bunny.x + Math.random()*bunny.w,
-        y: bunny.y + bunny.h - Math.random()*4,
-        vx: (Math.random()-0.5) * (1 + intensity),
-        vy: -1 - Math.random()*(1 + intensity),
-        life: 18,
-        color,
-      });
-    }
-    // momento exato em que completa a carga
-    if(bunny.chargeTimer === 180){
-      bunny.charged = true;
-      spawnParticle(bunny.x+bunny.w/2, bunny.y+bunny.h/2, '#ffcc3d', 20, 3);
-    }
-  } else {
-    // saiu do down-hold OU saiu do chão: zera progresso (charged flag persiste até consumir)
-    bunny.chargeTimer = 0;
-  }
-
-  // landing buffer: trava o tiro por ~0.2s ao pousar pra evitar shots no idle-jump
-  if(!wasGrounded && bunny.grounded){
-    bunny.landBuffer = LAND_SHOOT_BUFFER;
-  }
-  if(bunny.landBuffer > 0) bunny.landBuffer--;
-
-  // shooting (only when grounded and past landing buffer)
-  bunny.shootTimer--;
-  if(bunny.grounded && bunny.shootTimer<=0 && bunny.landBuffer<=0){
-    const tgt = nearestEnemy();
-    if(tgt){
-      // re-roll on shoot? GDD says re-roll on shot OR fixed cadence; we re-roll on shot
-      rollDice();
-      const cKey = evalCombo();
-      const mult = COMBO[cKey].mult;
-      if(cKey !== 'NONE' && (rankCombo(cKey) > rankCombo(game.bestCombo))) game.bestCombo = cKey;
-
-      const cx = bunny.x+bunny.w/2, cy = bunny.y+bunny.h/2;
-      const tx = tgt.x+tgt.w/2, ty = tgt.y+tgt.h/2;
-      const dx = tx-cx, dy = ty-cy;
-      const len = Math.hypot(dx,dy)||1;
-      const baseDmg = 2;
-      projectiles.push({
-        x:cx, y:cy, w:6, h:6,
-        vx: dx/len*PROJECTILE_SPEED, vy: dy/len*PROJECTILE_SPEED,
-        dmg: Math.round(baseDmg*mult),
-        life: 80, color: mult>=4 ? '#ff5fa2' : (mult>=2 ? '#ffcc3d' : '#fff7e0'),
-        mult,
-      });
-    }
-    bunny.shootTimer = SHOOT_INTERVAL;
-  }
-
-  // hurt timer
-  if(bunny.hurtTimer>0) bunny.hurtTimer--;
-  if(bunny.dustTimer>0) bunny.dustTimer--;
-
-  // enemies
-  for(let i=enemies.length-1;i>=0;i--){
-    const e = enemies[i];
-    if(e.kind==='dummy'){
-      // parado, só aplica gravidade pra encostar no chão
-      e.vx = 0;
-      e.vy += GRAVITY;
-      resolvePlatforms(e);
-    } else if(e.kind==='chaser'){
-      const dx = (bunny.x+bunny.w/2) - (e.x+e.w/2);
-      e.vx = Math.sign(dx) * e.speed;
-      // hop occasionally
-      if(e.grounded && Math.random()<0.01) e.vy = -6;
-      e.vy += GRAVITY;
-      resolvePlatforms(e);
-    } else if(e.kind==='shooter'){
-      // small horizontal patrol
-      e.vx = Math.sin(performance.now()/1100 + e.x)*0.45;
-      e.vy += GRAVITY;
-      resolvePlatforms(e);
-      e.shootTimer--;
-      if(e.shootTimer<=0){
-        const cx = e.x+e.w/2, cy = e.y+e.h/2;
-        const dx = (bunny.x+bunny.w/2)-cx, dy = (bunny.y+bunny.h/2)-cy;
-        const len = Math.hypot(dx,dy)||1;
-        eProjectiles.push({
-          x:cx,y:cy,w:6,h:6,
-          vx: dx/len*2.2, vy: dy/len*2.2,
-          dmg:1, life:160, color:'#a86bff',
-        });
-        e.shootTimer = 130 + (Math.random()*60)|0;
-      }
-    }
-    if(e.hurtTimer>0) e.hurtTimer--;
-
-    // stomp (Mario-style) / contact damage
-    if(aabb(bunny, e)){
-      const bunnyBottom = bunny.y + bunny.h;
-      const isStomp = bunny.vy > 1 && (bunnyBottom - e.y) < (e.h * 0.6) && !e.spiky;
-      if(isStomp){
-        spawnParticle(e.x+e.w/2, e.y+e.h/2, e.color, 16, 3);
-        spawnDamageNumber(e.x + e.w/2, e.y, 'FATAL HIT', 'fatal');
-        enemies.splice(i,1);
-        game.enemiesKilled++;
-        game.score += 25; // stomp = 25 pts
-        bunny.vy = JUMP_VY * 1.1; // trampolim: +10% de altura sobre o pulo normal
-        bunny.y = e.y - bunny.h - 1;
-        continue;
-      }
-      if(e.contactDmg > 0 && bunny.hurtTimer<=0){
-        bunny.hp -= e.contactDmg;
-        bunny.hurtTimer = 50;
-        // knockback
-        bunny.vx = (bunny.x < e.x ? -3 : 3);
-        bunny.vy = -5;
-        spawnParticle(bunny.x+bunny.w/2,bunny.y+bunny.h/2,'#ff5252',8,2.5);
-      }
-    }
-  }
-
-  // player projectiles
-  for(let i=projectiles.length-1;i>=0;i--){
-    const p = projectiles[i];
-    p.x += p.vx; p.y += p.vy; p.life--;
-    if(p.life<=0 || p.x<-10||p.x>W+10||p.y<-10||p.y>H+10){ projectiles.splice(i,1); continue; }
-    // hit enemy
-    for(let j=enemies.length-1;j>=0;j--){
-      const e = enemies[j];
-      if(aabb(p,e)){
-        e.hp -= p.dmg;
-        e.hurtTimer = 8;
-        spawnParticle(p.x,p.y,p.color,5,2);
-        spawnDamageNumber(e.x + e.w/2, e.y, p.dmg, p.mult >= 4 ? 'crit' : 'normal');
-        projectiles.splice(i,1);
-        if(e.hp<=0){
-          spawnParticle(e.x+e.w/2,e.y+e.h/2,e.color,14,3);
-          enemies.splice(j,1);
-          game.enemiesKilled++;
-          game.score += 10;
-        }
-        break;
-      }
-    }
-  }
-
-  // enemy projectiles
-  for(let i=eProjectiles.length-1;i>=0;i--){
-    const p = eProjectiles[i];
-    p.x += p.vx; p.y += p.vy; p.life--;
-    if(p.life<=0 || p.x<-10||p.x>W+10||p.y<-10||p.y>H+10){ eProjectiles.splice(i,1); continue; }
-    if(bunny.hurtTimer<=0 && aabb(p,bunny)){
-      bunny.hp -= p.dmg;
-      bunny.hurtTimer = 40;
-      spawnParticle(p.x,p.y,'#ff5252',6,2);
-      eProjectiles.splice(i,1);
-    }
-  }
-
-  // particles
-  for(let i=particles.length-1;i>=0;i--){
-    const pt = particles[i];
-    pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.18; pt.life--;
-    if(pt.life<=0) particles.splice(i,1);
-  }
-
-  // damage numbers
-  for(let i=damageNumbers.length-1;i>=0;i--){
-    const d = damageNumbers[i];
-    d.y += d.vy;
-    d.vy *= 0.93;
-    d.life--;
-    if(d.life<=0) damageNumbers.splice(i,1);
-  }
-
-  // coins
-  for(let i=coins.length-1;i>=0;i--){
-    const c = coins[i];
-    if(aabb(bunny, c)){
-      coins.splice(i,1);
-      game.coins++;
-      game.score += 5;
-      spawnParticle(c.x+c.w/2, c.y+c.h/2, '#ffcc3d', 10, 2.5);
-    }
-  }
-
-  // death
-  if(bunny.hp<=0){
-    enterGameOver();
-    return;
-  }
-
-  // floor cleared
-  if(enemies.length===0){
-    enterTransition();
-  }
-}
-
-function rankCombo(k){
-  const order = ['NONE','MAXROLL','PAIR','TWOPAIR','THREE','STRAIGHT','FULL','FOUR','FIVE'];
-  return order.indexOf(k);
-}
-
-// ============ RENDER ============
-function drawPixel(x,y,w,h,color){
-  ctx.fillStyle = color;
-  ctx.fillRect(x*scaleX(),y*scaleY(),w*scaleX(),h*scaleY());
-}
-// helper to draw to logical coords with crisp scaling
-function setupCtx(){
-  ctx.imageSmoothingEnabled = false;
-  ctx.setTransform(scaleX(),0,0,scaleY(),0,0);
-}
-
-function drawBackground(){
-  // sky gradient
-  const grad = ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0,'#2a1a55');
-  grad.addColorStop(1,'#0d0a1a');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0,0,W,H);
-
-  // tower silhouette parallax
-  ctx.fillStyle = '#1a1330';
-  for(let i=0;i<6;i++){
-    const yy = (i*120 + (game.floor*8) % 120);
-    ctx.fillRect(0, yy, 30, 20);
-    ctx.fillRect(W-30, yy+30, 30, 20);
-  }
-  // stars
-  ctx.fillStyle = '#fff7e0';
-  for(let i=0;i<24;i++){
-    const sx = (i*53 + game.floor*13) % W;
-    const sy = (i*89) % PLAY_TOP;
-    ctx.globalAlpha = 0.4 + (i%3)*0.2;
-    ctx.fillRect(sx,sy,2,2);
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawPlatforms(){
-  for(const p of platforms){
-    // top highlight
-    ctx.fillStyle = '#5a4499';
-    ctx.fillRect(p.x,p.y,p.w,p.h);
-    ctx.fillStyle = '#7a5fc4';
-    ctx.fillRect(p.x,p.y,p.w,3);
-    // dark base
-    ctx.fillStyle = '#3b2a70';
-    ctx.fillRect(p.x,p.y+p.h-2,p.w,2);
-  }
-}
-
-function drawBunny(){
-  const x = bunny.x, y = bunny.y;
-  const flash = bunny.hurtTimer>0 && (bunny.hurtTimer%6<3);
-  if(flash){ ctx.globalAlpha = 0.4; }
-
-  // body (white)
-  ctx.fillStyle = '#fff7e0';
-  ctx.fillRect(x+3, y+10, BUNNY_W-6, BUNNY_H-12);
-  // head
-  ctx.fillRect(x+5, y+4, BUNNY_W-10, 10);
-  // ears
-  ctx.fillRect(x+6, y, 3, 8);
-  ctx.fillRect(x+BUNNY_W-9, y, 3, 8);
-  // ear pink
-  ctx.fillStyle = '#ff5fa2';
-  ctx.fillRect(x+7, y+1, 1, 6);
-  ctx.fillRect(x+BUNNY_W-8, y+1, 1, 6);
-  // eyes
-  ctx.fillStyle = '#0d0a1a';
-  if(bunny.faceX>0){
-    ctx.fillRect(x+9, y+8, 2, 2);
-    ctx.fillRect(x+14, y+8, 2, 2);
-  } else {
-    ctx.fillRect(x+6, y+8, 2, 2);
-    ctx.fillRect(x+11, y+8, 2, 2);
-  }
-  // nose
-  ctx.fillStyle = '#ff5fa2';
-  ctx.fillRect(x+10, y+11, 2, 1);
-  // feet
-  ctx.fillStyle = '#fff7e0';
-  if(bunny.grounded){
-    ctx.fillRect(x+3, y+BUNNY_H-3, 6, 3);
-    ctx.fillRect(x+BUNNY_W-9, y+BUNNY_H-3, 6, 3);
-  } else {
-    // tucked
-    ctx.fillRect(x+5, y+BUNNY_H-5, 12, 4);
-  }
-
-  // gun (only when grounded — visual cue)
-  if(bunny.grounded){
-    ctx.fillStyle = '#ffcc3d';
-    if(bunny.faceX>0) ctx.fillRect(x+BUNNY_W-2, y+14, 6, 3);
-    else ctx.fillRect(x-4, y+14, 6, 3);
-  }
-
-  ctx.globalAlpha = 1;
-}
-
-function drawEnemy(e){
-  const flash = e.hurtTimer>0;
-  ctx.fillStyle = flash ? '#fff7e0' : e.color;
-  if(e.kind==='dummy'){
-    // boneco de treino com alvo
-    ctx.fillRect(e.x, e.y, e.w, e.h);
-    if(!flash){
-      ctx.fillStyle = '#fff7e0';
-      ctx.fillRect(e.x+3, e.y+3, e.w-6, e.h-6);
-      ctx.fillStyle = '#ff5252';
-      ctx.fillRect(e.x+6, e.y+6, e.w-12, e.h-12);
-      ctx.fillStyle = '#fff7e0';
-      ctx.fillRect(e.x+e.w/2-1, e.y+e.h/2-1, 2, 2);
-    }
-  } else if(e.kind==='chaser'){
-    // angry blob with teeth
-    ctx.fillRect(e.x, e.y+2, e.w, e.h-2);
-    ctx.fillRect(e.x+2, e.y, e.w-4, 2);
-    if(!flash){
-      ctx.fillStyle = '#fff7e0';
-      ctx.fillRect(e.x+4, e.y+6, 3, 3);
-      ctx.fillRect(e.x+e.w-7, e.y+6, 3, 3);
-      ctx.fillStyle = '#0d0a1a';
-      ctx.fillRect(e.x+5, e.y+7, 2, 2);
-      ctx.fillRect(e.x+e.w-6, e.y+7, 2, 2);
-      // teeth
-      ctx.fillStyle = '#fff7e0';
-      ctx.fillRect(e.x+5, e.y+e.h-4, 2, 2);
-      ctx.fillRect(e.x+9, e.y+e.h-4, 2, 2);
-      ctx.fillRect(e.x+e.w-7, e.y+e.h-4, 2, 2);
-    }
-  } else {
-    // shooter: floating mage box
-    ctx.fillRect(e.x, e.y, e.w, e.h);
-    if(!flash){
-      ctx.fillStyle = '#0d0a1a';
-      ctx.fillRect(e.x+4, e.y+6, 3, 3);
-      ctx.fillRect(e.x+e.w-7, e.y+6, 3, 3);
-      ctx.fillStyle = '#ffcc3d';
-      ctx.fillRect(e.x+e.w/2-2, e.y+e.h-4, 4, 2);
-    }
-  }
-  // hp bar
-  if(e.hp < e.maxHp){
-    ctx.fillStyle = '#000';
-    ctx.fillRect(e.x, e.y-5, e.w, 3);
-    ctx.fillStyle = '#4cf08e';
-    ctx.fillRect(e.x, e.y-5, e.w*(e.hp/e.maxHp), 3);
-  }
-}
-
-function drawCoins(){
-  const t = performance.now()/180;
-  for(const c of coins){
-    const xs = Math.cos(t + c.phase);    // -1..1 (gira)
-    const widthScale = Math.max(0.15, Math.abs(xs));
-    const drawW = c.w * widthScale;
-    const cx = c.x + c.w/2;
-    const cy = c.y + Math.sin(t*0.6 + c.phase)*1.5; // bob
-    // borda
-    ctx.fillStyle = xs > 0 ? '#b3791f' : '#8a5e10';
-    ctx.fillRect(cx - drawW/2, cy, drawW, c.h);
-    // miolo
-    ctx.fillStyle = xs > 0 ? '#ffcc3d' : '#e6a823';
-    ctx.fillRect(cx - drawW/2 + 1, cy + 1, Math.max(1, drawW-2), c.h-2);
-    // marca central só quando "frente"
-    if(widthScale > 0.5){
-      ctx.fillStyle = '#b3791f';
-      const innerW = Math.max(1, drawW - 6);
-      ctx.fillRect(cx - innerW/2, cy + c.h/2 - 1, innerW, 2);
-      ctx.fillRect(cx - 1, cy + 3, 2, c.h - 6);
-    }
-    // brilho
-    if(xs > 0.7){
-      ctx.fillStyle = '#fff7e0';
-      ctx.fillRect(cx - drawW/2 + 1, cy+1, 1, 2);
-    }
-  }
-}
-
-function drawTargetMarker(){
-  if(!bunny.grounded) return;
-  const tgt = nearestEnemy();
-  if(!tgt) return;
-
-  const t = performance.now() / 180;
-  const pulse = Math.sin(t) * 1.5;
-  const cx = tgt.x + tgt.w/2;
-  const cy = tgt.y + tgt.h/2;
-  const half = Math.max(tgt.w, tgt.h)/2 + 5 + pulse;
-  const len = 5;
-
-  ctx.strokeStyle = '#ffcc3d';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  // top-left
-  ctx.moveTo(cx-half, cy-half+len); ctx.lineTo(cx-half, cy-half); ctx.lineTo(cx-half+len, cy-half);
-  // top-right
-  ctx.moveTo(cx+half-len, cy-half); ctx.lineTo(cx+half, cy-half); ctx.lineTo(cx+half, cy-half+len);
-  // bottom-left
-  ctx.moveTo(cx-half, cy+half-len); ctx.lineTo(cx-half, cy+half); ctx.lineTo(cx-half+len, cy+half);
-  // bottom-right
-  ctx.moveTo(cx+half-len, cy+half); ctx.lineTo(cx+half, cy+half); ctx.lineTo(cx+half, cy+half-len);
-  ctx.stroke();
-
-  // center dot
-  ctx.fillStyle = '#ff5fa2';
-  ctx.fillRect(cx-1, cy-1, 2, 2);
-}
-
-function drawProjectiles(){
-  for(const p of projectiles){
-    ctx.fillStyle = p.color;
-    ctx.fillRect(p.x-p.w/2, p.y-p.h/2, p.w, p.h);
-    ctx.fillStyle = 'rgba(255,255,255,.4)';
-    ctx.fillRect(p.x-p.w/2-1, p.y-p.h/2-1, p.w+2, p.h+2);
-  }
-  for(const p of eProjectiles){
-    ctx.fillStyle = p.color;
-    ctx.fillRect(p.x-p.w/2, p.y-p.h/2, p.w, p.h);
-  }
-}
-function drawParticles(){
-  for(const pt of particles){
-    ctx.globalAlpha = Math.min(1, pt.life/16);
-    ctx.fillStyle = pt.color;
-    ctx.fillRect(pt.x, pt.y, 2, 2);
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawTextOutlined(text, x, y, fillColor, outlineColor, outlineW){
-  ctx.fillStyle = outlineColor;
-  for(let dx=-outlineW; dx<=outlineW; dx++){
-    for(let dy=-outlineW; dy<=outlineW; dy++){
-      if(dx===0 && dy===0) continue;
-      ctx.fillText(text, x+dx, y+dy);
-    }
-  }
-  ctx.fillStyle = fillColor;
-  ctx.fillText(text, x, y);
-}
-
-function drawDamageNumbers(){
-  ctx.textAlign = 'center';
-  for(const d of damageNumbers){
-    const alpha = Math.min(1, d.life/30);
-    ctx.globalAlpha = alpha;
-    if(d.kind === 'fatal'){
-      // FATAL HIT: rosa forte com contorno preto
-      ctx.font = 'bold 14px monospace';
-      drawTextOutlined(d.text, d.x, d.y, '#ff1f9d', '#000', 2);
-    } else if(d.kind === 'crit'){
-      ctx.font = 'bold 18px monospace';
-      drawTextOutlined(`${d.text}!`, d.x, d.y, '#ff5252', '#000', 1);
-    } else {
-      // dano normal em amarelo (fonte dobrada de 11 → 22px)
-      ctx.font = 'bold 22px monospace';
-      drawTextOutlined(d.text, d.x, d.y, '#ffcc3d', '#000', 2);
-    }
-  }
-  ctx.globalAlpha = 1;
-  ctx.textAlign = 'left';
-}
-
-function drawHUDTop(){
-  // bg bar
-  ctx.fillStyle = 'rgba(13,10,26,0.85)';
-  ctx.fillRect(0,0,W,HUD_TOP);
-  ctx.fillStyle = '#5a4499';
-  ctx.fillRect(0,HUD_TOP-2,W,2);
-
-  // floor counter (left)
-  ctx.fillStyle = '#ffcc3d';
-  ctx.font = 'bold 16px monospace';
-  ctx.textBaseline = 'top';
-  ctx.fillText(`FLOOR ${String(game.floor).padStart(2,'0')}`, 10, 8);
-
-  // coin counter (ao lado do floor)
-  const cix = 110, ciy = 10;
-  ctx.fillStyle = '#b3791f';
-  ctx.fillRect(cix, ciy, 12, 12);
-  ctx.fillStyle = '#ffcc3d';
-  ctx.fillRect(cix+1, ciy+1, 10, 10);
-  ctx.fillStyle = '#b3791f';
-  ctx.fillRect(cix+5, ciy+3, 2, 6);
-  ctx.fillStyle = '#ffcc3d';
-  ctx.font = 'bold 14px monospace';
-  ctx.fillText(`× ${String(game.coins).padStart(2,'0')}`, cix+18, 9);
-
-  // hp bar (right)
-  const barX = W - 130, barY = 10, barW = 120, barH = 14;
-  ctx.fillStyle = '#3b2a70';
-  ctx.fillRect(barX, barY, barW, barH);
-  ctx.fillStyle = '#ff5252';
-  ctx.fillRect(barX+2, barY+2, (barW-4)*(bunny.hp/bunny.maxHp), barH-4);
-  ctx.fillStyle = '#fff7e0';
-  ctx.font = 'bold 10px monospace';
-  ctx.fillText(`HP ${Math.max(0,bunny.hp)}/${bunny.maxHp}`, barX+barW/2-22, barY+3);
-
-  // combo label
-  const c = COMBO[evalCombo()];
-  ctx.fillStyle = '#ff5fa2';
-  ctx.font = 'bold 11px monospace';
-  ctx.fillText(`${c.name}  ×${c.mult.toFixed(1)}`, 10, 30);
-
-  // score (right, abaixo da hp bar)
-  ctx.fillStyle = '#ffcc3d';
-  ctx.font = 'bold 13px monospace';
-  ctx.textAlign = 'right';
-  ctx.fillText(`SCORE ${game.score}`, W-10, 30);
-  ctx.textAlign = 'left';
-
-  // separação sutil entre infos e dados
-  ctx.fillStyle = 'rgba(255, 247, 224, 0.13)';
-  ctx.fillRect(40, 46, W-80, 1);
-
-  // dice slots (movidos pro HUD de cima, mais 10% menores)
-  const slotW = 40, slotH = 40, gap = 6;
-  const totalW = 5*slotW + 4*gap;
-  let dsx = (W-totalW)/2;
-  const dsy = 51;
-  for(let i=0;i<5;i++){
-    const has = i < dice.length;
-    ctx.fillStyle = has ? '#fff7e0' : '#241a44';
-    ctx.fillRect(dsx, dsy, slotW, slotH);
-    ctx.fillStyle = has ? '#ffcc3d' : '#3b2a70';
-    ctx.fillRect(dsx, dsy, slotW, 3);
-    if(has){
-      drawDieFace(dsx, dsy, slotW, slotH, dice[i].value);
-    } else {
-      ctx.fillStyle = '#3b2a70';
-      ctx.font = 'bold 18px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('?', dsx+slotW/2, dsy+slotH/2-8);
-      ctx.textAlign = 'left';
-    }
-    dsx += slotW+gap;
-  }
-}
-
-function drawHUDBottom(){
-  ctx.fillStyle = 'rgba(13,10,26,0.92)';
-  ctx.fillRect(0, H-HUD_BOT, W, HUD_BOT);
-  ctx.fillStyle = '#5a4499';
-  ctx.fillRect(0, H-HUD_BOT, W, 2);
-  // dados foram pro HUD de cima; aqui sobra só o anchor pro botão de pause
-}
-
-function drawDieFace(x,y,w,h,value){
-  ctx.fillStyle = '#0d0a1a';
-  // pip layout 3x3
-  const pipMap = {
-    1:[[1,1]],
-    2:[[0,0],[2,2]],
-    3:[[0,0],[1,1],[2,2]],
-    4:[[0,0],[2,0],[0,2],[2,2]],
-    5:[[0,0],[2,0],[1,1],[0,2],[2,2]],
-    6:[[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]],
-  };
-  const pips = pipMap[value] || [];
-  const px = x+8, py = y+10;
-  const cellW = (w-16)/3, cellH = (h-16)/3;
-  for(const [cx,cy] of pips){
-    ctx.fillRect(px+cx*cellW+cellW/2-2, py+cy*cellH+cellH/2-2, 4, 4);
-  }
-}
-
-function drawTransition(t){
-  // t in [0,1]
-  ctx.fillStyle = `rgba(255,204,61,${0.15+0.4*Math.sin(t*Math.PI)})`;
-  ctx.fillRect(0,0,W,H);
-  ctx.fillStyle = '#ffcc3d';
-  ctx.font = 'bold 24px monospace';
-  ctx.textAlign='center';
-  ctx.fillText(`FLOOR ${game.floor}`, W/2, H/2);
-  ctx.font = '12px monospace';
-  ctx.fillStyle = '#fff7e0';
-  ctx.fillText('hop hop hop!', W/2, H/2+22);
-  ctx.textAlign='left';
-}
-
-function render(){
-  setupCtx();
-  ctx.clearRect(0,0,W,H);
-  drawBackground();
-  if(state===STATE.PLAY || state===STATE.TRANSITION){
-    drawPlatforms();
-    drawCoins();
-    drawProjectiles();
-    for(const e of enemies) drawEnemy(e);
-    drawTargetMarker();
-    drawBunny();
-    drawParticles();
-    drawDamageNumbers();
-    drawHUDTop();
-    drawHUDBottom();
-    if(state===STATE.TRANSITION) drawTransition(transitionT);
-  }
-}
-
-// ============ TRANSITIONS / FLOW ============
-let transitionT = 0;
-function enterPlay(reset){
-  state = STATE.PLAY;
-  hideAllLayers();
-  document.getElementById('hint').style.display='block';
-  if(reset){
-    game.floor = 1;
-    game.score = 0;
-    game.coins = 0;
-    game.enemiesKilled = 0;
-    game.bestCombo = 'NONE';
-    game.startTime = performance.now();
-    bunny.hp = bunny.maxHp = 5;
-    dice.length = 0;
-    dice.push({value:1, level:1});
-  }
-  loadFloor(game.floor-1);
-}
-function enterTransition(){
-  state = STATE.TRANSITION;
-  transitionT = 0;
-  // hop animation: bunny goes up
-  bunny.vy = -10;
-}
-function tickTransition(){
-  transitionT += 1/45;
-  bunny.y += bunny.vy;
-  bunny.vy += 0.2;
-  if(transitionT >= 1){
-    game.floor++;
-    if(game.floor % 3 === 1 && game.floor > 1){
-      // upgrade screen between floors (after every 3 cleared)
-      enterUpgrade();
-    } else {
-      loadFloor(game.floor-1);
-      state = STATE.PLAY;
-    }
-  }
-}
-function enterUpgrade(){
-  state = STATE.UPGRADE;
-  document.getElementById('hint').style.display='none';
-  showLayer('upgrade');
-  buildUpgradeOptions();
-}
-function enterGameOver(){
-  state = STATE.GAMEOVER;
-  document.getElementById('hint').style.display='none';
-  const stats = document.getElementById('goStats');
-  const time = ((performance.now()-game.startTime)/1000).toFixed(1);
-  stats.innerHTML = `
-    <div class="row"><span>Floor reached</span><span>${game.floor}</span></div>
-    <div class="row"><span>Enemies defeated</span><span>${game.enemiesKilled}</span></div>
-    <div class="row"><span>Coins collected</span><span>${game.coins}</span></div>
-    <div class="row"><span>Best combo</span><span>${COMBO[game.bestCombo].name}</span></div>
-    <div class="row"><span>Score</span><span>${game.score}</span></div>
-    <div class="row"><span>Time</span><span>${time}s</span></div>
-  `;
-  showLayer('gameover');
-}
-
-// ============ UI LAYERS ============
-function hideAllLayers(){
-  for(const id of ['menu','upgrade','gameover','comboSheet','caveGameover','arenaGameover','arenaTab','forgeCompare','forgeLevelLayer']){
-    const el = document.getElementById(id);
-    if(el) el.classList.remove('show');
-  }
-}
-function showLayer(id){
-  hideAllLayers();
-  document.getElementById(id).classList.add('show');
-}
-
-function tryFullscreen(){
-  const el = document.documentElement;
-  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-  if(req){
-    try { req.call(el).catch(()=>{}); } catch(e){}
-  }
-  // tenta travar em portrait (suportado em Chrome Android)
-  if(screen.orientation && screen.orientation.lock){
-    try { screen.orientation.lock('portrait').catch(()=>{}); } catch(e){}
-  }
-}
-
-document.getElementById('playBtn').addEventListener('click', ()=>{
-  tryFullscreen();
-  enterPlay(true);
-});
-document.getElementById('retryBtn').addEventListener('click', ()=>{
-  enterPlay(true);
-});
-document.getElementById('menuBtn').addEventListener('click', ()=>{
-  state = STATE.MENU;
-  showLayer('menu');
-  document.getElementById('hint').style.display='none';
-});
-document.getElementById('pauseBtn').addEventListener('click', ()=>{
-  if(state === STATE.PLAY){
-    state = STATE.PAUSED;
-    // limpa input pra evitar joystick "preso"
-    input.active = false; input.axisX = 0;
-    input.releaseAxis = 0; input.jumpQueued = false;
-    joyBase.style.display='none'; joyKnob.style.display='none';
-    showLayer('comboSheet');
-    document.getElementById('hint').style.display='none';
-  }
-});
-document.getElementById('resumeBtn').addEventListener('click', ()=>{
-  if(state === STATE.PAUSED){
-    state = STATE.PLAY;
-    hideAllLayers();
-  }
-});
-
-document.getElementById('skipUpgrade').addEventListener('click', ()=>{
-  loadFloor(game.floor-1);
-  state = STATE.PLAY;
-  hideAllLayers();
-  document.getElementById('hint').style.display='block';
-});
-
-function buildUpgradeOptions(){
-  const wrap = document.getElementById('upgradeOptions');
-  wrap.innerHTML = '';
-  // option A: add a die (if <5)
-  const canAdd = dice.length < 5;
-  const optAdd = document.createElement('div');
-  optAdd.className = 'upgrade-card' + (canAdd?'':' disabled');
-  optAdd.innerHTML = `
-    <div class="head"><div class="icon">➕🎲</div><div class="title">Adicionar Dado (${dice.length}/5)</div></div>
-    <div class="body">Aumenta a chance de combos melhores. Mais dados = mais multiplicador.</div>
-  `;
-  if(canAdd){
-    optAdd.addEventListener('click', ()=>{
-      dice.push({value:1, level:1});
-      finishUpgrade();
-    });
-  }
-  wrap.appendChild(optAdd);
-
-  // option B: upgrade existing → reroll favors higher numbers (simulated by HP boost / bias)
-  const optUp = document.createElement('div');
-  optUp.className = 'upgrade-card';
-  optUp.innerHTML = `
-    <div class="head"><div class="icon">⚡</div><div class="title">Vida Extra</div></div>
-    <div class="body">+2 HP máximo e cura completa. Sobreviva para rolar mais dados.</div>
-  `;
-  optUp.addEventListener('click', ()=>{
-    bunny.maxHp += 2;
-    bunny.hp = bunny.maxHp;
-    finishUpgrade();
-  });
-  wrap.appendChild(optUp);
-
-  // option C: lucky reroll - bias dice toward 6
-  const optLucky = document.createElement('div');
-  optLucky.className = 'upgrade-card';
-  optLucky.innerHTML = `
-    <div class="head"><div class="icon">🍀</div><div class="title">Cenoura da Sorte</div></div>
-    <div class="body">Aumenta o nível dos seus dados. Próxima rolagem favorece valores altos.</div>
-  `;
-  optLucky.addEventListener('click', ()=>{
-    for(const d of dice) d.level++;
-    // bias: when rolling, with chance based on level, +1 to value capped at 6
-    finishUpgrade();
-  });
-  wrap.appendChild(optLucky);
-}
-function finishUpgrade(){
-  loadFloor(game.floor-1);
-  state = STATE.PLAY;
-  hideAllLayers();
-  document.getElementById('hint').style.display='block';
-  rollDice();
-}
-
-// override rollDice with lucky bias
-const _origRoll = rollDice;
-rollDice = function(){
-  for(const d of dice){
-    let v = 1 + ((Math.random()*6)|0);
-    // each level gives 12% chance to bump up by 1
-    for(let i=0;i<d.level-1;i++){
-      if(Math.random() < 0.12 && v < 6) v++;
-    }
-    d.value = v;
-  }
-};
-
-// ============================ CAVE MODE ============================
-const CAVE = {
-  COLS: 7,
-  COL_W: 0,
-  ROW_H: 0,
-  TOP_Y: 0,
-  BOT_Y: 0,
-  VISIBLE_ROWS: 0,
-  SCROLL_SPEED: 0.55,
-  BUNNY_ROW: 11, // logical row index do coelho no array (fixo)
-};
-
-const cave = {
-  rows: [],
-  rowsGenerated: 0,
-  scrollOffset: 0,
-  bunnyCol: 3,
-  bunnyTargetCol: 3,
-  bunnyAnimX: 0,
-  bunnyHurtTimer: 0,
-  shootTimer: 0,
-  projectiles: [],
-  particles: [],
-  distance: 0,
-  coins: 0,
-  hp: 3,
-  maxHp: 3,
-  startTime: 0,
-  shieldTimer: 0,    // frames de escudo restante
-  combo: 0,          // linhas passadas sem dano
-  comboPopTimer: 0,  // animação ao incrementar
-};
-
-function initCaveLayout(){
-  CAVE.COL_W = W / CAVE.COLS;
-  CAVE.ROW_H = CAVE.COL_W; // square
-  CAVE.TOP_Y = HUD_TOP;
-  CAVE.BOT_Y = H - HUD_BOT;
-  CAVE.VISIBLE_ROWS = Math.ceil((CAVE.BOT_Y - CAVE.TOP_Y) / CAVE.ROW_H) + 2;
-  // BUNNY_ROW: 2 from bottom of visible
-  CAVE.BUNNY_ROW = CAVE.VISIBLE_ROWS - 3;
-}
-
-function genCaveRow(idx){
-  const row = new Array(CAVE.COLS).fill(null);
-  if(idx < 6) return row; // safe start
-  const difficulty = Math.min(0.6, idx / 200);
-
-  // ---- formações especiais (raro) ----
-
-  // RIO: 3-5 células de água contíguas com gap pra passar
-  if(idx > 18 && Math.random() < 0.05 + difficulty*0.04){
-    const len = 3 + ((Math.random()*3)|0);
-    const start = (Math.random()*(CAVE.COLS - len + 1))|0;
-    for(let c=start; c<start+len; c++) row[c] = {type:'water'};
-    // abre 1 gap dentro do rio pra passar (pedra-ponte)
-    const gap = start + ((Math.random()*len)|0);
-    row[gap] = {type:'stepstone'};
-    return ensurePassable(row);
-  }
-
-  // PAREDE DE PEDRAS: 4-5 rocks contíguos
-  if(idx > 25 && Math.random() < 0.04 + difficulty*0.03){
-    const len = 4 + ((Math.random()*2)|0);
-    const start = (Math.random()*(CAVE.COLS - len + 1))|0;
-    for(let c=start; c<start+len; c++) row[c] = {type:'rock'};
-    return ensurePassable(row);
-  }
-
-  // ESQUADRÃO DE INIMIGOS: 2-3 enemies próximos
-  if(idx > 30 && Math.random() < 0.045 + difficulty*0.03){
-    const n = 2 + ((Math.random()*2)|0);
-    for(let i=0;i<n;i++){
-      const c = (Math.random()*CAVE.COLS)|0;
-      if(!row[c]) row[c] = {type:'enemy', hp:2, hurtTimer:0};
-    }
-    return ensurePassable(row);
-  }
-
-  // CAMPO DE SPIKES: 2-3 spikes no row
-  if(idx > 40 && Math.random() < 0.04 + difficulty*0.03){
-    const n = 2 + ((Math.random()*2)|0);
-    for(let i=0;i<n;i++){
-      const c = (Math.random()*CAVE.COLS)|0;
-      if(!row[c]) row[c] = {type:'spike'};
-    }
-    return ensurePassable(row);
-  }
-
-  // POÇA DE LAVA: 2-3 células contíguas (idx > 45)
-  if(idx > 45 && Math.random() < 0.035 + difficulty*0.03){
-    const len = 2 + ((Math.random()*2)|0);
-    const start = (Math.random()*(CAVE.COLS - len + 1))|0;
-    for(let c=start; c<start+len; c++) row[c] = {type:'lava'};
-    return ensurePassable(row);
-  }
-
-  // BAÚ raro com guards (idx > 35)
-  if(idx > 35 && Math.random() < 0.018){
-    const c = 1 + ((Math.random()*(CAVE.COLS-2))|0);
-    row[c] = {type:'chest'};
-    // dois rocks adjacentes pra "proteger"
-    if(c-1 >= 0 && !row[c-1]) row[c-1] = {type:'rock'};
-    if(c+1 < CAVE.COLS && !row[c+1]) row[c+1] = {type:'rock'};
-    return ensurePassable(row);
-  }
-
-  // ---- distribuição célula-a-célula ----
-
-  for(let c=0;c<CAVE.COLS;c++){
-    if(row[c] !== null) continue;
-    const r = Math.random();
-    let acc = 0;
-
-    acc += 0.10 + difficulty*0.05;
-    if(r < acc){ row[c] = {type:'rock'}; continue; }
-
-    acc += 0.05 + difficulty*0.04;
-    if(r < acc){ row[c] = {type:'crystal', hp:2, hurtTimer:0}; continue; }
-
-    acc += 0.05;
-    if(r < acc){ row[c] = {type:'coin'}; continue; }
-
-    acc += 0.05 + difficulty*0.04;
-    if(r < acc){ row[c] = {type:'enemy', hp:2, hurtTimer:0}; continue; }
-
-    // morcego: inimigo voador que muda de coluna a cada scroll (idx > 28)
-    if(idx > 28){
-      acc += 0.03 + difficulty*0.025;
-      if(r < acc){
-        row[c] = {type:'bat', hp:1, hurtTimer:0, dir: Math.random()<0.5 ? -1 : 1};
-        continue;
-      }
-    }
-
-    if(idx > 22){
-      acc += 0.03 + difficulty*0.03;
-      if(r < acc){ row[c] = {type:'spike'}; continue; }
-    }
-
-    // pickups raros
-    if(idx > 30 && Math.random() < 0.012){
-      row[c] = {type:'heart'};
-      continue;
-    }
-    if(idx > 25 && Math.random() < 0.008){
-      row[c] = {type:'shield_pickup'};
-      continue;
-    }
-  }
-
-  return ensurePassable(row);
-}
-
-function ensurePassable(row){
-  const passOk = c => c === null || (c && (
-    c.type === 'coin' ||
-    c.type === 'heart' ||
-    c.type === 'stepstone' ||
-    c.type === 'shield_pickup' ||
-    c.type === 'chest'
-  ));
-  let passable = row.filter(passOk).length;
-  let tries = 0;
-  while(passable < 2 && tries < 6){
-    row[(Math.random()*CAVE.COLS)|0] = null;
-    passable = row.filter(passOk).length;
-    tries++;
-  }
-  return row;
-}
-
-function initCave(){
-  initCaveLayout();
-  cave.rows = [];
-  cave.rowsGenerated = 0;
-  cave.scrollOffset = 0;
-  cave.bunnyCol = 3;
-  cave.bunnyTargetCol = 3;
-  cave.bunnyAnimX = 3 * CAVE.COL_W;
-  cave.bunnyHurtTimer = 0;
-  cave.shootTimer = 0;
-  cave.projectiles = [];
-  cave.particles = [];
-  cave.distance = 0;
-  cave.coins = 0;
-  cave.hp = cave.maxHp = 3;
-  cave.startTime = performance.now();
-  cave.shieldTimer = 0;
-  cave.combo = 0;
-  cave.comboPopTimer = 0;
-  for(let i=0;i<CAVE.VISIBLE_ROWS+2;i++){
-    cave.rows.push(genCaveRow(i));
-    cave.rowsGenerated++;
-  }
-}
-
-// y do topo da linha [i] do array
-function caveTileY(i){
-  return CAVE.TOP_Y - CAVE.ROW_H + (i+1)*CAVE.ROW_H - CAVE.ROW_H + cave.scrollOffset + i*CAVE.ROW_H;
-}
-// simplificando: y = TOP_Y + (i-1)*ROW_H + scrollOffset
-function caveTileYFinal(i){
-  return CAVE.TOP_Y + (i-1)*CAVE.ROW_H + cave.scrollOffset;
-}
-
-function caveBunnyY(){
-  return caveTileYFinal(CAVE.BUNNY_ROW);
-}
-
-function spawnCaveParticle(x,y,color,count){
-  for(let i=0;i<count;i++){
-    cave.particles.push({
-      x,y,
-      vx:(Math.random()-0.5)*3,
-      vy:(Math.random()-0.5)*3 - 1,
-      life: 18+((Math.random()*8)|0),
-      color,
-    });
-  }
-}
-
-function updateCave(){
-  // scroll
-  cave.scrollOffset += CAVE.SCROLL_SPEED;
-  cave.distance += CAVE.SCROLL_SPEED / 6;
-
-  // shift de row quando passa um tile inteiro
-  if(cave.scrollOffset >= CAVE.ROW_H){
-    cave.scrollOffset -= CAVE.ROW_H;
-    cave.rows.pop();
-    cave.rows.unshift(genCaveRow(cave.rowsGenerated++));
-
-    // movimento dos bats: cada bat anda 1 coluna na direção dele (rebatendo em obstáculos/parede)
-    for(let r=0;r<cave.rows.length;r++){
-      for(let c=0;c<CAVE.COLS;c++){
-        const cell = cave.rows[r][c];
-        if(cell && cell.type === 'bat' && !cell.moved){
-          let nc = c + cell.dir;
-          if(nc < 0 || nc >= CAVE.COLS || cave.rows[r][nc]){
-            cell.dir = -cell.dir;
-            nc = c + cell.dir;
-          }
-          if(nc >= 0 && nc < CAVE.COLS && !cave.rows[r][nc]){
-            cave.rows[r][nc] = cell;
-            cave.rows[r][c] = null;
-            cell.moved = true;
-          }
-        }
-      }
-    }
-    // limpa flag moved pra próxima shift
-    for(const row of cave.rows){
-      for(const cell of row){
-        if(cell && cell.moved) cell.moved = false;
-      }
-    }
-
-    // colisão na linha do coelho (a célula que agora ficou em cima do coelho)
-    const cell = cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol];
-    let tookDamage = false;
-    if(cell){
-      const cx = (cave.bunnyCol+0.5)*CAVE.COL_W;
-      const cy = caveBunnyY()+CAVE.ROW_H/2;
-      const dmg = (color)=>{
-        if(cave.bunnyHurtTimer<=0){
-          // shield consome o golpe ao invés de tirar HP
-          if(cave.shieldTimer > 0){
-            cave.shieldTimer = 0;
-            spawnCaveParticle(cx, cy, '#5fb0d8', 16);
-          } else {
-            cave.hp--;
-            cave.bunnyHurtTimer = 50;
-            spawnCaveParticle(cx, cy, color, 10);
-            tookDamage = true;
-          }
-        }
-      };
-      if(cell.type === 'rock'){ dmg('#ff5252'); cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null; }
-      else if(cell.type === 'crystal'){ dmg('#5fb0d8'); cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null; }
-      else if(cell.type === 'enemy'){ dmg('#ff5252'); cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null; }
-      else if(cell.type === 'bat'){ dmg('#a86bff'); cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null; }
-      else if(cell.type === 'spike'){ dmg('#ff5252'); }
-      else if(cell.type === 'water'){ dmg('#5fb0d8'); }
-      else if(cell.type === 'lava'){
-        // lava: ignora shield, dano direto (lava é death zone)
-        if(cave.bunnyHurtTimer<=0){
-          cave.hp--;
-          cave.bunnyHurtTimer = 50;
-          spawnCaveParticle(cx, cy, '#ff8800', 14);
-          tookDamage = true;
-        }
-      }
-      else if(cell.type === 'coin'){
-        cave.coins++;
-        spawnCaveParticle(cx, cy, '#ffcc3d', 8);
-        cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
-      } else if(cell.type === 'heart'){
-        if(cave.hp < cave.maxHp) cave.hp++;
-        spawnCaveParticle(cx, cy, '#ff5fa2', 14);
-        cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
-      } else if(cell.type === 'shield_pickup'){
-        cave.shieldTimer = 360; // 6s @ 60fps
-        spawnCaveParticle(cx, cy, '#5fb0d8', 20);
-        cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
-      } else if(cell.type === 'chest'){
-        const bonus = 5;
-        cave.coins += bonus;
-        spawnCaveParticle(cx, cy, '#ffcc3d', 24);
-        cave.rows[CAVE.BUNNY_ROW][cave.bunnyCol] = null;
-      } else if(cell.type === 'stepstone'){
-        // passa por cima sem dano
-      }
-    }
-
-    // combo: cada linha passada sem tomar dano incrementa
-    if(tookDamage){
-      cave.combo = 0;
-    } else {
-      cave.combo++;
-      if(cave.combo > 0 && cave.combo % 10 === 0){
-        // bonus a cada 10 linhas limpas
-        cave.coins += 3;
-        cave.comboPopTimer = 30;
-        spawnCaveParticle(W/2, CAVE.TOP_Y + 100, '#ffcc3d', 18);
-      }
-    }
-
-    // ajusta projéteis (mundo desceu 1 row, projétil também precisa "descer" 1 row visual)
-    for(const p of cave.projectiles) p.y += CAVE.ROW_H;
-  }
-
-  // bunny smooth
-  const targetX = cave.bunnyTargetCol * CAVE.COL_W;
-  const diff = targetX - cave.bunnyAnimX;
-  if(Math.abs(diff) > 0.5) cave.bunnyAnimX += diff * 0.28;
-  else { cave.bunnyAnimX = targetX; cave.bunnyCol = cave.bunnyTargetCol; }
-
-  if(cave.bunnyHurtTimer>0) cave.bunnyHurtTimer--;
-  if(cave.shieldTimer>0) cave.shieldTimer--;
-  if(cave.comboPopTimer>0) cave.comboPopTimer--;
-
-  // auto-shoot pra cima
-  cave.shootTimer--;
-  if(cave.shootTimer <= 0){
-    const bx = cave.bunnyAnimX + CAVE.COL_W/2;
-    const by = caveBunnyY() + 8;
-    cave.projectiles.push({x:bx, y:by, vy:-6, col: cave.bunnyCol});
-    cave.shootTimer = 30;
-  }
-
-  // projéteis
-  for(let i=cave.projectiles.length-1;i>=0;i--){
-    const p = cave.projectiles[i];
-    p.y += p.vy;
-    if(p.y < CAVE.TOP_Y - 20){ cave.projectiles.splice(i,1); continue; }
-    // colisão com células enemy/rock no mesmo column
-    // descobre row pelo y
-    const rowIdx = Math.floor((p.y - CAVE.TOP_Y - cave.scrollOffset) / CAVE.ROW_H) + 1;
-    if(rowIdx >= 0 && rowIdx < cave.rows.length){
-      const cell = cave.rows[rowIdx][p.col];
-      if(cell){
-        if(cell.type === 'enemy' || cell.type === 'crystal' || cell.type === 'bat'){
-          cell.hp--;
-          cell.hurtTimer = 6;
-          const color = cell.type==='crystal' ? '#5fb0d8' : (cell.type==='bat' ? '#a86bff' : '#ff5252');
-          spawnCaveParticle(p.x, p.y, color, 5);
-          if(cell.hp <= 0){
-            cave.rows[rowIdx][p.col] = null;
-            if(cell.type === 'enemy' || cell.type === 'bat'){
-              cave.coins++;
-              spawnCaveParticle((p.col+0.5)*CAVE.COL_W, p.y, '#ffcc3d', 10);
-            }
-          }
-          cave.projectiles.splice(i,1);
-        } else if(cell.type === 'rock'){
-          cave.rows[rowIdx][p.col] = null;
-          spawnCaveParticle(p.x, p.y, '#888', 6);
-          cave.projectiles.splice(i,1);
-        }
-        // spike, water, lava, stepstone, coin, heart, chest, shield_pickup: projétil passa direto
-      }
-    }
-  }
-
-  // particles
-  for(let i=cave.particles.length-1;i>=0;i--){
-    const pt = cave.particles[i];
-    pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.2; pt.life--;
-    if(pt.life<=0) cave.particles.splice(i,1);
-  }
-
-  // tick hurtTimer das células enemy
-  for(const row of cave.rows){
-    for(const cell of row){
-      if(cell && cell.hurtTimer > 0) cell.hurtTimer--;
-    }
-  }
-
-  // game over
-  if(cave.hp <= 0){
-    enterCaveGameOver();
-  }
-}
-
-function drawCaveRock(x,y){
-  const m = 6;
-  ctx.fillStyle = '#3a3a3a';
-  ctx.fillRect(x+m, y+m+CAVE.ROW_H-m*2-3, CAVE.COL_W-m*2, 3);
-  ctx.fillStyle = '#6a6a6a';
-  ctx.fillRect(x+m, y+m, CAVE.COL_W-m*2, CAVE.ROW_H-m*2);
-  ctx.fillStyle = '#8a8a8a';
-  ctx.fillRect(x+m+2, y+m+2, CAVE.COL_W-m*2-4, 4);
-  ctx.fillStyle = '#4a4a4a';
-  ctx.fillRect(x+m+4, y+m+CAVE.ROW_H-m*2-8, 4, 4);
-}
-
-function drawCaveCoin(x,y){
-  const t = performance.now()/180;
-  const xs = Math.cos(t + x/30);
-  const widthScale = Math.max(0.2, Math.abs(xs));
-  const w = CAVE.COL_W * 0.45 * widthScale;
-  const h = CAVE.ROW_H * 0.5;
-  const cx = x + CAVE.COL_W/2;
-  const cy = y + CAVE.ROW_H/2 + Math.sin(t*0.6)*1.5;
-  ctx.fillStyle = xs > 0 ? '#b3791f' : '#8a5e10';
-  ctx.fillRect(cx-w/2, cy-h/2, w, h);
-  ctx.fillStyle = xs > 0 ? '#ffcc3d' : '#e6a823';
-  ctx.fillRect(cx-w/2+1, cy-h/2+1, Math.max(1,w-2), h-2);
-  if(widthScale > 0.5){
-    ctx.fillStyle = '#b3791f';
-    ctx.fillRect(cx-1, cy-h/2+3, 2, h-6);
-  }
-}
-
-function drawCaveCrystal(x,y,cell){
-  const m = 4;
-  const flash = cell.hurtTimer > 0;
-  // base
-  ctx.fillStyle = flash ? '#fff' : '#2a6090';
-  ctx.fillRect(x+m, y+m, CAVE.COL_W-m*2, CAVE.ROW_H-m*2);
-  // diamond facets
-  ctx.fillStyle = flash ? '#fff' : '#5fb0d8';
-  ctx.fillRect(x+m+3, y+m+3, CAVE.COL_W-m*2-6, CAVE.ROW_H-m*2-8);
-  ctx.fillStyle = flash ? '#fff' : '#8ad8f0';
-  ctx.fillRect(x+m+5, y+m+5, 5, 5);
-  ctx.fillRect(x+CAVE.COL_W-m-12, y+m+8, 4, 4);
-  if(!flash){
-    ctx.fillStyle = '#bfe8f7';
-    ctx.fillRect(x+m+6, y+m+6, 2, 2);
-  }
-}
-
-function drawCaveSpike(x,y){
-  const m = 4;
-  // base dark plate
-  ctx.fillStyle = '#3a1414';
-  ctx.fillRect(x+m, y+CAVE.ROW_H-m-6, CAVE.COL_W-m*2, 4);
-  // spike triangles (pixelated)
-  ctx.fillStyle = '#aaa';
-  const sw = (CAVE.COL_W-m*2);
-  const baseY = y+CAVE.ROW_H-m-6;
-  // 3 picos
-  for(let i=0;i<3;i++){
-    const sx = x+m + i*Math.floor(sw/3);
-    const w = Math.floor(sw/3);
-    ctx.fillRect(sx+w/2-1, baseY-8, 2, 8);
-    ctx.fillRect(sx+w/2-2, baseY-5, 4, 5);
-    ctx.fillRect(sx+w/2-3, baseY-2, 6, 2);
-  }
-  // red glow
-  ctx.fillStyle = 'rgba(255,82,82,0.35)';
-  ctx.fillRect(x+m, baseY-12, CAVE.COL_W-m*2, 6);
-}
-
-function drawCaveWater(x,y){
-  // água com onda animada
-  const t = performance.now()/300;
-  ctx.fillStyle = '#1a4a7a';
-  ctx.fillRect(x+1, y+1, CAVE.COL_W-2, CAVE.ROW_H-2);
-  ctx.fillStyle = '#2a6fa8';
-  for(let i=0;i<3;i++){
-    const wy = y + 8 + i*12 + Math.sin(t + x/40 + i)*2;
-    ctx.fillRect(x+4, wy, CAVE.COL_W-8, 2);
-  }
-  // brilho/reflexo
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
-  ctx.fillRect(x+CAVE.COL_W/2-2 + Math.sin(t)*3, y+10, 2, 8);
-}
-
-function drawCaveStepstone(x,y){
-  // pedra-ponte: rocha menor com gradient verde por cima (musgo)
-  const m = 6;
-  ctx.fillStyle = '#3a3a3a';
-  ctx.fillRect(x+m, y+m+CAVE.ROW_H-m*2-4, CAVE.COL_W-m*2, 4);
-  ctx.fillStyle = '#6a6a6a';
-  ctx.fillRect(x+m, y+m+4, CAVE.COL_W-m*2, CAVE.ROW_H-m*2-4);
-  // musgo
-  ctx.fillStyle = '#4cf08e';
-  ctx.fillRect(x+m, y+m+2, CAVE.COL_W-m*2, 4);
-  ctx.fillStyle = '#2aa860';
-  ctx.fillRect(x+m+2, y+m+5, 3, 2);
-  ctx.fillRect(x+CAVE.COL_W-m-6, y+m+5, 3, 2);
-}
-
-function drawCaveBat(x,y,cell){
-  const t = performance.now()/120;
-  const flash = cell.hurtTimer>0;
-  const flap = (Math.sin(t)>0) ? 0 : -2;
-  const cx = x + CAVE.COL_W/2;
-  const cy = y + CAVE.ROW_H/2;
-  // asas
-  ctx.fillStyle = flash ? '#fff' : '#3b2a70';
-  ctx.fillRect(cx-12, cy-3+flap, 6, 7);
-  ctx.fillRect(cx+6,  cy-3+flap, 6, 7);
-  ctx.fillRect(cx-14, cy-1+flap, 4, 4);
-  ctx.fillRect(cx+10, cy-1+flap, 4, 4);
-  // corpo
-  ctx.fillStyle = flash ? '#fff' : '#5a4499';
-  ctx.fillRect(cx-5, cy-2, 10, 8);
-  // orelhas
-  ctx.fillRect(cx-5, cy-6, 2, 4);
-  ctx.fillRect(cx+3, cy-6, 2, 4);
-  // olhos
-  if(!flash){
-    ctx.fillStyle = '#ff5252';
-    ctx.fillRect(cx-3, cy, 2, 2);
-    ctx.fillRect(cx+1, cy, 2, 2);
-  }
-  // boca pontuda
-  if(!flash){
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(cx-1, cy+4, 1, 2);
-    ctx.fillRect(cx+1, cy+4, 1, 2);
-  }
-}
-
-function drawCaveLava(x,y){
-  const t = performance.now()/240;
-  // base escura
-  ctx.fillStyle = '#3a0a0a';
-  ctx.fillRect(x+1, y+1, CAVE.COL_W-2, CAVE.ROW_H-2);
-  // lava
-  ctx.fillStyle = '#cc3a00';
-  ctx.fillRect(x+2, y+2, CAVE.COL_W-4, CAVE.ROW_H-4);
-  ctx.fillStyle = '#ff7a1a';
-  for(let i=0;i<3;i++){
-    const ly = y + 6 + i*12 + Math.sin(t + x/30 + i*2)*2;
-    ctx.fillRect(x+5, ly, CAVE.COL_W-10, 3);
-  }
-  // bolha
-  const bx = x + CAVE.COL_W/2 + Math.sin(t*1.3 + x/50)*8;
-  const by = y + CAVE.ROW_H/2 + Math.cos(t*1.1)*6;
-  ctx.fillStyle = '#ffcc3d';
-  ctx.fillRect(bx-2, by-2, 4, 4);
-  ctx.fillStyle = '#fff7e0';
-  ctx.fillRect(bx-1, by-1, 1, 1);
-  // glow vermelho
-  ctx.fillStyle = 'rgba(255,80,30,0.2)';
-  ctx.fillRect(x, y, CAVE.COL_W, 4);
-}
-
-function drawCaveChest(x,y){
-  const m = 5;
-  const t = performance.now()/300;
-  const pulse = 1 + Math.sin(t)*0.05;
-  // base de madeira
-  ctx.fillStyle = '#5a3a1a';
-  ctx.fillRect(x+m, y+m+8, CAVE.COL_W-m*2, CAVE.ROW_H-m*2-8);
-  ctx.fillStyle = '#8a5e10';
-  ctx.fillRect(x+m+2, y+m+10, CAVE.COL_W-m*2-4, CAVE.ROW_H-m*2-12);
-  // tampa
-  ctx.fillStyle = '#5a3a1a';
-  ctx.fillRect(x+m, y+m+2, CAVE.COL_W-m*2, 8);
-  ctx.fillStyle = '#8a5e10';
-  ctx.fillRect(x+m+2, y+m+4, CAVE.COL_W-m*2-4, 4);
-  // bandas douradas
-  ctx.fillStyle = '#ffcc3d';
-  ctx.fillRect(x+m, y+m+9, CAVE.COL_W-m*2, 2);
-  ctx.fillRect(x+m+CAVE.COL_W/2-3, y+m+4, 6, CAVE.ROW_H-m*2-6);
-  // tranca
-  ctx.fillStyle = '#b3791f';
-  ctx.fillRect(x+m+CAVE.COL_W/2-3, y+m+CAVE.ROW_H/2-2, 6, 5);
-  ctx.fillStyle = '#0d0a1a';
-  ctx.fillRect(x+m+CAVE.COL_W/2-1, y+m+CAVE.ROW_H/2, 2, 2);
-  // brilho pulsante
-  if(pulse > 1){
-    ctx.fillStyle = `rgba(255,204,61,${0.2 + Math.sin(t)*0.15})`;
-    ctx.fillRect(x, y, CAVE.COL_W, CAVE.ROW_H);
-  }
-}
-
-function drawCaveShieldPickup(x,y){
-  const t = performance.now()/200;
-  const cx = x + CAVE.COL_W/2;
-  const cy = y + CAVE.ROW_H/2 + Math.sin(t)*2;
-  // glow
-  ctx.fillStyle = 'rgba(95,176,216,0.3)';
-  ctx.fillRect(cx-12, cy-12, 24, 24);
-  // escudo
-  ctx.fillStyle = '#1a4a7a';
-  ctx.fillRect(cx-8, cy-9, 16, 14);
-  ctx.fillRect(cx-6, cy+5, 12, 3);
-  ctx.fillRect(cx-3, cy+8, 6, 2);
-  ctx.fillStyle = '#5fb0d8';
-  ctx.fillRect(cx-6, cy-7, 12, 10);
-  ctx.fillRect(cx-4, cy+3, 8, 3);
-  // cruz
-  ctx.fillStyle = '#fff7e0';
-  ctx.fillRect(cx-1, cy-4, 2, 6);
-  ctx.fillRect(cx-3, cy-2, 6, 2);
-}
-
-function drawCaveHeart(x,y){
-  const t = performance.now()/250;
-  const scale = 1 + Math.sin(t)*0.15;
-  const cx = x + CAVE.COL_W/2;
-  const cy = y + CAVE.ROW_H/2;
-  const sz = 8 * scale;
-  // pulsar glow
-  ctx.fillStyle = 'rgba(255,95,162,0.25)';
-  ctx.fillRect(cx-sz-2, cy-sz-1, sz*2+4, sz*2+4);
-  // heart pixelado
-  ctx.fillStyle = '#ff5fa2';
-  ctx.fillRect(cx-6, cy-4, 5, 5);
-  ctx.fillRect(cx+1, cy-4, 5, 5);
-  ctx.fillRect(cx-7, cy-2, 14, 5);
-  ctx.fillRect(cx-5, cy+3, 10, 2);
-  ctx.fillRect(cx-3, cy+5, 6, 2);
-  ctx.fillRect(cx-1, cy+7, 2, 1);
-  ctx.fillStyle = '#ff9bc7';
-  ctx.fillRect(cx-5, cy-3, 2, 2);
-}
-
-function drawCaveEnemy(x,y,cell){
-  const m = 5;
-  const flash = cell.hurtTimer > 0;
-  ctx.fillStyle = flash ? '#fff' : '#3a3a3a';
-  ctx.fillRect(x+m, y+m+CAVE.ROW_H-m*2-3, CAVE.COL_W-m*2, 3);
-  ctx.fillStyle = flash ? '#fff' : '#a83a3a';
-  ctx.fillRect(x+m, y+m, CAVE.COL_W-m*2, CAVE.ROW_H-m*2);
-  if(!flash){
-    // eyes
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x+m+4, y+m+6, 4, 5);
-    ctx.fillRect(x+CAVE.COL_W-m-8, y+m+6, 4, 5);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x+m+5, y+m+7, 2, 3);
-    ctx.fillRect(x+CAVE.COL_W-m-7, y+m+7, 2, 3);
-    // teeth
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x+m+5, y+CAVE.ROW_H-m-6, 2, 2);
-    ctx.fillRect(x+m+9, y+CAVE.ROW_H-m-6, 2, 2);
-    ctx.fillRect(x+CAVE.COL_W-m-7, y+CAVE.ROW_H-m-6, 2, 2);
-  }
-}
-
-function drawCaveBunny(){
-  const x = cave.bunnyAnimX;
-  const y = caveBunnyY();
-  const flash = cave.bunnyHurtTimer>0 && (cave.bunnyHurtTimer%6<3);
-  // anel de escudo
-  if(cave.shieldTimer > 0){
-    const t = performance.now()/120;
-    const pulse = 1 + Math.sin(t)*0.1;
-    const blinking = cave.shieldTimer < 90 && (Math.floor(cave.shieldTimer/8) % 2 === 0);
-    ctx.globalAlpha = blinking ? 0.3 : 0.6;
-    ctx.fillStyle = '#5fb0d8';
-    const cx = x + CAVE.COL_W/2;
-    const cy = y + CAVE.ROW_H/2;
-    const r = (CAVE.COL_W/2) * pulse;
-    // anel via 4 retângulos finos
-    ctx.fillRect(cx-r, cy-3, r*2, 2);
-    ctx.fillRect(cx-r, cy+1, r*2, 2);
-    ctx.fillRect(cx-3, cy-r, 2, r*2);
-    ctx.fillRect(cx+1, cy-r, 2, r*2);
-    ctx.globalAlpha = 1;
-  }
-  if(flash) ctx.globalAlpha = 0.4;
-  const m = Math.max(3, Math.floor(CAVE.COL_W*0.12));
-  const bw = CAVE.COL_W - m*2;
-  const bh = CAVE.ROW_H - m*2;
-  // body
-  ctx.fillStyle = '#fff7e0';
-  ctx.fillRect(x+m, y+m+8, bw, bh-8);
-  // head
-  ctx.fillRect(x+m+3, y+m+3, bw-6, 12);
-  // ears
-  ctx.fillRect(x+m+4, y+m-4, 4, 8);
-  ctx.fillRect(x+CAVE.COL_W-m-8, y+m-4, 4, 8);
-  ctx.fillStyle = '#ff5fa2';
-  ctx.fillRect(x+m+5, y+m-2, 2, 4);
-  ctx.fillRect(x+CAVE.COL_W-m-7, y+m-2, 2, 4);
-  // eyes
-  ctx.fillStyle = '#0d0a1a';
-  ctx.fillRect(x+m+6, y+m+7, 2, 2);
-  ctx.fillRect(x+CAVE.COL_W-m-8, y+m+7, 2, 2);
-  // nose
-  ctx.fillStyle = '#ff5fa2';
-  ctx.fillRect(x+CAVE.COL_W/2-1, y+m+11, 2, 1);
-  ctx.globalAlpha = 1;
-}
-
-function drawCaveHUD(){
-  ctx.fillStyle = 'rgba(13,10,26,0.92)';
-  ctx.fillRect(0,0,W,HUD_TOP);
-  ctx.fillStyle = '#5a4499';
-  ctx.fillRect(0,HUD_TOP-2,W,2);
-
-  // distance (left)
-  ctx.fillStyle = '#ffcc3d';
-  ctx.font = 'bold 16px monospace';
-  ctx.textBaseline = 'top';
-  ctx.fillText(`${Math.floor(cave.distance)} M`, 10, 8);
-
-  // coin counter
-  const cix = 110, ciy = 10;
-  ctx.fillStyle = '#b3791f';
-  ctx.fillRect(cix, ciy, 12, 12);
-  ctx.fillStyle = '#ffcc3d';
-  ctx.fillRect(cix+1, ciy+1, 10, 10);
-  ctx.fillStyle = '#b3791f';
-  ctx.fillRect(cix+5, ciy+3, 2, 6);
-  ctx.fillStyle = '#ffcc3d';
-  ctx.font = 'bold 14px monospace';
-  ctx.fillText(`× ${String(cave.coins).padStart(2,'0')}`, cix+18, 9);
-
-  // hearts (right)
-  for(let i=0;i<cave.maxHp;i++){
-    const hx = W - 90 + i*26;
-    const hy = 10;
-    const full = i < cave.hp;
-    ctx.fillStyle = full ? '#ff5252' : '#3b2a70';
-    // pixel heart
-    ctx.fillRect(hx+2, hy+2, 4, 4);
-    ctx.fillRect(hx+10, hy+2, 4, 4);
-    ctx.fillRect(hx, hy+4, 16, 6);
-    ctx.fillRect(hx+2, hy+10, 12, 2);
-    ctx.fillRect(hx+5, hy+12, 6, 2);
-    ctx.fillRect(hx+7, hy+14, 2, 1);
-  }
-
-  // separator
-  ctx.fillStyle = 'rgba(255, 247, 224, 0.13)';
-  ctx.fillRect(40, 46, W-80, 1);
-
-  // combo (centro)
-  if(cave.combo > 0){
-    const popScale = cave.comboPopTimer > 0 ? 1 + (cave.comboPopTimer/30)*0.4 : 1;
-    ctx.fillStyle = cave.combo >= 10 ? '#ffcc3d' : '#9b8fc4';
-    ctx.font = `bold ${Math.round(14*popScale)}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillText(`COMBO ×${cave.combo}`, W/2, 56);
-    ctx.textAlign = 'left';
-  } else {
-    ctx.fillStyle = '#9b8fc4';
-    ctx.font = '11px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('CARROT CAVE', W/2, 62);
-    ctx.textAlign = 'left';
-  }
-
-  // indicador de escudo ativo (canto direito abaixo das vidas)
-  if(cave.shieldTimer > 0){
-    const sx = W - 50, sy = 30;
-    const secs = (cave.shieldTimer/60).toFixed(1);
-    ctx.fillStyle = '#5fb0d8';
-    ctx.fillRect(sx, sy, 14, 14);
-    ctx.fillStyle = '#fff7e0';
-    ctx.fillRect(sx+6, sy+2, 2, 10);
-    ctx.fillRect(sx+2, sy+6, 10, 2);
-    ctx.font = 'bold 11px monospace';
-    ctx.fillText(`${secs}s`, sx+18, 33);
-  }
-}
-
-function renderCave(){
-  setupCtx();
-  ctx.clearRect(0,0,W,H);
-
-  // bg
-  const grad = ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0,'#1a2a55');
-  grad.addColorStop(1,'#0a142a');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0,0,W,H);
-
-  // grid
-  for(let r=0;r<cave.rows.length;r++){
-    const y = caveTileYFinal(r);
-    if(y < CAVE.TOP_Y - CAVE.ROW_H || y > CAVE.BOT_Y) continue;
-    for(let c=0;c<CAVE.COLS;c++){
-      const x = c * CAVE.COL_W;
-      const shade = (r+c) % 2 === 0 ? '#2a4470' : '#244060';
-      ctx.fillStyle = shade;
-      ctx.fillRect(x, y, CAVE.COL_W, CAVE.ROW_H);
-      // grid lines
-      ctx.fillStyle = 'rgba(0,0,0,0.18)';
-      ctx.fillRect(x, y, CAVE.COL_W, 1);
-      ctx.fillRect(x, y, 1, CAVE.ROW_H);
-
-      const cell = cave.rows[r][c];
-      if(!cell) continue;
-      switch(cell.type){
-        case 'rock':          drawCaveRock(x, y); break;
-        case 'crystal':       drawCaveCrystal(x, y, cell); break;
-        case 'spike':         drawCaveSpike(x, y); break;
-        case 'water':         drawCaveWater(x, y); break;
-        case 'lava':          drawCaveLava(x, y); break;
-        case 'stepstone':     drawCaveStepstone(x, y); break;
-        case 'coin':          drawCaveCoin(x, y); break;
-        case 'enemy':         drawCaveEnemy(x, y, cell); break;
-        case 'bat':           drawCaveBat(x, y, cell); break;
-        case 'heart':         drawCaveHeart(x, y); break;
-        case 'chest':         drawCaveChest(x, y); break;
-        case 'shield_pickup': drawCaveShieldPickup(x, y); break;
-      }
-    }
-  }
-
-  // projectiles
-  for(const p of cave.projectiles){
-    ctx.fillStyle = '#ffcc3d';
-    ctx.fillRect(p.x-3, p.y-7, 6, 14);
-    ctx.fillStyle = '#fff7e0';
-    ctx.fillRect(p.x-2, p.y-6, 4, 4);
-  }
-
-  // bunny
-  drawCaveBunny();
-
-  // particles
-  for(const pt of cave.particles){
-    ctx.globalAlpha = Math.min(1, pt.life/18);
-    ctx.fillStyle = pt.color;
-    ctx.fillRect(pt.x, pt.y, 3, 3);
-  }
-  ctx.globalAlpha = 1;
-
-  // HUD
-  drawCaveHUD();
-}
-
-function moveCaveBunny(dir){
-  // dir: -1 ou +1
-  const next = cave.bunnyTargetCol + dir;
-  if(next < 0 || next >= CAVE.COLS) return;
-  cave.bunnyTargetCol = next;
-}
-
-function enterCave(){
-  state = STATE.CAVE_PLAY;
-  hideAllLayers();
-  document.getElementById('hint').style.display='none';
-  initCave();
-  tryFullscreen();
-}
-
-function enterCaveGameOver(){
-  state = STATE.CAVE_GAMEOVER;
-  const stats = document.getElementById('caveGoStats');
-  const time = ((performance.now()-cave.startTime)/1000).toFixed(1);
-  stats.innerHTML = `
-    <div class="row"><span>Distância</span><span>${Math.floor(cave.distance)} M</span></div>
-    <div class="row"><span>Cenouras</span><span>${cave.coins}</span></div>
-    <div class="row"><span>Maior combo</span><span>×${cave.combo}</span></div>
-    <div class="row"><span>Tempo</span><span>${time}s</span></div>
-  `;
-  showLayer('caveGameover');
-}
-
-// menu hooks
-document.getElementById('caveBtn').addEventListener('click', enterCave);
-document.getElementById('caveRetryBtn').addEventListener('click', enterCave);
-document.getElementById('caveMenuBtn').addEventListener('click', ()=>{
-  state = STATE.MENU;
-  showLayer('menu');
-});
-
-// CAVE INPUT: tap left/right halves do frame, ou setas
-const frameEl = document.getElementById('frame');
-frameEl.addEventListener('touchstart', e=>{
-  if(state !== STATE.CAVE_PLAY) return;
-  // ignora se for o botão de pause ou layers
-  if(e.target.closest('.layer') || e.target.id === 'pauseBtn') return;
-  e.preventDefault();
-  const t = e.changedTouches[0];
-  const rect = frameEl.getBoundingClientRect();
-  const localX = t.clientX - rect.left;
-  if(localX < rect.width/2) moveCaveBunny(-1);
-  else moveCaveBunny(1);
-},{passive:false});
-
-frameEl.addEventListener('mousedown', e=>{
-  if(state !== STATE.CAVE_PLAY) return;
-  if(e.target.closest('.layer') || e.target.id === 'pauseBtn') return;
-  const rect = frameEl.getBoundingClientRect();
-  const localX = e.clientX - rect.left;
-  if(localX < rect.width/2) moveCaveBunny(-1);
-  else moveCaveBunny(1);
-});
-
-// teclado pro cave (handler já existe, mas só dispara em PLAY; adiciono cave aqui)
-window.addEventListener('keydown', e=>{
-  if(state !== STATE.CAVE_PLAY) return;
-  if(e.key === 'ArrowLeft' || e.key === 'a') moveCaveBunny(-1);
-  else if(e.key === 'ArrowRight' || e.key === 'd') moveCaveBunny(1);
-});
-
 // ============================ LOOT ARENA (survivor + idle RPG + loot) ============================
 const ARENA = {
   TOP_Y: 0, BOT_Y: 0, LEFT_X: 0, RIGHT_X: 0,
@@ -3096,32 +1040,83 @@ const ARENA_SLOT_LABELS = {
   gloves:'Luvas', belt:'Cinto',
   boots:'Botas', amulet:'Colar', ring:'Anel',
 };
-const RARITY = {
-  common:    { color:'#9b8fc4', mult:1.0,  name:'Comum'    },
-  uncommon:  { color:'#4cf08e', mult:1.5,  name:'Incomum'  },
-  rare:      { color:'#5fb0d8', mult:2.2,  name:'Raro'     },
-  epic:      { color:'#a86bff', mult:3.2,  name:'Épico'    },
-  legendary: { color:'#ffcc3d', mult:4.6,  name:'Lendário' },
-  mythic:    { color:'#ff5fa2', mult:6.5,  name:'Mítico'   },
-  divine:    { color:'#88f0ff', mult:9.5,  name:'Divino'   },
-};
-const RARITY_KEYS = Object.keys(RARITY); // ordem ascendente dos tiers
-const RARITY_WEIGHTS = [
-  ['common',    50],
-  ['uncommon',  25],
-  ['rare',      12],
-  ['epic',       7],
-  ['legendary',  4],
-  ['mythic',     1.5],
-  ['divine',     0.5],
+// ============== ERAS (10 tiers da forja baseado em design.md §5) ==============
+// Cada era tem: nome, cor, mult (escala stat primário), substats slots,
+// unlock (nível mínimo de forja pra começar a dropar)
+const ERAS = [
+  { key:'primitive',    idx:0, name:'Primitive',    color:'#888780', mult:1.0,  substats:0, unlock:1  },
+  { key:'medieval',     idx:1, name:'Medieval',     color:'#5F5E5A', mult:1.5,  substats:0, unlock:4  },
+  { key:'earlymodern',  idx:2, name:'Early-Modern', color:'#BA7517', mult:2.2,  substats:0, unlock:7  },
+  { key:'modern',       idx:3, name:'Modern',       color:'#378ADD', mult:3.2,  substats:1, unlock:11 },
+  { key:'space',        idx:4, name:'Space',        color:'#185FA5', mult:4.6,  substats:1, unlock:15 },
+  { key:'interstellar', idx:5, name:'Interstellar', color:'#0C447C', mult:6.5,  substats:1, unlock:19 },
+  { key:'multiverse',   idx:6, name:'Multiverse',   color:'#7F77DD', mult:9.5,  substats:2, unlock:23 },
+  { key:'quantum',      idx:7, name:'Quantum',      color:'#534AB7', mult:13.5, substats:2, unlock:27 },
+  { key:'underworld',   idx:8, name:'Underworld',   color:'#D85A30', mult:19.0, substats:2, unlock:30 },
+  { key:'divine',       idx:9, name:'Divine',       color:'#1D9E75', mult:27.0, substats:2, unlock:33 },
 ];
-// Forge level destrava raridade máxima dos drops
-const FORGE_LEVEL_MAX_TIER = {
-  1:'common', 2:'uncommon', 3:'rare', 4:'epic',
-  5:'legendary', 6:'mythic', 7:'divine',
+const ERA_KEYS = ERAS.map(e=>e.key);
+const ERA_BY_KEY = Object.fromEntries(ERAS.map(e=>[e.key, e]));
+// Compat: alguns trechos antigos ainda referenciam RARITY[item.rarity].color/.name
+// Mantemos um shim que indexa as eras como se fossem raridades
+const RARITY = ERA_BY_KEY;
+const RARITY_KEYS = ERA_KEYS;
+
+// ============== COMBOS (5d6, design.md §4) ==============
+const COMBO_DATA = {
+  FIVE:     { id:'FIVE',     name:'Cinco Iguais',    mult:10.5, tierUp:1.00, doubleUp:0.25, color:'#1D9E75' },
+  FOUR:     { id:'FOUR',     name:'Quatro Iguais',   mult:5.5,  tierUp:0.50, doubleUp:0.00, color:'#7F77DD' },
+  FULL:     { id:'FULL',     name:'Full House',      mult:4.0,  tierUp:0.25, doubleUp:0.00, color:'#534AB7' },
+  STRAIGHT: { id:'STRAIGHT', name:'Sequência',       mult:3.5,  tierUp:0.15, doubleUp:0.00, color:'#378ADD' },
+  THREE:    { id:'THREE',    name:'Três Iguais',     mult:3.0,  tierUp:0.10, doubleUp:0.00, color:'#185FA5' },
+  TWOPAIR:  { id:'TWOPAIR',  name:'Dois Pares',      mult:2.5,  tierUp:0.05, doubleUp:0.00, color:'#BA7517' },
+  PAIR:     { id:'PAIR',     name:'Um Par',          mult:2.0,  tierUp:0.02, doubleUp:0.00, color:'#888780' },
+  MAXROLL:  { id:'MAXROLL',  name:'Lançamento Máx.', mult:1.5,  tierUp:0.00, doubleUp:0.00, color:'#5F5E5A' },
+  NONE:     { id:'NONE',     name:'—',               mult:1.0,  tierUp:0.00, doubleUp:0.00, color:'#5F5E5A' },
 };
-// Custo de cenouras por forja (mesmo independente de raridade)
-const FORGE_COST = 5;
+
+// ============== SUBSTATS (design.md §7) ==============
+// max = valor máximo possível na rolagem; arenaImpact converte pra ganho real de combate
+const SUBSTATS = [
+  { id:'CRIT_CHANCE',    name:'Crit Chance',    max:12,  unit:'%' },
+  { id:'CRIT_DAMAGE',    name:'Crit Damage',    max:100, unit:'%' },
+  { id:'ATTACK_SPEED',   name:'Attack Speed',   max:40,  unit:'%' },
+  { id:'DOUBLE_CHANCE',  name:'Double Chance',  max:40,  unit:'%' },
+  { id:'DAMAGE',         name:'Damage',         max:15,  unit:'%' },
+  { id:'SKILL_DAMAGE',   name:'Skill Damage',   max:30,  unit:'%' },
+  { id:'RANGED_DAMAGE',  name:'Ranged Damage',  max:15,  unit:'%' },
+  { id:'MELEE_DAMAGE',   name:'Melee Damage',   max:50,  unit:'%' },
+  { id:'BLOCK',          name:'Block',          max:5,   unit:'%' },
+  { id:'LIFESTEAL',      name:'Lifesteal',      max:20,  unit:'%' },
+  { id:'HEALTH_REGEN',   name:'Health Regen',   max:6,   unit:'%' },
+  { id:'SKILL_COOLDOWN', name:'Skill Cooldown', max:7,   unit:'%' },
+  { id:'HEALTH',         name:'Health',         max:15,  unit:'%' },
+];
+// Conversão substat → bonus pras stats reais do arena.
+// Cada função recebe value (já em "unidades" do substat — ex 12 = 12%) e devolve
+// um dicionário de incrementos pra stats da arena (dmg, crit, atkSpeed, etc).
+const SUBSTAT_TO_ARENA = {
+  CRIT_CHANCE:    (v)=> ({ crit: v/100 }),
+  CRIT_DAMAGE:    (v)=> ({ dmg: v/100 }),
+  ATTACK_SPEED:   (v)=> ({ atkSpeed: v/100 }),
+  DOUBLE_CHANCE:  (v)=> ({ projectiles: v/40 }),
+  DAMAGE:         (v)=> ({ dmg: v/10 }),
+  SKILL_DAMAGE:   (v)=> ({ dmg: v/50 }),
+  RANGED_DAMAGE:  (v)=> ({ dmg: v/30 }),
+  MELEE_DAMAGE:   (v)=> ({ dmg: v/100 }),
+  BLOCK:          (v)=> ({ dodge: v/200 }),
+  LIFESTEAL:      (v)=> ({ pickupRange: v }),
+  HEALTH_REGEN:   (v)=> ({ xpMult: v/100 }),
+  SKILL_COOLDOWN: (v)=> ({ atkSpeed: v/200 }),
+  HEALTH:         (v)=> ({ maxHp: v }),
+};
+
+// Custo da forja em hammers (carrots reaproveitados como hammers)
+const FORGE_BASE_COST = 3;   // hammers pra rolagem inicial
+const FORGE_REROLL_COST = 1; // hammers por reroll
+const FORGE_MAX_REROLLS = 7;
+// alias antigo (alguns lugares ainda chamam FORGE_COST)
+const FORGE_COST = FORGE_BASE_COST;
 // stats por slot
 const ARENA_ITEM_POOL = [
   // weapon (com tipo melee/ranged)
@@ -3161,15 +1156,8 @@ const arena = {
   shootTimer:0,
   enemies:[],
   swings:[],   // ataques melee (arcos da espada de cenoura)
-  effects:[],  // habilidades especiais (shockwave, beam, meteor, nuke, orbiter)
+  effects:[],  // efeitos visuais residuais (ainda usados por outras spawns)
   gems:[],
-  // dice system
-  dice:[{value:1}],
-  diceRollTimer:300,    // frames até próximo roll (5s @ 60fps)
-  diceRollInterval:300,
-  lastCombo:'NONE',
-  comboTextTimer:0,
-  maxRollBuffFrames:0,  // boost de range nos próximos swings (MAXROLL)
   autoMove: false,      // IA de movimento ON/OFF
   forgeCooldown: 0,     // frames até próxima forja
   forgeInterval: 900,   // 15s @ 60fps (será recalculado pelo level)
@@ -3208,8 +1196,18 @@ function arenaTotalStat(name){
   let value = arena['base'+name[0].toUpperCase()+name.slice(1)] || 0;
   for(const slot of ARENA_SLOTS){
     const it = arena.items[slot];
-    if(!it || it.stat !== name) continue;
-    value += it.value;
+    if(!it) continue;
+    // 1. stat primário do item
+    if(it.stat === name) value += it.value;
+    // 2. substats convertidos pra stats reais de combate
+    if(it.substats && it.substats.length){
+      for(const s of it.substats){
+        const conv = SUBSTAT_TO_ARENA[s.id];
+        if(!conv) continue;
+        const add = conv(s.value);
+        if(add[name]) value += add[name];
+      }
+    }
   }
   return value;
 }
@@ -3244,12 +1242,13 @@ function bumpArenaPower(){
 }
 
 function initArenaLayout(){
-  ARENA.TOP_Y = HUD_TOP + 4;
-  // play area encurtada em ~20%; sobra mais espaço pro strip de itens
-  // bottom area: items strip alto (90) + forge btn (~40) + tab bar (~40 logical)
-  ARENA.BOT_Y = H - HUD_BOT - 90 - 92;
-  ARENA.LEFT_X = 4;
-  ARENA.RIGHT_X = W - 4;
+  // Grid sem topo reservado: vai até o limite do frame, com HUD sobreposto como pills flutuantes
+  ARENA.TOP_Y = 0;
+  // bottom area: items strip (90) + forge inline widget (~150 lógico) + tab bar (~40)
+  // forge inline ocupa: dados (~52) + action row (~38) + info row (~14) + gaps (~10) ≈ 114; +bottom offset = ~150
+  ARENA.BOT_Y = H - HUD_BOT - 90 - 152;
+  ARENA.LEFT_X = 0;
+  ARENA.RIGHT_X = W;
 }
 
 function initArena(){
@@ -3261,11 +1260,6 @@ function initArena(){
   arena.hurtTimer = 0; arena.shootTimer = 0;
   arena.enemies = []; arena.swings = []; arena.effects = [];
   arena.gems = []; arena.particles = [];
-  arena.dice = [{value:1}];
-  arena.diceRollTimer = arena.diceRollInterval = 300;
-  arena.lastCombo = 'NONE';
-  arena.comboTextTimer = 0;
-  arena.maxRollBuffFrames = 0;
   arena.autoMove = false;
   arena._aiFrame = 0;
   arena._aiLastX = arena.bx; arena._aiLastY = arena.by;
@@ -3290,7 +1284,8 @@ function initArena(){
   // arma inicial: galho (a pior arma do jogo, melee)
   arena.items.weapon = {
     slot:'weapon', name:'Galho', stat:'dmg', base:1, value:1,
-    icon:'🌿', rarity:'common', weaponType:'melee',
+    icon:'🌿', rarity:'primitive', eraKey:'primitive', eraIdx:0,
+    weaponType:'melee', level:1, substats:[],
   };
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
@@ -3492,26 +1487,10 @@ function spawnArenaBoss(){
   spawnArenaParticle(W/2, ARENA.TOP_Y, '#ff5252', 24);
 }
 
-function rollRarity(){
-  // gate por forge level — só dropa até a raridade destravada
-  const maxTier = FORGE_LEVEL_MAX_TIER[arena.forgeLevel] || 'common';
-  const maxIdx = RARITY_KEYS.indexOf(maxTier);
-  const allowed = RARITY_WEIGHTS.filter(([k,_])=> RARITY_KEYS.indexOf(k) <= maxIdx);
-  const totalW = allowed.reduce((s,[,w])=>s+w, 0);
-  let r = Math.random()*totalW;
-  for(const [name,w] of allowed){
-    r -= w;
-    if(r<=0) return name;
-  }
-  return allowed[allowed.length-1][0];
-}
-
+// Mantido como shim pra qualquer chamada antiga — rolagem direta sem combo
+// só seria usada via cheats/debug. Combo padrão: MAXROLL.
 function rollItem(){
-  const def = ARENA_ITEM_POOL[(Math.random()*ARENA_ITEM_POOL.length)|0];
-  const rarity = rollRarity();
-  const mult = RARITY[rarity].mult;
-  const value = +(def.base * mult).toFixed(2);
-  return { ...def, rarity, value };
+  return generateForgedItem(arena.forgeLevel, COMBO_DATA.MAXROLL);
 }
 
 function spawnArenaParticle(x,y,color,count){
@@ -3565,118 +1544,6 @@ function killArenaEnemy(idx, e){
   arena.enemies.splice(idx,1);
 }
 
-function triggerArenaAbility(combo){
-  const baseDmg = arenaTotalStat('dmg');
-  switch(combo){
-    case 'MAXROLL': {
-      // buff: próximos swings ganham +50% range por 3 segundos
-      arena.maxRollBuffFrames = 180;
-      spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 14);
-      break;
-    }
-    case 'PAIR': {
-      // spin: swing de 360°
-      arena.swings.push({
-        centerAngle: 0, arc: Math.PI*2, range: 56,
-        frame: 0, lifeFrames: 14, dir: 1,
-        dmg: baseDmg, crit: arenaTotalStat('crit'),
-        hit: new Set(),
-      });
-      break;
-    }
-    case 'TWOPAIR': {
-      // double slash: 2 swings em sequência
-      let best=null,bd=Infinity;
-      for(const e of arena.enemies){
-        const d=(e.x-arena.bx)**2+(e.y-arena.by)**2;
-        if(d<bd){bd=d;best=e;}
-      }
-      const ang = best ? Math.atan2(best.y-arena.by, best.x-arena.bx) : 0;
-      arena.swings.push({
-        centerAngle: ang, arc: Math.PI*0.95, range: 52,
-        frame: 0, lifeFrames: 6, dir: 1,
-        dmg: baseDmg*1.2, crit: arenaTotalStat('crit'),
-        hit: new Set(),
-      });
-      arena.effects.push({ kind:'delayed', framesLeft:10, fn:()=>{
-        arena.swings.push({
-          centerAngle: ang, arc: Math.PI*0.95, range: 52,
-          frame: 0, lifeFrames: 6, dir: -1,
-          dmg: baseDmg*1.2, crit: arenaTotalStat('crit'),
-          hit: new Set(),
-        });
-      }, frame:0, lifeFrames:11 });
-      break;
-    }
-    case 'THREE': {
-      // shockwave AOE expansiva
-      arena.effects.push({
-        kind:'shockwave', x:arena.bx, y:arena.by,
-        r:8, maxR:120, frame:0, lifeFrames:24,
-        dmg: baseDmg*1.5, hit: new Set(),
-      });
-      break;
-    }
-    case 'STRAIGHT': {
-      // beam piercing que sai numa direção
-      let best=null,bd=Infinity;
-      for(const e of arena.enemies){
-        const d=(e.x-arena.bx)**2+(e.y-arena.by)**2;
-        if(d<bd){bd=d;best=e;}
-      }
-      const ang = best ? Math.atan2(best.y-arena.by, best.x-arena.bx) : -Math.PI/2;
-      arena.effects.push({
-        kind:'beam', x:arena.bx, y:arena.by,
-        vx:Math.cos(ang)*9, vy:Math.sin(ang)*9,
-        angle: ang,
-        frame:0, lifeFrames:36,
-        dmg: baseDmg*2.0, hit: new Set(),
-      });
-      break;
-    }
-    case 'FULL': {
-      // orbiter: 3 orbes que orbitam o coelho por ~5s
-      const dur = 300;
-      for(let i=0;i<3;i++){
-        arena.effects.push({
-          kind:'orbiter',
-          angle: (Math.PI*2/3)*i,
-          radius: 38, x:arena.bx, y:arena.by,
-          frame:0, lifeFrames: dur,
-          dmg: baseDmg*0.6, lastHit: new Map(),
-        });
-      }
-      break;
-    }
-    case 'FOUR': {
-      // meteor: cai no inimigo mais "ameaçador" (HP maior, ou boss)
-      let target=null,maxHp=-1;
-      for(const e of arena.enemies){
-        if(e.hp > maxHp){ maxHp=e.hp; target=e; }
-      }
-      const tx = target ? target.x : arena.bx;
-      const ty = target ? target.y : arena.by;
-      arena.effects.push({
-        kind:'meteor',
-        x: tx + (Math.random()-0.5)*40, y: -30,
-        targetX: tx, targetY: ty,
-        frame:0, lifeFrames: 36,
-        dmg: baseDmg*4.5, radius: 60,
-        exploded: false,
-      });
-      break;
-    }
-    case 'FIVE': {
-      // nuke: limpa tela (dano massivo em todos)
-      arena.effects.push({
-        kind:'nuke',
-        frame:0, lifeFrames:30,
-        dmg: baseDmg*10, exploded:false,
-      });
-      break;
-    }
-  }
-}
 
 function updateArenaEffects(){
   for(let i=arena.effects.length-1;i>=0;i--){
@@ -3834,11 +1701,10 @@ function arenaAttack(){
 function arenaMeleeSwing(target){
   const targetAngle = Math.atan2(target.y-arena.by, target.x-arena.bx);
   const bladeStat = Math.max(1, Math.round(arenaTotalStat('projectiles')));
-  const rangeBoost = arena.maxRollBuffFrames > 0 ? 1.5 : 1;
   arena.swings.push({
     centerAngle: targetAngle,
     arc:   Math.PI * 0.85 + (bladeStat-1) * 0.20,
-    range: (38 + bladeStat * 6) * rangeBoost,
+    range: 38 + bladeStat * 6,
     frame: 0, lifeFrames: 6,
     dmg: arenaTotalStat('dmg'),
     crit: arenaTotalStat('crit'),
@@ -3926,7 +1792,9 @@ function computeArenaAI(){
 
   if(arena._aiEscape > 0){
     arena._aiEscape--;
-    return arena._aiEscapeDir;
+    // _aiEscapeDir é armazenado como {x,y} — converte pra {dx,dy} no return
+    // pra bater com o shape esperado pelo updateArena (que lê .dx/.dy).
+    return { dx: arena._aiEscapeDir.x, dy: arena._aiEscapeDir.y };
   }
 
   // ===== combate normal =====
@@ -4028,7 +1896,7 @@ function updateArena(){
   let dx = 0, dy = 0;
   if(arena.autoMove){
     const ai = computeArenaAI();
-    dx = ai.dx; dy = ai.dy;
+    dx = +ai.dx || 0; dy = +ai.dy || 0;
   } else if(input.active){
     dx = input.axisX || 0;
     dy = input.axisY || 0;
@@ -4039,11 +1907,19 @@ function updateArena(){
     if(keys['ArrowUp']||keys['w']) dy -= 1;
     if(keys['ArrowDown']||keys['s']) dy += 1;
   }
+  // failsafe: se dx/dy chegou NaN/Infinity por algum bug, zera (evita propagar pra arena.bx)
+  if(!isFinite(dx)) dx = 0;
+  if(!isFinite(dy)) dy = 0;
   const mag = Math.hypot(dx,dy);
   if(mag > 0){ dx/=mag; dy/=mag; }
   const moveSpeed = arena.baseMoveSpeed * (1 + arenaTotalStat('moveSpeed'));
   arena.bx += dx * moveSpeed;
   arena.by += dy * moveSpeed;
+  // failsafe extra: se mesmo assim virou NaN (item bugado com value NaN, etc), reseta pro centro
+  if(!isFinite(arena.bx) || !isFinite(arena.by)){
+    arena.bx = (ARENA.LEFT_X + ARENA.RIGHT_X)/2;
+    arena.by = (ARENA.TOP_Y + ARENA.BOT_Y)/2;
+  }
   // bounds
   arena.bx = Math.max(ARENA.LEFT_X+ARENA.BUNNY_R, Math.min(ARENA.RIGHT_X-ARENA.BUNNY_R, arena.bx));
   arena.by = Math.max(ARENA.TOP_Y+ARENA.BUNNY_R, Math.min(ARENA.BOT_Y-ARENA.BUNNY_R, arena.by));
@@ -4066,20 +1942,6 @@ function updateArena(){
     // se nada no range, shootTimer continua <= 0 → tenta de novo no próximo frame
   }
 
-  // dice roll: rola todos os dados periodicamente e dispara habilidade pelo combo
-  arena.diceRollTimer--;
-  if(arena.diceRollTimer <= 0){
-    arena.diceRollTimer = arena.diceRollInterval;
-    for(const d of arena.dice) d.value = 1 + ((Math.random()*6)|0);
-    const combo = evalComboArr(arena.dice);
-    arena.lastCombo = combo;
-    if(combo !== 'NONE'){
-      triggerArenaAbility(combo);
-      arena.comboTextTimer = 60;
-    }
-  }
-  if(arena.comboTextTimer > 0) arena.comboTextTimer--;
-  if(arena.maxRollBuffFrames > 0) arena.maxRollBuffFrames--;
   if(arena.powerDeltaTimer > 0) arena.powerDeltaTimer--;
   if(arena.powerPulseTimer > 0) arena.powerPulseTimer--;
   bumpArenaPower();
@@ -4255,8 +2117,9 @@ function enterArenaGameOver(){
 function enterArena(){
   state = STATE.ARENA_PLAY;
   hideAllLayers();
-  document.getElementById('hint').style.display='none';
   initArena();
+  // reseta strip de forja pra estado idle
+  if(typeof openForgeDice === 'function') openForgeDice();
   // reseta tab ativa pra COMBAT
   if(typeof setActiveArenaTab === 'function') setActiveArenaTab('combat');
   tryFullscreen();
@@ -4430,50 +2293,145 @@ function drawArenaGem(g){
   }
 }
 
-function drawArenaHUD(){
-  // top bar
-  ctx.fillStyle = 'rgba(13,10,26,0.92)';
-  ctx.fillRect(0,0,W,HUD_TOP);
-  ctx.fillStyle = '#5a4499';
-  ctx.fillRect(0,HUD_TOP-2,W,2);
+function _pillPath(x, y, w, h, r){
+  // helper pra desenhar pill rounded (compatível com browsers sem roundRect)
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
 
-  // hp bar (top-left larger)
-  const hpX=10, hpY=10, hpW=W-20, hpH=10;
-  ctx.fillStyle = '#3b2a70';
-  ctx.fillRect(hpX, hpY, hpW, hpH);
-  ctx.fillStyle = '#ff5252';
-  ctx.fillRect(hpX+1, hpY+1, (hpW-2)*Math.max(0,arena.hp)/arena.maxHp, hpH-2);
+function drawPillBg(x, y, w, h, fillColor, borderColor, radius){
+  const r = radius ?? Math.min(h/2, 14);
+  // sombra suave
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  _pillPath(x+1, y+2, w, h, r);
+  ctx.fill();
+  // fundo
+  ctx.fillStyle = fillColor;
+  _pillPath(x, y, w, h, r);
+  ctx.fill();
+  // borda
+  if(borderColor){
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1.5;
+    _pillPath(x, y, w, h, r);
+    ctx.stroke();
+  }
+}
+
+function drawArenaHUD(){
+  // ===== HUD flutuante (pills) sobreposto ao grid =====
+  ctx.textBaseline = 'middle';
+
+  // --- HP pill (top-left) ---
+  const hpX = 8, hpY = 8, hpW = 140, hpH = 22;
+  drawPillBg(hpX, hpY, hpW, hpH, 'rgba(13,10,26,0.7)', '#5a4499', 11);
+  // heart cap (círculo vermelho à esquerda dentro do pill)
+  ctx.fillStyle = '#ff5fa2';
+  ctx.beginPath();
+  ctx.arc(hpX+11, hpY+hpH/2, 8, 0, Math.PI*2);
+  ctx.fill();
   ctx.fillStyle = '#fff7e0';
   ctx.font = 'bold 10px monospace';
-  ctx.textBaseline = 'top';
-  ctx.fillText(`HP ${Math.max(0,Math.ceil(arena.hp))}/${arena.maxHp}`, W/2-26, hpY+1);
+  ctx.textAlign = 'center';
+  ctx.fillText('♥', hpX+11, hpY+hpH/2+1);
+  // hp bar interno
+  const barX = hpX+22, barY = hpY+5, barW = hpW-30, barH = 12;
+  drawPillBg(barX, barY, barW, barH, '#3b1a2a', null, 6);
+  ctx.fillStyle = '#ff5252';
+  const hpPct = Math.max(0, arena.hp)/arena.maxHp;
+  if(hpPct > 0){
+    _pillPath(barX, barY, Math.max(4, barW*hpPct), barH, 6);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#fff7e0';
+  ctx.font = 'bold 9px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`HP ${Math.max(0,Math.ceil(arena.hp))}/${arena.maxHp}`, barX + barW/2, barY+barH/2+1);
 
-  // xp bar
-  const xpY = 24;
-  ctx.fillStyle = '#1a4a7a';
-  ctx.fillRect(hpX, xpY, hpW, 6);
+  // --- XP pill (logo abaixo do HP) ---
+  const xpX = hpX, xpY = hpY + hpH + 4, xpW = 110, xpH = 16;
+  drawPillBg(xpX, xpY, xpW, xpH, 'rgba(13,10,26,0.7)', '#2a6f95', 8);
+  // XP label
   ctx.fillStyle = '#5fb0d8';
-  ctx.fillRect(hpX, xpY, hpW*(arena.xp/arena.xpToNext), 6);
-  ctx.fillStyle = '#ffcc3d';
-  ctx.font = 'bold 12px monospace';
-  ctx.fillText(`Lv ${arena.level}`, 10, 34);
-
-  // POWER score com pulse quando equipa item (cor laranja-ouro)
-  const pulse = arena.powerPulseTimer > 0
-    ? 1 + Math.sin(arena.powerPulseTimer*0.45)*0.18 : 1;
-  ctx.fillStyle = '#ffcc3d';
-  ctx.font = `bold ${Math.round(13*pulse)}px monospace`;
-  ctx.fillText(`⚡${arena.power}`, 50, 33);
-  // glow sutil quando pulsando
-  if(arena.powerPulseTimer > 0){
-    ctx.globalAlpha = 0.5 * (arena.powerPulseTimer/30);
-    ctx.fillStyle = '#ff9b3a';
-    ctx.font = `bold ${Math.round(13*pulse)}px monospace`;
-    ctx.fillText(`⚡${arena.power}`, 50, 33);
-    ctx.globalAlpha = 1;
+  ctx.font = 'bold 9px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('XP', xpX+6, xpY+xpH/2+1);
+  // XP bar interno
+  const xpBarX = xpX+22, xpBarY = xpY+3, xpBarW = xpW-28, xpBarH = 10;
+  drawPillBg(xpBarX, xpBarY, xpBarW, xpBarH, '#1a4a7a', null, 5);
+  ctx.fillStyle = '#88daf0';
+  const xpPct = Math.max(0, Math.min(1, arena.xp/arena.xpToNext));
+  if(xpPct > 0){
+    _pillPath(xpBarX, xpBarY, Math.max(3, xpBarW*xpPct), xpBarH, 5);
+    ctx.fill();
   }
 
-  // delta flutuante (sobe e desaparece em ~1.5s)
+  // --- STAGE pill (top-center) com wave dots embaixo ---
+  const stageW = 96, stageH = 26;
+  const stageX = (W-stageW)/2, stageY = 8;
+  drawPillBg(stageX, stageY, stageW, stageH, 'rgba(13,10,26,0.78)', '#7a5fc4', 8);
+  ctx.fillStyle = '#fff7e0';
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`STAGE ${stageLabel(arena.stage)}`, W/2, stageY+stageH/2+1);
+  // wave dots embaixo
+  const dotR = 3;
+  const dotsTotalW = WAVES_PER_STAGE*8;
+  const dotsX0 = W/2 - dotsTotalW/2 + 4;
+  for(let i=0;i<WAVES_PER_STAGE;i++){
+    const isCur = (i+1) === arena.wave;
+    const isPast = (i+1) < arena.wave;
+    const isBoss = (i+1) === WAVES_PER_STAGE;
+    ctx.fillStyle = isCur ? (isBoss?'#ff5252':'#ffcc3d')
+                  : isPast ? '#4cf08e'
+                  : (isBoss?'#5a2a2a':'#3b2a70');
+    ctx.beginPath();
+    ctx.arc(dotsX0 + i*8, stageY+stageH+6, dotR, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // --- LV badge (top-right, square) ---
+  const lvW = 30, lvH = 30;
+  const lvX = W - lvW - 8, lvY = 8;
+  drawPillBg(lvX, lvY, lvW, lvH, '#5fb0d8', '#88daf0', 7);
+  ctx.fillStyle = '#0d2a3a';
+  ctx.font = 'bold 8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('LV', lvX+lvW/2, lvY+9);
+  ctx.font = 'bold 12px monospace';
+  ctx.fillText(`${arena.level}`, lvX+lvW/2, lvY+22);
+
+  // --- Power pill (energy ⚡, abaixo do LV) ---
+  const pwW = 70, pwH = 20;
+  const pwX = W - pwW - 8, pwY = lvY + lvH + 4;
+  drawPillBg(pwX, pwY, pwW, pwH, 'rgba(255,180,40,0.95)', '#ffcc3d', 10);
+  const pulse = arena.powerPulseTimer > 0
+    ? 1 + Math.sin(arena.powerPulseTimer*0.45)*0.10 : 1;
+  ctx.fillStyle = '#3a230b';
+  ctx.font = `bold ${Math.round(11*pulse)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText(`⚡ ${arena.power}`, pwX+pwW/2, pwY+pwH/2+1);
+
+  // --- Kills pill (💀, abaixo do Power) ---
+  const klW = 70, klH = 20;
+  const klX = W - klW - 8, klY = pwY + pwH + 4;
+  drawPillBg(klX, klY, klW, klH, 'rgba(122,95,196,0.95)', '#a86bff', 10);
+  ctx.fillStyle = '#0d0a1a';
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`💀 ${arena.killCount}`, klX+klW/2, klY+klH/2+1);
+
+  // delta de power flutuante (sobe e desaparece em ~1.5s) — emerge do power pill
   if(arena.powerDeltaTimer > 0){
     const lifeT = arena.powerDeltaTimer / 90;
     const yOff = (1-lifeT) * 24;
@@ -4482,81 +2440,19 @@ function drawArenaHUD(){
     const sign = arena.powerDelta >= 0 ? '+' : '';
     const txt = `${sign}${arena.powerDelta}`;
     const col = arena.powerDelta >= 0 ? '#4cf08e' : '#ff5252';
-    // outline preto pra legibilidade
     ctx.fillStyle = '#000';
     ctx.font = 'bold 12px monospace';
-    ctx.fillText(txt, 113+1, 33-yOff+1);
-    ctx.fillStyle = col;
-    ctx.fillText(txt, 113, 33-yOff);
-    ctx.globalAlpha = 1;
-  }
-
-  // STAGE label centralizado + wave progress
-  ctx.fillStyle = '#fff7e0';
-  ctx.font = 'bold 13px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`STAGE ${stageLabel(arena.stage)}`, W/2 + 30, 33);
-  // wave dots (5 bolinhas, atual destacada)
-  const dotsX0 = W/2 + 30 - (WAVES_PER_STAGE*8)/2 + 4;
-  for(let i=0;i<WAVES_PER_STAGE;i++){
-    const isCur = (i+1) === arena.wave;
-    const isPast = (i+1) < arena.wave;
-    const isBoss = (i+1) === WAVES_PER_STAGE;
-    ctx.fillStyle = isCur ? (isBoss?'#ff5252':'#ffcc3d')
-                  : isPast ? '#4cf08e'
-                  : (isBoss?'#5a2a2a':'#3b2a70');
-    ctx.fillRect(dotsX0 + i*8 - 2, 45, 4, 3);
-  }
-  ctx.textAlign = 'right';
-  ctx.fillStyle = '#ff5252';
-  ctx.font = 'bold 12px monospace';
-  ctx.fillText(`💀${arena.killCount}`, W-10, 34);
-  ctx.textAlign = 'left';
-
-  // separator
-  ctx.fillStyle = 'rgba(255, 247, 224, 0.13)';
-  ctx.fillRect(40, 50, W-80, 1);
-
-  // dados (arena) + cooldown
-  const dSize = 22, dGap = 4;
-  const totalDiceW = 5*dSize + 4*dGap;
-  let dx0 = (W - totalDiceW)/2;
-  const dy0 = 56;
-  for(let i=0;i<5;i++){
-    const has = i < arena.dice.length;
-    ctx.fillStyle = has ? '#fff7e0' : '#241a44';
-    ctx.fillRect(dx0, dy0, dSize, dSize);
-    ctx.fillStyle = has ? '#ffcc3d' : '#3b2a70';
-    ctx.fillRect(dx0, dy0, dSize, 2);
-    if(has){
-      drawDieFace(dx0, dy0, dSize, dSize, arena.dice[i].value);
-    }
-    dx0 += dSize+dGap;
-  }
-  // cooldown ring (barra abaixo)
-  const cdW = totalDiceW;
-  const cdX = (W - cdW)/2;
-  const cdY = dy0 + dSize + 2;
-  const pct = 1 - arena.diceRollTimer / arena.diceRollInterval;
-  ctx.fillStyle = '#3b2a70';
-  ctx.fillRect(cdX, cdY, cdW, 2);
-  ctx.fillStyle = '#ff5fa2';
-  ctx.fillRect(cdX, cdY, cdW*pct, 2);
-
-  // combo recém-disparado (texto)
-  if(arena.comboTextTimer > 0 && arena.lastCombo !== 'NONE'){
-    const a = Math.min(1, arena.comboTextTimer / 30);
-    ctx.globalAlpha = a;
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 16px monospace';
     ctx.textAlign = 'center';
-    const name = (COMBO[arena.lastCombo].name||'').toUpperCase()+'!';
-    ctx.fillText(name, W/2+1, 87+1);
-    ctx.fillStyle = '#ff5fa2';
-    ctx.fillText(name, W/2, 87);
-    ctx.textAlign = 'left';
+    ctx.fillText(txt, pwX+pwW/2+1, pwY+pwH/2-yOff+1);
+    ctx.fillStyle = col;
+    ctx.fillText(txt, pwX+pwW/2, pwY+pwH/2-yOff);
     ctx.globalAlpha = 1;
   }
+
+  // reset
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
 
   // 6 slots de itens no bottom HUD
   ctx.fillStyle = 'rgba(13,10,26,0.92)';
@@ -4675,12 +2571,9 @@ function renderArena(){
       ctx.fillRect(xx, yy, tile, tile);
     }
   }
-  // arena border
+  // arena border — só linha inferior (separa do items strip); top/lados ficam abertos
   ctx.fillStyle = '#5a4499';
-  ctx.fillRect(ARENA.LEFT_X, ARENA.TOP_Y, ARENA.RIGHT_X-ARENA.LEFT_X, 2);
   ctx.fillRect(ARENA.LEFT_X, ARENA.BOT_Y-2, ARENA.RIGHT_X-ARENA.LEFT_X, 2);
-  ctx.fillRect(ARENA.LEFT_X, ARENA.TOP_Y, 2, ARENA.BOT_Y-ARENA.TOP_Y);
-  ctx.fillRect(ARENA.RIGHT_X-2, ARENA.TOP_Y, 2, ARENA.BOT_Y-ARENA.TOP_Y);
 
   // gems
   for(const g of arena.gems) drawArenaGem(g);
@@ -4796,30 +2689,44 @@ function renderArena(){
 }
 
 // ============== FORGE ==============
-const FORGE_THRESHOLDS = [0, 10, 30, 60, 100, 150, 220]; // kills pra cada nível (1=0, 2=10, 3=30, ...)
-const FORGE_MAX_LEVEL = FORGE_THRESHOLDS.length;
+// 35 níveis de forja (design.md §5.1, §10). Kills por nível com crescimento ~exponencial.
+function buildForgeThresholds(){
+  const arr = [0];
+  // crescimento moderado: cada nível precisa ~30% mais kills que o anterior, base 10
+  let acc = 10;
+  for(let i=1; i<=34; i++){
+    arr.push(Math.round(acc));
+    acc = acc * 1.32 + 4;
+  }
+  return arr; // length = 35 (indices 0..34, onde index i = kills pra alcançar nível i+1)
+}
+const FORGE_THRESHOLDS = buildForgeThresholds();
+const FORGE_MAX_LEVEL = FORGE_THRESHOLDS.length; // 35
 function forgeIntervalAtLevel(lvl){
-  // L1=15s, decresce ~1.5s por nível, mínimo 3s
-  return Math.max(180, Math.round(900 - (lvl-1) * 90));
+  // L1=15s, decresce até mínimo 3s no level 25+
+  return Math.max(180, Math.round(900 - (lvl-1) * 30));
 }
 function canUpgradeForge(){
   return arena.forgeLevel < FORGE_MAX_LEVEL
       && arena.killCount >= FORGE_THRESHOLDS[arena.forgeLevel]; // próximo threshold
 }
 
-const TIER_ICONS = {
-  common:'🌿', uncommon:'🗡️', rare:'🏹', epic:'🔮',
-  legendary:'👑', mythic:'💎', divine:'✨',
+// Ícones por era pra exibição no popup
+const ERA_ICONS = {
+  primitive:'🪨', medieval:'⚔️', earlymodern:'🎩', modern:'🚂',
+  space:'🚀', interstellar:'🛸', multiverse:'🌌', quantum:'⚛️',
+  underworld:'🔥', divine:'👑',
 };
+// Compat: alguns trechos antigos chamam TIER_ICONS[item.rarity]
+const TIER_ICONS = ERA_ICONS;
 
 function rarityProbsForLevel(lvl){
-  const maxTier = FORGE_LEVEL_MAX_TIER[lvl] || 'common';
-  const maxIdx = RARITY_KEYS.indexOf(maxTier);
-  const allowed = RARITY_WEIGHTS.filter(([k,_])=> RARITY_KEYS.indexOf(k) <= maxIdx);
-  const total = allowed.reduce((s,[,w])=>s+w, 0);
+  // Versão moderna: distribui as 10 eras pela gaussiana do level (design §5.2)
+  const arr = getEraProbabilities(lvl);
   const probs = {};
-  for(const k of RARITY_KEYS) probs[k] = 0;
-  for(const [k,w] of allowed) probs[k] = total > 0 ? (w/total)*100 : 0;
+  for(let i=0; i<ERAS.length; i++){
+    probs[ERAS[i].key] = arr[i] * 100;
+  }
   return probs;
 }
 
@@ -4929,22 +2836,224 @@ document.getElementById('arenaForgeAutoBtn').addEventListener('click', ()=>{
   document.getElementById('arenaForgeAutoBtn').classList.toggle('active', arena.autoForge);
 });
 
+function eraOfItem(item){
+  // pega era pelo campo novo, ou shim via rarity (compat com itens iniciais)
+  if(item && item.eraKey && ERA_BY_KEY[item.eraKey]) return ERA_BY_KEY[item.eraKey];
+  if(item && item.rarity && ERA_BY_KEY[item.rarity]) return ERA_BY_KEY[item.rarity];
+  return ERAS[0];
+}
+
 function forgeItemCardInner(item){
-  const r = RARITY[item.rarity];
+  const era = eraOfItem(item);
+  const lvl = item.level ? `<div class="rare" style="color:${era.color}">Lv ${item.level}</div>` : '';
   return `
-    <div class="ico" style="color:${r.color}">${item.icon}</div>
-    <div class="nm" style="color:${r.color}">${item.name}</div>
-    <div class="rare" style="color:${r.color}">${r.name}</div>
-    <div class="stat">+${item.value.toFixed(2)} ${item.stat}</div>
+    <div class="ico" style="color:${era.color}">${item.icon}</div>
+    <div class="nm" style="color:${era.color}">${item.name}</div>
+    <div class="rare" style="color:${era.color}">${era.name}</div>
+    ${lvl}
+    <div class="stat">+${(+item.value).toFixed(2)} ${item.stat}</div>
   `;
 }
 
-function tryForge(){
+function tierClassForPct(p){
+  if(p >= 80) return 'tier-high';
+  if(p >= 50) return 'tier-mid';
+  if(p >= 25) return 'tier-low';
+  return 'tier-poor';
+}
+
+function buildSubstatsHtml(newItem, oldItem){
+  let html = '';
+  // badge tier-up sempre que houve subida de era
+  if(newItem.tiersUp > 0){
+    const cls = newItem.tiersUp > 1 ? 'tierup-badge double' : 'tierup-badge';
+    const fromEra = ERAS[newItem.originalEraIdx] ? ERAS[newItem.originalEraIdx].name : '';
+    const label = newItem.tiersUp > 1
+      ? `★★ DOUBLE TIER UP · subiu de ${fromEra}`
+      : `★ TIER UP · subiu de ${fromEra}`;
+    html += `<div style="text-align:center;margin-bottom:6px"><span class="${cls}">${label}</span></div>`;
+  }
+  if(!newItem.substats || !newItem.substats.length){
+    html += `<div class="substat-row" style="opacity:.7"><span class="nm">Sem substats (era ${eraOfItem(newItem).name})</span></div>`;
+    return html;
+  }
+  // mapa rápido pra substats do item antigo (pra delta)
+  const oldMap = {};
+  if(oldItem && oldItem.substats){
+    for(const s of oldItem.substats) oldMap[s.id] = s.value;
+  }
+  for(const s of newItem.substats){
+    const cls = tierClassForPct(s.percentOfMax);
+    const oldV = oldMap[s.id];
+    let delta = '';
+    if(oldV !== undefined){
+      const d = s.value - oldV;
+      if(Math.abs(d) > 0.001){
+        delta = d > 0 ? ` <span style="color:#4cf08e">+${d}</span>` : ` <span style="color:#ff5252">${d}</span>`;
+      }
+    }
+    html += `
+      <div class="substat-row ${cls}">
+        <span class="nm">${s.name}</span>
+        <span class="val">+${s.value}${s.unit}${delta}</span>
+        <span class="bar"><span style="width:${s.percentOfMax}%"></span></span>
+      </div>`;
+  }
+  return html;
+}
+
+// =================== DICE FORGE FLOW ===================
+// rollState: estado da sessão atual de forja por dados
+const forgeRoll = {
+  active: false,
+  phase: 'idle',          // 'idle' | 'rolling' | 'after-roll' | 'confirmed'
+  dice: [1,1,1,1,1],
+  held: [false,false,false,false,false],
+  rerollsLeft: 0,
+  currentCombo: null,
+};
+
+function _forgeDice(){ return document.querySelectorAll('#arenaDiceRow .forge-die'); }
+function _forgeDie(i){ return document.querySelector(`#arenaDiceRow .forge-die[data-i="${i}"]`); }
+
+function diceFace(v){
+  // ⚀⚁⚂⚃⚄⚅ pra valores 1-6
+  return ['·','⚀','⚁','⚂','⚃','⚄','⚅'][v] || '·';
+}
+
+function renderForgeDice(){
+  for(let i=0; i<5; i++){
+    const el = _forgeDie(i);
+    if(!el) continue;
+    el.querySelector('.face').textContent = diceFace(forgeRoll.dice[i]);
+    el.classList.toggle('held', !!forgeRoll.held[i]);
+    // dados só são interativos depois da rolagem (pra travar/destravar)
+    el.classList.toggle('disabled', forgeRoll.phase !== 'after-roll');
+  }
+  // combo + cenoura inline
+  const comboEl = document.getElementById('forgeComboInline');
+  const carrotsEl = document.getElementById('arenaCarrotsCount');
+  if(carrotsEl) carrotsEl.textContent = `🥕 ${arena.carrots}`;
+  if(comboEl){
+    if(forgeRoll.phase === 'idle'){
+      comboEl.textContent = `Pronto · ${FORGE_BASE_COST}🥕`;
+      comboEl.style.color = '#9b8fc4';
+    } else if(forgeRoll.phase === 'rolling'){
+      comboEl.textContent = '…rolando';
+      comboEl.style.color = '#9b8fc4';
+    } else {
+      const comboKey = evalComboArr(forgeRoll.dice.map(v=>({value:v})));
+      const combo = COMBO_DATA[comboKey] || COMBO_DATA.NONE;
+      forgeRoll.currentCombo = combo;
+      const rr = forgeRoll.rerollsLeft;
+      comboEl.innerHTML = `<span style="color:${combo.color}">${combo.name} ×${combo.mult.toFixed(1)}</span> · rerolls ${rr}`;
+    }
+  }
+  // botões
+  const rollBtn    = document.getElementById('arenaForgeRollBtn');
+  const confirmBtn = document.getElementById('arenaForgeConfirmBtn');
+  if(!rollBtn || !confirmBtn) return;
+  if(forgeRoll.phase === 'idle'){
+    rollBtn.style.display = '';
+    rollBtn.disabled = arena.carrots < FORGE_BASE_COST;
+    rollBtn.textContent = `🎲 ROLL FORGE (${FORGE_BASE_COST}🥕)`;
+    confirmBtn.style.display = 'none';
+  } else if(forgeRoll.phase === 'rolling'){
+    rollBtn.style.display = '';
+    rollBtn.disabled = true;
+    rollBtn.textContent = '…rolando';
+    confirmBtn.style.display = 'none';
+  } else if(forgeRoll.phase === 'after-roll'){
+    rollBtn.style.display = '';
+    const canReroll = forgeRoll.rerollsLeft > 0 && arena.carrots >= FORGE_REROLL_COST;
+    rollBtn.disabled = !canReroll;
+    rollBtn.textContent = canReroll
+      ? `🔁 REROLAR (${FORGE_REROLL_COST}🥕) · ${forgeRoll.rerollsLeft} restantes`
+      : '🔁 SEM REROLLS';
+    confirmBtn.style.display = '';
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = '⚡ FORJAR';
+  }
+}
+
+function openForgeDice(){
+  // inline: sempre visível durante ARENA_PLAY, mas reseta estado pra idle
+  forgeRoll.active = true;
+  forgeRoll.phase = 'idle';
+  forgeRoll.dice = [1,1,1,1,1];
+  forgeRoll.held = [false,false,false,false,false];
+  forgeRoll.rerollsLeft = FORGE_MAX_REROLLS;
+  forgeRoll.currentCombo = null;
+  renderForgeDice();
+}
+
+function animateForgeRoll(onDone){
+  forgeRoll.phase = 'rolling';
+  for(const el of _forgeDice()) el.classList.add('rolling');
+  let frame = 0;
+  const totalFrames = 8;
+  const tick = setInterval(()=>{
+    for(let i=0; i<5; i++){
+      if(!forgeRoll.held[i]){
+        forgeRoll.dice[i] = 1 + ((Math.random()*6)|0);
+      }
+    }
+    renderForgeDice();
+    // garante classe rolling fica nos dados girando
+    for(let i=0;i<5;i++){
+      const el = _forgeDie(i);
+      if(el){
+        if(forgeRoll.held[i]) el.classList.remove('rolling');
+        else el.classList.add('rolling');
+      }
+    }
+    frame++;
+    if(frame >= totalFrames){
+      clearInterval(tick);
+      for(const el of _forgeDice()) el.classList.remove('rolling');
+      forgeRoll.phase = 'after-roll';
+      renderForgeDice();
+      if(onDone) onDone();
+    }
+  }, 70);
+}
+
+// Botão principal contextual: idle = cobra base + rola; after-roll = reroll
+function forgeMainAction(){
   if(state !== STATE.ARENA_PLAY) return;
-  if(arena.carrots < FORGE_COST) return; // sem cenoura, sem forja
-  arena.carrots -= FORGE_COST;
-  arena.pendingForgeItem = rollItem();
+  if(forgeRoll.phase === 'idle'){
+    if(arena.carrots < FORGE_BASE_COST) return;
+    arena.carrots -= FORGE_BASE_COST;
+    forgeRoll.held = [false,false,false,false,false];
+    forgeRoll.rerollsLeft = FORGE_MAX_REROLLS;
+    animateForgeRoll();
+  } else if(forgeRoll.phase === 'after-roll'){
+    if(forgeRoll.rerollsLeft <= 0) return;
+    if(arena.carrots < FORGE_REROLL_COST) return;
+    arena.carrots -= FORGE_REROLL_COST;
+    forgeRoll.rerollsLeft--;
+    animateForgeRoll();
+  }
+}
+
+function forgeToggleHold(i){
+  if(forgeRoll.phase !== 'after-roll') return;
+  forgeRoll.held[i] = !forgeRoll.held[i];
+  renderForgeDice();
+}
+
+function forgeConfirm(){
+  if(state !== STATE.ARENA_PLAY) return;
+  if(forgeRoll.phase !== 'after-roll') return;
+  const combo = forgeRoll.currentCombo || COMBO_DATA.MAXROLL;
+  arena.pendingForgeItem = generateForgedItem(arena.forgeLevel, combo);
+  // depois de forjar, popup compare assume o controle (suspende o ARENA_PLAY)
   openForgeCompare();
+}
+
+// shim: chamada antiga `tryForge()` (auto-forge etc) só executa a ação principal
+function tryForge(){
+  forgeMainAction();
 }
 
 function openForgeCompare(){
@@ -4984,6 +3093,12 @@ function openForgeCompare(){
   newCard.innerHTML = `<div class="label">NOVO</div>` + forgeItemCardInner(newItem) + deltaHtml;
   newCard.className = 'forge-card';
 
+  // substats list (e tier-up badge)
+  const subsEl = document.getElementById('forgeSubstats');
+  if(subsEl){
+    subsEl.innerHTML = buildSubstatsHtml(newItem, oldItem);
+  }
+
   state = STATE.ARENA_TAB;
   showLayer('forgeCompare');
 }
@@ -4992,20 +3107,36 @@ function closeForge(){
   arena.pendingForgeItem = null;
   hideAllLayers();
   state = STATE.ARENA_PLAY;
+  // reseta a strip de dados pra próxima forja
+  forgeRoll.active = true;
+  forgeRoll.phase = 'idle';
+  forgeRoll.dice = [1,1,1,1,1];
+  forgeRoll.held = [false,false,false,false,false];
+  forgeRoll.rerollsLeft = FORGE_MAX_REROLLS;
+  forgeRoll.currentCombo = null;
+  renderForgeDice();
 }
 
-document.getElementById('arenaForgeBtn').addEventListener('click', tryForge);
 document.getElementById('forgeEquipBtn').addEventListener('click', ()=>{
   if(arena.pendingForgeItem){
     arena.items[arena.pendingForgeItem.slot] = arena.pendingForgeItem;
     // efeito visual: partícula no coelho
     if(typeof spawnArenaParticle === 'function'){
-      spawnArenaParticle(arena.bx, arena.by, RARITY[arena.pendingForgeItem.rarity].color, 18);
+      spawnArenaParticle(arena.bx, arena.by, eraOfItem(arena.pendingForgeItem).color, 18);
     }
   }
   closeForge();
 });
 document.getElementById('forgeDiscardBtn').addEventListener('click', closeForge);
+
+// Dice forge INLINE: botão principal (Roll/Reroll) + Forjar + toggle hold nos dados
+document.getElementById('arenaForgeRollBtn').addEventListener('click', forgeMainAction);
+document.getElementById('arenaForgeConfirmBtn').addEventListener('click', forgeConfirm);
+for(const el of document.querySelectorAll('#arenaDiceRow .forge-die')){
+  el.addEventListener('click', ()=>{
+    forgeToggleHold(+el.getAttribute('data-i'));
+  });
+}
 
 function buildArenaTabContent(key){
   if(key === 'hero'){
@@ -5053,17 +3184,20 @@ function buildArenaTabContent(key){
       <div class="row"><span>Total kills</span><span>${arena.killCount}</span></div>
       <div class="row"><span>Tempo na arena</span><span>${t}s</span></div>
     </div>
-    <p class="em-breve">Mapa estratégico 4X — em breve.<br/>Cada stage clear = bônus de cenouras + novo tier de inimigos.</p>
-    <button class="btn secondary" onclick="state=STATE.MENU;hideAllLayers();showLayer('menu');" style="margin-top:14px">↩ Sair pra Menu</button>`;
+    <p class="em-breve">Mapa estratégico 4X — em breve.<br/>Cada stage clear = bônus de cenouras + novo tier de inimigos.</p>`;
   }
   if(key === 'shop'){
-    const maxTier = FORGE_LEVEL_MAX_TIER[arena.forgeLevel] || 'common';
+    // era mais provável no nível atual
+    const probs = getEraProbabilities(arena.forgeLevel);
+    let bestIdx = 0, bestP = -1;
+    for(let i=0;i<probs.length;i++){ if(probs[i] > bestP){ bestP = probs[i]; bestIdx = i; } }
+    const bestEra = ERAS[bestIdx];
     return `<div class="stats">
       <div class="row"><span>🥕 Cenouras</span><span style="color:#ff9b3a">${arena.carrots}</span></div>
-      <div class="row"><span>Custo por forja</span><span style="color:#ffcc3d">${FORGE_COST} 🥕</span></div>
-      <div class="row"><span>Raridade máx (forge lv ${arena.forgeLevel})</span><span style="color:${RARITY[maxTier].color}">${RARITY[maxTier].name}</span></div>
+      <div class="row"><span>Custo da forja</span><span style="color:#ffcc3d">${FORGE_BASE_COST} 🥕 + ${FORGE_REROLL_COST}/reroll</span></div>
+      <div class="row"><span>Era mais provável (forge lv ${arena.forgeLevel})</span><span style="color:${bestEra.color}">${bestEra.name} ${(bestP*100).toFixed(0)}%</span></div>
     </div>
-    <p class="em-breve">Cenouras dropam de cada inimigo (bosses dão +10).<br/>Use no botão FORGE pra criar itens.</p>`;
+    <p class="em-breve">Cenouras dropam de cada inimigo (bosses dão +10).<br/>Use no botão FORGE pra rolar os dados e forjar.</p>`;
   }
   if(key === 'growth'){
     return `<p class="em-breve">Meta-progressão permanente em breve.<br/>Upgrades persistentes entre runs (skill tree).</p>`;
@@ -5112,7 +3246,6 @@ for(const btn of document.querySelectorAll('.arenaTab-btn')){
   });
 }
 
-document.getElementById('arenaBtn').addEventListener('click', enterArena);
 document.getElementById('arenaRetryBtn').addEventListener('click', enterArena);
 document.getElementById('arenaBossBtn').addEventListener('click', challengeBoss);
 document.getElementById('arenaAutoBtn').addEventListener('click', ()=>{
@@ -5120,10 +3253,6 @@ document.getElementById('arenaAutoBtn').addEventListener('click', ()=>{
   const ab = document.getElementById('arenaAutoBtn');
   ab.classList.toggle('active', arena.autoMove);
   ab.textContent = arena.autoMove ? 'AUTO ✓' : 'AUTO';
-});
-document.getElementById('arenaMenuBtn').addEventListener('click', ()=>{
-  state = STATE.MENU;
-  showLayer('menu');
 });
 
 // ============ MAIN LOOP (fixed 60Hz timestep) ============
@@ -5138,37 +3267,22 @@ function loop(now){
   // run as many fixed steps as needed (max 4 per frame to avoid spiral of death)
   let steps = 0;
   while(acc >= FIXED_DT && steps < 4){
-    if(state === STATE.PLAY) updatePlay();
-    else if(state === STATE.TRANSITION) tickTransition();
-    else if(state === STATE.CAVE_PLAY) updateCave();
-    else if(state === STATE.ARENA_PLAY) updateArena();
+    if(state === STATE.ARENA_PLAY) updateArena();
     acc -= FIXED_DT;
     steps++;
   }
   if(steps === 4) acc = 0;
 
-  // joystick zone: ativo em PLAY (modo plataforma) e ARENA_PLAY (movimento 2D); cave usa tap
-  // No arena, restringe a zona apenas à play area (grid onde o coelho pode andar)
+  // joystick zone: restringe à play area da arena (grid onde o coelho pode andar)
   const joyEl = document.getElementById('joy');
   if(state === STATE.ARENA_PLAY){
     joyEl.style.top = (ARENA.TOP_Y/H*100) + '%';
     joyEl.style.bottom = ((H-ARENA.BOT_Y)/H*100) + '%';
     joyEl.style.height = 'auto';
     joyEl.classList.remove('disabled');
-  } else if(state === STATE.PLAY){
-    // restaura defaults da CSS: bottom 42%
-    joyEl.style.top = '';
-    joyEl.style.bottom = '';
-    joyEl.style.height = '';
-    joyEl.classList.remove('disabled');
   } else {
     joyEl.classList.add('disabled');
   }
-
-  // pause button só visível durante o jogo principal
-  const pauseEl = document.getElementById('pauseBtn');
-  if(state === STATE.PLAY) pauseEl.classList.add('show');
-  else pauseEl.classList.remove('show');
 
   // AUTO toggle só visível na arena
   const autoEl = document.getElementById('arenaAutoBtn');
@@ -5191,62 +3305,32 @@ function loop(now){
   if(state === STATE.ARENA_PLAY || state === STATE.ARENA_TAB) tabBarEl.classList.add('show');
   else tabBarEl.classList.remove('show');
 
-  // FORGE row (3 botões): só em ARENA_PLAY
-  const forgeRow = document.getElementById('arenaForgeRow');
-  const forgeBtn = document.getElementById('arenaForgeBtn');
+  // FORGE inline strip: dados + LV + AUTO; visível só em ARENA_PLAY
+  const forgeInline = document.getElementById('arenaForgeInline');
   const forgeLvBtn = document.getElementById('arenaForgeLevelBtn');
   const forgeLvNum = document.getElementById('forgeLevelNum');
-  const carrotsBelow = document.getElementById('arenaCarrotsBelow');
-  const carrotsCount = document.getElementById('arenaCarrotsCount');
   if(state === STATE.ARENA_PLAY){
-    forgeRow.classList.add('show');
-    carrotsBelow.classList.add('show');
-    if(carrotsCount) carrotsCount.textContent = `🥕 ${arena.carrots}`;
-    // estado do FORGE: só depende de cenouras agora
-    if(arena.carrots < FORGE_COST){
-      forgeBtn.classList.add('cooldown');
-      forgeBtn.textContent = `⚒ ${arena.carrots}/${FORGE_COST}🥕`;
-    } else {
-      forgeBtn.classList.remove('cooldown');
-      forgeBtn.textContent = `⚒ FORGE (${FORGE_COST}🥕)`;
-    }
+    forgeInline.classList.add('show');
     // FORGE LV: atualiza número e pisca se pode upgrade
     if(forgeLvNum) forgeLvNum.textContent = arena.forgeLevel;
     if(canUpgradeForge()) forgeLvBtn.classList.add('upgradable');
     else forgeLvBtn.classList.remove('upgradable');
+    // atualiza estado da strip de dados (texto do botão, cenouras, combo, etc)
+    renderForgeDice();
   } else {
-    forgeRow.classList.remove('show');
-    carrotsBelow.classList.remove('show');
+    forgeInline.classList.remove('show');
   }
 
-  if(state === STATE.CAVE_PLAY || state === STATE.CAVE_GAMEOVER){
-    renderCave();
-  } else if(state === STATE.ARENA_PLAY || state === STATE.ARENA_GAMEOVER || state === STATE.ARENA_TAB){
-    renderArena();
-  } else {
-    render();
-  }
+  renderArena();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 
-// hide hint after first few seconds of gameplay
-setInterval(()=>{
-  const hint = document.getElementById('hint');
-  if(state===STATE.PLAY && game.startTime && (performance.now()-game.startTime)>5000){
-    hint.style.opacity = '0';
-    hint.style.transition = 'opacity .5s';
-  }
-}, 500);
-
 // prevent context menu on long press
 window.addEventListener('contextmenu', e=>e.preventDefault());
 
-// safety net: garante que o menu aparece no load
-if(typeof showLayer === 'function'){
-  showLayer('menu');
-  state = STATE.MENU;
-}
+// boot direto na Loot Arena
+enterArena();
 </script>
 </body>
 </html>
