@@ -312,6 +312,43 @@
     max-height:35vh;overflow-y:auto;
   }
   #itemPopup .subs .substat-row{font-size:11px;}
+  #itemPopup .level-row{
+    display:flex;align-items:center;gap:8px;
+    margin:6px 0 8px;
+    font-size:11px;color:#9b8fc4;font-weight:bold;
+  }
+  #itemPopup .level-label{flex-shrink:0;min-width:60px;}
+  #itemPopup .level-bar{
+    flex:1;height:8px;background:rgba(0,0,0,0.4);
+    border-radius:4px;overflow:hidden;
+  }
+  #itemPopup .level-bar > span{
+    display:block;height:100%;
+    background:linear-gradient(90deg,#88daf0,#5fb0d8);
+    transition:width .25s;
+  }
+  #itemPopup .upgrade-row{
+    display:flex;gap:6px;margin-top:6px;
+  }
+  #itemPopup .btn-upgrade{
+    flex:1;height:32px;
+    border:0;cursor:pointer;border-radius:8px;
+    background:linear-gradient(180deg,#88daf0,#2a6f95);
+    border:2px solid #cdebf5;
+    color:#0d2a3a;
+    font-size:12px;font-weight:bold;letter-spacing:.6px;
+    box-shadow:0 3px 0 #1a4a6a;
+  }
+  #itemPopup .btn-upgrade.x10{flex:0 0 60px;}
+  #itemPopup .btn-upgrade:active{transform:translateY(2px);box-shadow:0 1px 0 #1a4a6a;}
+  #itemPopup .btn-upgrade[disabled]{
+    opacity:0.5;cursor:not-allowed;
+    background:linear-gradient(180deg,#5a4499,#3b2a70);
+    border-color:#5a4499;color:#9b8fc4;
+    box-shadow:0 3px 0 #2a1a55;
+  }
+  #itemPopup .upgrade-row.hidden{display:none;}
+
   #itemPopup .footer-hint{
     text-align:center;font-size:10px;color:#5a4499;
     margin-top:8px;letter-spacing:.5px;
@@ -777,7 +814,17 @@
           <span class="slot-label" id="itemPopupSlot">SLOT</span>
         </div>
         <div class="primary" id="itemPopupPrimary"></div>
+        <div class="level-row" id="itemPopupLevelRow">
+          <div class="level-label">
+            Lv <span id="itemPopupCurLvl">1</span>/<span id="itemPopupMaxLvl">100</span>
+          </div>
+          <div class="level-bar"><span id="itemPopupLevelFill"></span></div>
+        </div>
         <div class="subs" id="itemPopupSubs"></div>
+        <div class="upgrade-row" id="itemPopupUpgradeRow">
+          <button class="btn-upgrade" id="itemPopupUpgradeBtn">⬆ UPGRADE</button>
+          <button class="btn-upgrade x10" id="itemPopupUpgradeX10Btn">×10</button>
+        </div>
         <div class="footer-hint">Toque fora pra fechar</div>
       </div>
     </div>
@@ -1042,6 +1089,156 @@ const ERA_PEAK_OFFSET = 2;
 const ERA_VARIANCE   = 8;    // denominador na gaussiana
 const ERA_MIN_WEIGHT = 0.5;  // piso pra eras antigas não sumirem
 
+// ============== LEVEL SCALING (design-level-scaling.md §11) ==============
+// Cada item agora tem currentLevel (1..MAX_ITEM_LEVEL). Valor do stat primário
+// e dos substats escala com level via levelFactor(L).
+//
+// O design propõe ERA_MULT=2.7 + WITHIN_GROWTH=1.5 (Era 10 Lv.100 = 19.063×
+// Era 1 Lv.1), mas isso explode a escala de combate (inimigos só sobem 1.15×
+// por stage). Aqui usamos constantes calibradas pro nosso jogo, preservando
+// a constraint "Era N Lv.100 < Era N+1 Lv.1" (ERA_MULT > 1 + WITHIN_GROWTH).
+const MAX_ITEM_LEVEL    = 100;
+const ERA_MULT          = 1.43;  // multiplicador entre eras (≈ ratio atual)
+const WITHIN_GROWTH     = 0.40;  // Lv.100 = 1.4× Lv.1 (na mesma era)
+const LEVEL_CURVE_EXP   = 1.4;   // expoente da curva (back-loaded)
+
+// Substat scaling (§4.1)
+const SUBSTAT_LEVEL_FLOOR = 0.4; // Lv.1 mostra 40% do roll
+const SUBSTAT_LEVEL_RANGE = 0.6; // ganha +60% até Lv.100
+
+// Upgrade cost (§5.2) — essences gastas pra subir item de level
+const BASE_ESSENCE        = 10;
+const ESSENCE_ERA_MULT    = 1.6;
+const COST_LEVEL_FACTOR   = 9;
+
+// Initial level (§6.1) — combo determina o ponto de partida
+const INITIAL_LVL_BASE_OFFSET     = 5;
+const INITIAL_LVL_PERCENTILE_MULT = 75;
+const INITIAL_LVL_VARIANCE_BASE   = 2;
+const INITIAL_LVL_VARIANCE_MULT   = 8;
+
+// SLOTS_DEF: stat primário e baseStat0 por slot (§2)
+// baseStat0 é o valor do stat primário em Era 1 Lv.1. Para stats fracionários
+// (atkSpeed, crit, moveSpeed, dodge), interpretamos como "fração base" (e.g.
+// gloves.baseStat0 = 0.05 = +5% atkSpeed em Era 1 Lv.1).
+const SLOTS_DEF = {
+  weapon: { primaryStat:'dmg',       baseStat0: 3.0  },
+  helmet: { primaryStat:'maxHp',     baseStat0: 12   },
+  armor:  { primaryStat:'maxHp',     baseStat0: 18   },
+  gloves: { primaryStat:'atkSpeed',  baseStat0: 0.05 },
+  belt:   { primaryStat:'maxHp',     baseStat0: 8    },
+  boots:  { primaryStat:'moveSpeed', baseStat0: 0.08 },
+  amulet: { primaryStat:'crit',      baseStat0: 0.05 },
+  ring:   { primaryStat:'dmg',       baseStat0: 2.0  },
+};
+
+function levelFactor(level){
+  // (L-1)/99 elevado a LEVEL_CURVE_EXP. Lv.1=0, Lv.100=1.
+  if(level <= 1) return 0;
+  if(level >= MAX_ITEM_LEVEL) return 1;
+  return Math.pow((level - 1) / (MAX_ITEM_LEVEL - 1), LEVEL_CURVE_EXP);
+}
+
+function baseStat(slotKey, eraIdx, level){
+  // §3.2 — baseStat0 × ERA_MULT^(era-1) × (1 + levelFactor × WITHIN_GROWTH)
+  const def = SLOTS_DEF[slotKey];
+  if(!def) return 0;
+  return def.baseStat0
+       * Math.pow(ERA_MULT, eraIdx)
+       * (1 + levelFactor(level) * WITHIN_GROWTH);
+}
+
+function substatValue(maxValue, rollQuality, level){
+  // §4.1 — max × roll × (FLOOR + RANGE × levelFactor)
+  const mult = SUBSTAT_LEVEL_FLOOR + SUBSTAT_LEVEL_RANGE * levelFactor(level);
+  return maxValue * rollQuality * mult;
+}
+
+function rollSubstatQuality(combo){
+  // §4.2 — devolve fração 0..1 fixa no momento da forja
+  const pct = (combo.mult - 1.5) / 9;
+  const low  = pct * 0.6;
+  const high = 0.4 + pct * 0.6;
+  return Math.max(0.01, low + Math.random() * (high - low));
+}
+
+function rollSubstatQualities(slotCount, combo){
+  if(slotCount <= 0) return [];
+  const pool = [...SUBSTATS];
+  const result = [];
+  for(let i=0; i<slotCount && pool.length; i++){
+    const idx = (Math.random() * pool.length) | 0;
+    const type = pool.splice(idx, 1)[0];
+    result.push({
+      id: type.id, name: type.name, max: type.max, unit: type.unit,
+      rollQuality: rollSubstatQuality(combo),
+    });
+  }
+  return result;
+}
+
+function rollInitialLevel(combo){
+  // §6.1 — combo determina o ponto de partida; forge_level NÃO afeta level inicial
+  const pct = (combo.mult - 1.5) / 9;
+  const baseStart = Math.round(pct * INITIAL_LVL_PERCENTILE_MULT + INITIAL_LVL_BASE_OFFSET);
+  const variance  = Math.round(pct * INITIAL_LVL_VARIANCE_MULT + INITIAL_LVL_VARIANCE_BASE);
+  const rand = ((Math.random() * (variance*2 + 1)) | 0) - variance;
+  return Math.max(1, Math.min(MAX_ITEM_LEVEL, baseStart + rand));
+}
+
+function upgradeCost(eraIdx, currentLevel){
+  // §5.2 — Infinity se já está no max
+  if(currentLevel >= MAX_ITEM_LEVEL) return Infinity;
+  const eraFactor = Math.pow(ESSENCE_ERA_MULT, eraIdx);
+  const lvlFactor = 1 + Math.pow(currentLevel / MAX_ITEM_LEVEL, 2) * COST_LEVEL_FACTOR;
+  return Math.ceil(BASE_ESSENCE * eraFactor * lvlFactor);
+}
+
+function totalUpgradeCost(eraIdx, fromLevel, toLevel){
+  fromLevel = fromLevel || 1;
+  toLevel = Math.min(MAX_ITEM_LEVEL, toLevel || MAX_ITEM_LEVEL);
+  let total = 0;
+  for(let l = fromLevel; l < toLevel; l++){
+    const c = upgradeCost(eraIdx, l);
+    if(!isFinite(c)) break;
+    total += c;
+  }
+  return total;
+}
+
+// Tenta upar 1 nível. Retorna {success, reason, costPaid?, newLevel?}.
+function tryUpgradeItem(item){
+  if(!item) return { success:false, reason:'NO_ITEM' };
+  if(item.currentLevel >= (item.maxLevel || MAX_ITEM_LEVEL)){
+    return { success:false, reason:'MAX_LEVEL' };
+  }
+  const cost = upgradeCost(item.eraIdx, item.currentLevel);
+  if(arena.essences < cost){
+    return { success:false, reason:'INSUFFICIENT_ESSENCES', needed: cost };
+  }
+  arena.essences -= cost;
+  item.currentLevel += 1;
+  return { success:true, costPaid: cost, newLevel: item.currentLevel };
+}
+
+// Display helpers (sempre chamar via essas, nunca usar value bruto)
+function getDisplayedBaseStat(item){
+  if(!item) return 0;
+  return baseStat(item.slot, item.eraIdx, item.currentLevel || item.level || 1);
+}
+function getDisplayedSubstats(item){
+  if(!item || !item.substats) return [];
+  return item.substats.map(s=>{
+    const value = substatValue(s.max, s.rollQuality || 0, item.currentLevel || 1);
+    return {
+      id: s.id, name: s.name, unit: s.unit,
+      value: Math.round(value * 10) / 10,
+      rollQuality: s.rollQuality,
+      percentOfMax: Math.round((s.rollQuality || 0) * 100),
+    };
+  });
+}
+
 function getEraProbabilities(forgeLvl){
   // peso(era) = max(0.5, 100·exp(-(lvl-(unlock+4))²/8)) se lvl≥unlock, senão 0
   const weights = ERAS.map(era=>{
@@ -1083,35 +1280,13 @@ function rollSubstatValue(maxValue, combo){
   return Math.max(1, Math.round(low + Math.random() * (high - low)));
 }
 
-function rollSubstats(slotCount, combo){
-  if(slotCount <= 0) return [];
-  const pool = [...SUBSTATS];
-  const result = [];
-  for(let i=0; i<slotCount && pool.length; i++){
-    const idx = (Math.random() * pool.length) | 0;
-    const type = pool.splice(idx, 1)[0];
-    const value = rollSubstatValue(type.max, combo);
-    result.push({
-      id: type.id,
-      name: type.name,
-      value, unit: type.unit, max: type.max,
-      percentOfMax: Math.round((value / type.max) * 100),
-    });
-  }
-  return result;
-}
-
-function rollItemLevel(forgeLvl, combo){
-  const variance = Math.floor(forgeLvl / 4);
-  const base = forgeLvl + ((Math.random() * (variance*2 + 1))|0) - variance;
-  const pct = (combo.mult - 1.5) / 9;
-  return Math.max(1, Math.round(base * (0.85 + pct * 0.4)));
-}
-
-// Pipeline completo: combina template do slot (icone/nome/stat primário) +
-// era + substats numa peça que o combate consome.
+// Pipeline completo (design-level-scaling.md §8.2):
+//  - level inicial vem do combo via rollInitialLevel
+//  - substats armazenam rollQuality (0..1), valor é função do currentLevel
+//  - currentLevel é mutável via tryUpgradeItem; maxLevel = MAX_ITEM_LEVEL
 function generateForgedItem(forgeLvl, combo, slotOverride){
-  // 1. template (icon / nome / stat primário)
+  // 1. template (icon / nome / stat primário) — slot define o stat primário,
+  //    o template só serve pra ícone/nome flavor
   const pool = slotOverride
     ? ARENA_ITEM_POOL.filter(p => p.slot === slotOverride)
     : ARENA_ITEM_POOL;
@@ -1123,33 +1298,53 @@ function generateForgedItem(forgeLvl, combo, slotOverride){
   const { eraIdx, tiersUp } = applyTierUp(baseEraIdx, combo);
   const era = ERAS[eraIdx];
 
-  // 4. item level
-  const itemLevel = rollItemLevel(forgeLvl, combo);
-  // 5. substats (depende da era)
-  const substats = rollSubstats(era.substats, combo);
+  // 4. nível inicial (NOVA fórmula, design-level-scaling §6)
+  const initialLevel = rollInitialLevel(combo);
+  // 5. substats com rollQuality fixo (design-level-scaling §4.2)
+  const substats = rollSubstatQualities(era.substats, combo);
 
-  // valor do stat primário = base × era.mult (mantém balanceamento de combate)
-  const value = +(def.base * era.mult).toFixed(2);
+  // slot define stat primário (não mais o template)
+  const slotDef = SLOTS_DEF[def.slot] || { primaryStat: def.stat, baseStat0: def.base };
 
   return {
-    ...def,
-    value,
-    // shim antigo pra compat com código que usa item.rarity
+    // visual / metadados
+    slot: def.slot,
+    name: def.name,
+    icon: def.icon,
+    weaponType: def.weaponType,
+    // stat primário do slot (substitui def.stat/def.base)
+    stat: slotDef.primaryStat,
+    // value mantido como cache do baseStat atual (recalculado quando level muda
+    // via tryUpgradeItem — ver onItemLevelChanged abaixo)
+    value: baseStat(def.slot, eraIdx, initialLevel),
+    // era (shim rarity pra código antigo)
     rarity: era.key,
-    // novos campos do design doc
     era: era.name,
     eraKey: era.key,
     eraIdx,
     eraColor: era.color,
     originalEraIdx: baseEraIdx,
     tiersUp,
-    level: itemLevel,
-    substats,
+    // novo: level scaling
+    currentLevel: initialLevel,
+    initialLevel,
+    maxLevel: MAX_ITEM_LEVEL,
+    level: initialLevel, // alias antigo
+    substats, // cada um tem rollQuality (0..1) fixo
+    // meta da forja
     combo: combo.name,
     comboId: combo.id,
     multiplier: combo.mult,
     forgeLevel: forgeLvl,
   };
+}
+
+// Recalcula item.value quando level mudar (chamado após tryUpgradeItem).
+// Mantém sincronia entre currentLevel e o cache de value usado em arenaTotalStat.
+function refreshItemValue(item){
+  if(!item) return;
+  item.value = baseStat(item.slot, item.eraIdx, item.currentLevel);
+  item.level = item.currentLevel; // mantém alias
 }
 // ============================ LOOT ARENA (survivor + idle RPG + loot) ============================
 const ARENA = {
@@ -1392,14 +1587,25 @@ function arenaTotalStat(name){
   for(const slot of ARENA_SLOTS){
     const it = arena.items[slot];
     if(!it) continue;
-    // 1. stat primário do item
-    if(it.stat === name) value += it.value;
-    // 2. substats convertidos pra stats reais de combate
+    // 1. stat primário do item (escalado por era × level via baseStat)
+    if(it.stat === name){
+      // usa cache quando consistente, ou recalcula direto pra evitar drift
+      value += (it.currentLevel != null)
+        ? baseStat(it.slot, it.eraIdx, it.currentLevel)
+        : (it.value || 0);
+    }
+    // 2. substats convertidos: agora valor escala com currentLevel via substatValue
     if(it.substats && it.substats.length){
+      const lvl = it.currentLevel || it.level || 1;
       for(const s of it.substats){
         const conv = SUBSTAT_TO_ARENA[s.id];
         if(!conv) continue;
-        const add = conv(s.value);
+        // se substat tem rollQuality (novo schema), computa valor pelo level;
+        // senão usa s.value (backward compat com items antigos sem rollQuality)
+        const v = (s.rollQuality != null)
+          ? substatValue(s.max, s.rollQuality, lvl)
+          : (s.value || 0);
+        const add = conv(v);
         if(add[name]) value += add[name];
       }
     }
@@ -1467,6 +1673,7 @@ function initArena(){
   arena.forgeInterval = 900;
   arena.autoForge = false;
   arena.carrots = 50; // saldo inicial pra forjar 10 vezes
+  arena.essences = 50; // novo recurso pra upar level de itens (design-level-scaling §5)
   arena.power = arenaPower();
   arena.powerDelta = 0;
   arena.powerDeltaTimer = 0;
@@ -1476,11 +1683,14 @@ function initArena(){
   const ab = document.getElementById('arenaAutoBtn');
   if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null };
-  // arma inicial: galho (a pior arma do jogo, melee)
+  // arma inicial: galho (a pior arma do jogo, melee) — schema novo com currentLevel
   arena.items.weapon = {
-    slot:'weapon', name:'Galho', stat:'dmg', base:1, value:1,
-    icon:'🌿', rarity:'primitive', eraKey:'primitive', eraIdx:0,
-    weaponType:'melee', level:1, substats:[],
+    slot:'weapon', name:'Galho', stat:'dmg', icon:'🌿',
+    rarity:'primitive', eraKey:'primitive', eraIdx:0, era:'Primitive', eraColor:'#888780',
+    weaponType:'melee',
+    currentLevel:1, initialLevel:1, maxLevel: MAX_ITEM_LEVEL, level:1,
+    substats:[],
+    value: baseStat('weapon', 0, 1),
   };
   arena.baseDmg = 5; arena.baseAtkSpeed = 1.0; arena.baseMoveSpeed = 0.616;
   arena.baseMaxHp = 100; arena.baseProjectiles = 1; arena.baseCrit = 0;
@@ -1729,6 +1939,9 @@ function killArenaEnemy(idx, e){
   // dropa cenouras como gem coletável
   const carrotAmt = e.isBoss ? 10 : 1;
   arena.gems.push({ x:e.x-6, y:e.y-6, vx:0, vy:0, carrot:carrotAmt, isCarrot:true, age:0 });
+  // dropa essences (novo recurso pra upar item level) — bosses dão muito mais
+  const essenceAmt = e.isBoss ? 20 : 1;
+  arena.gems.push({ x:e.x+6, y:e.y-4, vx:0, vy:0, essence:essenceAmt, isEssence:true, age:0 });
   arena.killCount++;
   if(e.isBoss){
     arena.regions++;
@@ -2120,7 +2333,9 @@ function updateArena(){
   arena.by = Math.max(ARENA.TOP_Y+ARENA.BUNNY_R, Math.min(ARENA.BOT_Y-ARENA.BUNNY_R, arena.by));
 
   // maxHp via items
-  arena.maxHp = arena.baseMaxHp + arenaTotalStat('maxHp');
+  // arenaTotalStat já inclui o arena.baseMaxHp como ponto de partida; somar de
+  // novo causaria double-count. Bug pré-existente.
+  arena.maxHp = arenaTotalStat('maxHp');
   if(arena.hp > arena.maxHp) arena.hp = arena.maxHp;
 
   // hurt timer
@@ -2253,6 +2468,9 @@ function updateArena(){
       } else if(g.isCarrot){
         arena.carrots += g.carrot || 1;
         spawnArenaParticle(arena.bx, arena.by, '#ff7a1a', 5);
+      } else if(g.isEssence){
+        arena.essences += g.essence || 1;
+        spawnArenaParticle(arena.bx, arena.by, '#88daf0', 5);
       } else {
         const xpGain = g.xp * arenaTotalStat('xpMult');
         arena.xp += xpGain;
@@ -2467,6 +2685,18 @@ function drawArenaGem(g){
     ctx.fillRect(g.x-1, g.y-7+bob, 2, 1);
     return;
   }
+  if(g.isEssence){
+    // essência ciano cristalina (recurso pra upar item level)
+    const t = performance.now()/220;
+    const bob = Math.sin(t + g.age*0.07)*1.5;
+    ctx.fillStyle = 'rgba(136,218,240,0.4)';
+    ctx.fillRect(g.x-4, g.y-4+bob, 8, 8);
+    ctx.fillStyle = '#88daf0';
+    ctx.fillRect(g.x-3, g.y-3+bob, 6, 6);
+    ctx.fillStyle = '#cdebf5';
+    ctx.fillRect(g.x-1, g.y-2+bob, 2, 2);
+    return;
+  }
   if(g.isItem){
     const t = performance.now()/250;
     const bob = Math.sin(t + g.age*0.05)*2;
@@ -2551,7 +2781,7 @@ function drawArenaHUD(){
   ctx.fillStyle = '#fff7e0';
   ctx.font = 'bold 9px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(`HP ${Math.max(0,Math.ceil(arena.hp))}/${arena.maxHp}`, barX + barW/2, barY+barH/2+1);
+  ctx.fillText(`HP ${Math.max(0,Math.ceil(arena.hp))}/${Math.round(arena.maxHp)}`, barX + barW/2, barY+barH/2+1);
 
   // --- XP pill (logo abaixo do HP) ---
   const xpX = hpX, xpY = hpY + hpH + 4, xpW = 110, xpH = 16;
@@ -2626,6 +2856,15 @@ function drawArenaHUD(){
   ctx.textAlign = 'center';
   ctx.fillText(`💀 ${arena.killCount}`, klX+klW/2, klY+klH/2+1);
 
+  // --- Essences pill (💎, abaixo do Kills) — recurso pra upar item level ---
+  const esW = 70, esH = 20;
+  const esX = W - esW - 8, esY = klY + klH + 4;
+  drawPillBg(esX, esY, esW, esH, 'rgba(95,176,216,0.95)', '#88daf0', 10);
+  ctx.fillStyle = '#0d2a3a';
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`💎 ${arena.essences || 0}`, esX+esW/2, esY+esH/2+1);
+
   // delta de power flutuante (sobe e desaparece em ~1.5s) — emerge do power pill
   if(arena.powerDeltaTimer > 0){
     const lifeT = arena.powerDeltaTimer / 90;
@@ -2681,16 +2920,19 @@ function drawArenaHUD(){
       ctx.fillStyle = col;
       ctx.font = 'bold 26px monospace';
       ctx.fillText(it.icon, sx+slotW/2, sy + 26);
-      // stat value embaixo
+      // stat value embaixo (escalado por currentLevel via baseStat)
       ctx.fillStyle = '#fff7e0';
       ctx.font = 'bold 9px monospace';
-      // stats flat (numero absoluto): dmg, maxHp, pickupRange, projectiles.
-      // resto (atkSpeed, crit, dodge, xpMult, moveSpeed) sao fracoes => %
+      const raw = getDisplayedBaseStat(it);
       const isFlat = (it.stat === 'dmg' || it.stat === 'maxHp' || it.stat === 'pickupRange' || it.stat === 'projectiles');
       const statTxt = isFlat
-        ? `+${it.value.toFixed(it.value < 10 ? 1 : 0)}`
-        : `+${Math.round(it.value*100)}%`;
-      ctx.fillText(statTxt, sx+slotW/2, sy+slotH-9);
+        ? (raw < 10 ? `+${raw.toFixed(1)}` : `+${Math.round(raw)}`)
+        : `+${Math.round(raw*100)}%`;
+      ctx.fillText(statTxt, sx+slotW/2, sy+slotH-15);
+      // pequena badge de level abaixo do stat (Lv X)
+      ctx.fillStyle = '#88daf0';
+      ctx.font = 'bold 8px monospace';
+      ctx.fillText(`Lv ${it.currentLevel || it.level || 1}`, sx+slotW/2, sy+slotH-6);
     } else {
       ctx.fillStyle = '#3b2a70';
       ctx.font = '26px monospace';
@@ -3075,26 +3317,26 @@ function buildSubstatsHtml(newItem, oldItem){
     html += `<div class="substat-row" style="opacity:.7"><span class="nm">Sem substats (era ${eraOfItem(newItem).name})</span></div>`;
     return html;
   }
-  // mapa rápido pra substats do item antigo (pra delta)
-  const oldMap = {};
-  if(oldItem && oldItem.substats){
-    for(const s of oldItem.substats) oldMap[s.id] = s.value;
-  }
-  for(const s of newItem.substats){
+  // valores escalados pelo currentLevel via getDisplayedSubstats (design-level-scaling §4)
+  const displayed = getDisplayedSubstats(newItem);
+  // mapa pra delta vs item antigo (se houver)
+  const oldDisplayed = oldItem ? getDisplayedSubstats(oldItem) : [];
+  const oldMap = Object.fromEntries(oldDisplayed.map(s => [s.id, s.value]));
+  for(const s of displayed){
     const cls = tierClassForPct(s.percentOfMax);
     const oldV = oldMap[s.id];
     let delta = '';
     if(oldV !== undefined){
       const d = s.value - oldV;
       if(Math.abs(d) > 0.001){
-        delta = d > 0 ? ` <span style="color:#4cf08e">+${d}</span>` : ` <span style="color:#ff5252">${d}</span>`;
+        delta = d > 0 ? ` <span style="color:#4cf08e">+${d.toFixed(1)}</span>` : ` <span style="color:#ff5252">${d.toFixed(1)}</span>`;
       }
     }
     html += `
       <div class="substat-row ${cls}">
         <span class="nm">${s.name}</span>
         <span class="val">+${s.value}${s.unit}${delta}</span>
-        <span class="bar"><span style="width:${s.percentOfMax}%"></span></span>
+        <span class="bar"><span style="width:${s.percentOfMax}%" title="Roll quality ${s.percentOfMax}%"></span></span>
       </div>`;
   }
   return html;
@@ -3359,17 +3601,68 @@ for(const el of document.querySelectorAll('#arenaDiceRow .forge-die')){
   });
 }
 
+// Item popup: upgrade buttons (sobe nível do item gastando essences)
+document.getElementById('itemPopupUpgradeBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(!_currentPopupSlot) return;
+  const it = arena.items[_currentPopupSlot];
+  if(!it) return;
+  const r = tryUpgradeItem(it);
+  if(r.success){
+    refreshItemValue(it);
+    renderItemPopup();
+  }
+});
+document.getElementById('itemPopupUpgradeX10Btn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(!_currentPopupSlot) return;
+  const it = arena.items[_currentPopupSlot];
+  if(!it) return;
+  // tenta upar até 10x ou até morrer de essences/atingir max
+  for(let i=0; i<10; i++){
+    const r = tryUpgradeItem(it);
+    if(!r.success) break;
+  }
+  refreshItemValue(it);
+  renderItemPopup();
+});
+
 // ============== ITEM DETAIL POPUP ==============
 // Mostra detalhes do item ao clicar no slot do items strip (renderizado no canvas).
+let _currentPopupSlot = null;
+
+function fmtStatValue(stat, raw){
+  const isFlat = (stat === 'dmg' || stat === 'maxHp' || stat === 'pickupRange' || stat === 'projectiles');
+  if(isFlat){
+    return raw < 10 ? `+${raw.toFixed(1)} ${stat}` : `+${Math.round(raw)} ${stat}`;
+  }
+  return `+${Math.round(raw*100)}% ${stat}`;
+}
+
 function showItemPopup(slotKey){
+  _currentPopupSlot = slotKey;
+  renderItemPopup();
+  document.getElementById('itemPopup').classList.add('show');
+  document.getElementById('itemPopupBackdrop').classList.add('show');
+}
+
+function renderItemPopup(){
+  const slotKey = _currentPopupSlot;
+  if(!slotKey) return;
   const popup    = document.getElementById('itemPopup');
-  const backdrop = document.getElementById('itemPopupBackdrop');
   const iconEl   = document.getElementById('itemPopupIcon');
   const nameEl   = document.getElementById('itemPopupName');
   const metaEl   = document.getElementById('itemPopupMeta');
   const slotEl   = document.getElementById('itemPopupSlot');
   const primaryEl= document.getElementById('itemPopupPrimary');
   const subsEl   = document.getElementById('itemPopupSubs');
+  const lvlRow   = document.getElementById('itemPopupLevelRow');
+  const curLvlEl = document.getElementById('itemPopupCurLvl');
+  const maxLvlEl = document.getElementById('itemPopupMaxLvl');
+  const lvlFill  = document.getElementById('itemPopupLevelFill');
+  const upRow    = document.getElementById('itemPopupUpgradeRow');
+  const upBtn    = document.getElementById('itemPopupUpgradeBtn');
+  const upX10Btn = document.getElementById('itemPopupUpgradeX10Btn');
   if(!popup) return;
 
   const it = arena.items[slotKey];
@@ -3384,28 +3677,65 @@ function showItemPopup(slotKey){
     primaryEl.className = 'primary empty';
     primaryEl.textContent = '— · forje um item pra equipar';
     subsEl.innerHTML = '';
-  } else {
-    const era = eraOfItem(it);
-    iconEl.textContent = it.icon || '⚔️';
-    iconEl.style.color = era.color;
-    nameEl.textContent = it.name;
-    nameEl.style.color = era.color;
-    const lvl = it.level ? `Lv ${it.level}` : '';
-    const combo = it.combo ? ` · ${it.combo}` : '';
-    metaEl.innerHTML = `<span style="color:${era.color}">${era.name}</span>${lvl?' · '+lvl:''}${combo}`;
-    // stat primário — flat (dmg/maxHp/pickup/projectiles) vs %
-    const isFlat = (it.stat === 'dmg' || it.stat === 'maxHp' || it.stat === 'pickupRange' || it.stat === 'projectiles');
-    const statTxt = isFlat
-      ? `+${(+it.value).toFixed(it.value < 10 ? 1 : 0)} ${it.stat}`
-      : `+${Math.round((+it.value)*100)}% ${it.stat}`;
-    primaryEl.className = 'primary';
-    primaryEl.textContent = statTxt;
-    // substats
-    subsEl.innerHTML = buildSubstatsHtml(it, null) || '';
+    lvlRow.style.display = 'none';
+    upRow.classList.add('hidden');
+    return;
   }
 
-  popup.classList.add('show');
-  backdrop.classList.add('show');
+  const era = eraOfItem(it);
+  iconEl.textContent = it.icon || '⚔️';
+  iconEl.style.color = era.color;
+  nameEl.textContent = it.name;
+  nameEl.style.color = era.color;
+  const combo = it.combo ? ` · ${it.combo}` : '';
+  metaEl.innerHTML = `<span style="color:${era.color}">${era.name}</span>${combo}`;
+
+  // stat primário escalado por currentLevel
+  const curLvl = it.currentLevel || it.level || 1;
+  const maxLvl = it.maxLevel || MAX_ITEM_LEVEL;
+  const primaryRaw = getDisplayedBaseStat(it);
+  primaryEl.className = 'primary';
+  primaryEl.innerHTML = fmtStatValue(it.stat, primaryRaw);
+
+  // preview do próximo upgrade
+  if(curLvl < maxLvl){
+    const nextLvl = curLvl + 1;
+    const nextRaw = baseStat(it.slot, it.eraIdx, nextLvl);
+    const delta = nextRaw - primaryRaw;
+    const isFlat = (it.stat === 'dmg' || it.stat === 'maxHp' || it.stat === 'pickupRange' || it.stat === 'projectiles');
+    const deltaTxt = isFlat ? `+${delta.toFixed(1)}` : `+${(delta*100).toFixed(1)}%`;
+    primaryEl.innerHTML += ` <span style="font-size:11px;color:#4cf08e;font-weight:normal"> (▲ ${deltaTxt} no próx)</span>`;
+  }
+
+  // barra de level + label
+  lvlRow.style.display = '';
+  curLvlEl.textContent = curLvl;
+  maxLvlEl.textContent = maxLvl;
+  lvlFill.style.width = (curLvl / maxLvl * 100) + '%';
+
+  // substats com valores escalados
+  subsEl.innerHTML = buildSubstatsHtml(it, null) || '';
+
+  // upgrade buttons
+  upRow.classList.remove('hidden');
+  const cost = upgradeCost(it.eraIdx, curLvl);
+  const canUp = curLvl < maxLvl && arena.essences >= cost;
+  if(curLvl >= maxLvl){
+    upBtn.disabled = true;
+    upBtn.textContent = '✦ MAX';
+    upX10Btn.style.display = 'none';
+  } else {
+    upBtn.disabled = !canUp;
+    upBtn.textContent = `⬆ UPGRADE (${cost} 💎)`;
+    // x10: custo agregado dos próximos 10 levels (cap em maxLvl)
+    upX10Btn.style.display = '';
+    const target10 = Math.min(maxLvl, curLvl + 10);
+    const cost10 = totalUpgradeCost(it.eraIdx, curLvl, target10);
+    upX10Btn.disabled = !(arena.essences >= cost10) || target10 === curLvl;
+    upX10Btn.textContent = `×${target10 - curLvl}\n${cost10}💎`;
+    upX10Btn.style.whiteSpace = 'pre-line';
+    upX10Btn.style.lineHeight = '1.1';
+  }
 }
 
 function hideItemPopup(){
