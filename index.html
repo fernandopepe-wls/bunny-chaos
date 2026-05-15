@@ -2854,18 +2854,19 @@ function drawArenaHUD(){
   ctx.textAlign = 'center';
   ctx.fillText(`${arena.essences || 0}`, colX+colW/2+6, cy+pillH/2+1);
 
-  // === STAGE pill (canto superior direito, separado da player column) ===
-  const stageW = 96, stageH = 26;
-  const stageX = W - stageW - 8, stageY = HUD_TOP_PAD;
-  drawPillBg(stageX, stageY, stageW, stageH, 'rgba(13,10,26,0.78)', '#7a5fc4', 8);
+  // === STAGE pill (centralizado no topo, +20% tamanho vs versão anterior) ===
+  const stageW = 115, stageH = 31;
+  const stageX = (W - stageW) / 2, stageY = HUD_TOP_PAD;
+  drawPillBg(stageX, stageY, stageW, stageH, 'rgba(13,10,26,0.78)', '#7a5fc4', 10);
   ctx.fillStyle = '#fff7e0';
-  ctx.font = 'bold 12px monospace';
+  ctx.font = 'bold 14px monospace';
   ctx.textAlign = 'center';
   ctx.fillText(`STAGE ${stageLabel(arena.stage)}`, stageX + stageW/2, stageY+stageH/2+1);
-  // wave dots embaixo do STAGE
-  const dotR = 3;
-  const dotsTotalW = WAVES_PER_STAGE*8;
-  const dotsX0 = stageX + stageW/2 - dotsTotalW/2 + 4;
+  // wave dots embaixo do STAGE (+20% raio e espaçamento)
+  const dotR = 3.6;
+  const dotSp = 9.6;
+  const dotsTotalW = (WAVES_PER_STAGE-1) * dotSp;
+  const dotsX0 = stageX + stageW/2 - dotsTotalW/2;
   for(let i=0;i<WAVES_PER_STAGE;i++){
     const isCur = (i+1) === arena.wave;
     const isPast = (i+1) < arena.wave;
@@ -2874,7 +2875,7 @@ function drawArenaHUD(){
                   : isPast ? '#4cf08e'
                   : (isBoss?'#5a2a2a':'#3b2a70');
     ctx.beginPath();
-    ctx.arc(dotsX0 + i*8, stageY+stageH+6, dotR, 0, Math.PI*2);
+    ctx.arc(dotsX0 + i*dotSp, stageY+stageH+8, dotR, 0, Math.PI*2);
     ctx.fill();
   }
 
