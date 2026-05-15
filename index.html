@@ -2848,16 +2848,17 @@ function drawArenaHUD(){
   ctx.textAlign = 'center';
   ctx.fillText(`${arena.killCount}`, colX+colW/2+6, cy+pillH/2+1);
 
-  // === Essences pill (💎) ===
-  cy += pillH + pillGap;
-  drawPillBg(colX, cy, colW, pillH, 'rgba(95,176,216,0.95)', '#88daf0', 10);
+  // === Essences pill (💎) — canto superior DIREITO, recurso global tipo Forge Master ===
+  const essW = 80, essH = 31;
+  const essX = W - essW - 8, essY = HUD_TOP_PAD;
+  drawPillBg(essX, essY, essW, essH, 'rgba(95,176,216,0.95)', '#88daf0', 10);
   ctx.fillStyle = '#0d2a3a';
-  ctx.font = 'bold 11px monospace';
+  ctx.font = 'bold 16px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('💎', colX+4, cy+pillH/2+1);
-  ctx.font = 'bold 10px monospace';
+  ctx.fillText('💎', essX+6, essY+essH/2+1);
+  ctx.font = 'bold 13px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(`${arena.essences || 0}`, colX+colW/2+6, cy+pillH/2+1);
+  ctx.fillText(`${arena.essences || 0}`, essX+essW/2+8, essY+essH/2+1);
 
   // === STAGE pill (centralizado no topo, +20% tamanho vs versão anterior) ===
   const stageW = 115, stageH = 31;
