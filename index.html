@@ -280,7 +280,7 @@
     align-items:center;
     justify-content:center;
     padding: 8px 4%;
-    padding-bottom: 62px; /* reserva espaço pro tab bar */
+    padding-bottom: 73px; /* reserva espaço pro tab bar (65 + 8 margem) */
     box-sizing:border-box;
   }
   #itemPopupBackdrop.show{display:flex;}
@@ -582,11 +582,11 @@
   }
   .tierup-badge.double{background:#ffcc3d;}
 
-  /* arena bottom tab bar */
+  /* arena bottom tab bar (+20%: 54→65px altura) */
   #arenaTabBar{
     position:absolute;
     left:0;right:0;bottom:0;
-    height:54px;
+    height:65px;
     display:none;
     z-index:6;
     background:rgba(13,10,26,0.94);
@@ -599,8 +599,8 @@
     display:flex;flex-direction:column;
     align-items:center;justify-content:center;
     background:transparent;border:0;cursor:pointer;
-    color:#9b8fc4;font-size:8px;font-weight:bold;
-    padding:4px 2px;gap:2px;
+    color:#9b8fc4;font-size:10px;font-weight:bold;
+    padding:5px 3px;gap:3px;
     letter-spacing:.6px;
     border-right:1px solid #2a1f4d;
     transition:color .12s, background .12s;
@@ -616,12 +616,12 @@
   .arenaTab-btn[disabled]::after{
     content:'🔒';
     position:absolute;
-    top:2px;right:4px;
-    font-size:9px;
+    top:3px;right:5px;
+    font-size:11px;
     opacity:0.9;
   }
   .arenaTab-btn:last-child{border-right:0;}
-  .arenaTab-btn .ico{font-size:18px;line-height:1;}
+  .arenaTab-btn .ico{font-size:22px;line-height:1;}
   .arenaTab-btn:hover{color:#fff7e0;}
   .arenaTab-btn.active{
     color:#ff5fa2;
