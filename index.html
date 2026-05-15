@@ -996,8 +996,8 @@
         </div>
       </div>
       <div class="forge-action-row">
-        <button id="arenaForgeRollBtn" class="forge-main-btn">ROLL FORGE</button>
-        <button id="arenaForgeConfirmBtn" class="forge-main-btn confirm">⚡ FORJAR</button>
+        <button id="arenaForgeRollBtn" class="forge-main-btn">ROLAR</button>
+        <button id="arenaForgeConfirmBtn" class="forge-main-btn confirm">FORJAR</button>
       </div>
       <div class="forge-info-row">
         <span id="forgeComboInline">—</span>
@@ -1007,13 +1007,13 @@
 
     <!-- arena bottom tab bar (só COMBAT está ativo; outros bloqueados) -->
     <div id="arenaTabBar">
-      <button class="arenaTab-btn" data-tab="shop"    disabled><span class="ico">🛒</span><span>SHOP</span></button>
-      <button class="arenaTab-btn" data-tab="hero"    disabled><span class="ico">👤</span><span>HERO</span></button>
-      <button class="arenaTab-btn" data-tab="growth"  disabled><span class="ico">📈</span><span>GROWTH</span></button>
-      <button class="arenaTab-btn combat active" data-tab="combat"><span class="ico">▲</span><span>COMBAT</span></button>
+      <button class="arenaTab-btn" data-tab="shop"    disabled><span class="ico">🛒</span><span>LOJA</span></button>
+      <button class="arenaTab-btn" data-tab="hero"    disabled><span class="ico">👤</span><span>HERÓI</span></button>
+      <button class="arenaTab-btn" data-tab="growth"  disabled><span class="ico">📈</span><span>EVOLUÇÃO</span></button>
+      <button class="arenaTab-btn combat active" data-tab="combat"><span class="ico">▲</span><span>COMBATE</span></button>
       <button class="arenaTab-btn" data-tab="equipe"  disabled><span class="ico">🎽</span><span>EQUIPE</span></button>
-      <button class="arenaTab-btn" data-tab="mission" disabled><span class="ico">📋</span><span>MISSION</span></button>
-      <button class="arenaTab-btn" data-tab="world"   disabled><span class="ico">🗺</span><span>WORLD</span></button>
+      <button class="arenaTab-btn" data-tab="mission" disabled><span class="ico">📋</span><span>MISSÃO</span></button>
+      <button class="arenaTab-btn" data-tab="world"   disabled><span class="ico">🗺</span><span>MUNDO</span></button>
     </div>
 
     <!-- popup de detalhes do item (aparece ao clicar num slot do items strip) -->
@@ -1050,7 +1050,7 @@
       <div id="forgeLevelInfo" style="margin-top:14px;"></div>
       <div class="forge-actions">
         <button class="btn secondary" id="forgeLevelCloseBtn">Voltar</button>
-        <button class="btn" id="forgeLevelUpgradeBtn">⚡ Upgrade</button>
+        <button class="btn" id="forgeLevelUpgradeBtn">Melhorar</button>
       </div>
     </div>
 
@@ -3083,7 +3083,7 @@ function drawArenaHUD(){
   ctx.fillStyle = '#fff7e0';
   ctx.font = 'bold 14px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(`STAGE ${stageLabel(arena.stage)}`, stageX + stageW/2, stageY+stageH/2+1);
+  ctx.fillText(`FASE ${stageLabel(arena.stage)}`, stageX + stageW/2, stageY+stageH/2+1);
   // wave dots embaixo do STAGE (+20% raio e espaçamento)
   const dotR = 3.6;
   const dotSp = 9.6;
@@ -3426,8 +3426,8 @@ function forgeIntervalAtLevel(lvl){
 //   EXPRESS   (testes/QA):     COST = 0.1,  TIME = 0.1   → ~25 min, ~200k
 //   STANDARD  (padrão atual):  COST = 1.0,  TIME = 1.0   → ~4h, ~2M
 //   LONG_BURN (pré-launch):    COST = 5.0,  TIME = 10.0  → ~40h, ~10M
-const FORGE_COST_MULT = 1.0;
-const FORGE_TIME_MULT = 1.0;
+const FORGE_COST_MULT = 20.0;
+const FORGE_TIME_MULT = 20.0;
 
 function getForgeUpgradeInfo(level){
   const raw = FORGE_UPGRADES.find(u => u.from === level);
@@ -3556,7 +3556,7 @@ function buildForgeLevelInfo(){
   let header = `<div class="forge-level-cols">
     <span class="spacer"></span>
     <span class="col-cur">Nível ${lvl}</span>
-    <span class="col-next">${atMax ? 'MAX' : '▶ Nível '+(lvl+1)}</span>
+    <span class="col-next">${atMax ? 'MÁX' : '▶ Nível '+(lvl+1)}</span>
   </div>`;
 
   // uma linha por raridade
@@ -3609,7 +3609,7 @@ function refreshForgeLevelPopup(){
   if(arena.forgeLevel >= FORGE_MAX_LEVEL){
     upBtn.disabled = true;
     upBtn.style.opacity = '0.5';
-    upBtn.textContent = '✦ MAX';
+    upBtn.textContent = '✦ MÁX';
     return;
   }
   if(isForgeUpgradeReady()){
@@ -3842,7 +3842,7 @@ function renderForgeDice(){
   if(forgeRoll.phase === 'idle'){
     rollBtn.style.display = '';
     rollBtn.disabled = arena.lettuce < FORGE_BASE_COST;
-    rollBtn.textContent = `ROLL FORGE (${FORGE_BASE_COST}🥬)`;
+    rollBtn.textContent = `ROLAR (${FORGE_BASE_COST}🥬)`;
     confirmBtn.style.display = 'none';
   } else if(forgeRoll.phase === 'rolling'){
     rollBtn.style.display = '';
@@ -3855,13 +3855,13 @@ function renderForgeDice(){
     if(canReroll){
       rollBtn.style.display = '';
       rollBtn.disabled = false;
-      rollBtn.textContent = `🔁 REROLAR · ${forgeRoll.rerollsLeft} restantes`;
+      rollBtn.textContent = `REROLAR · ${forgeRoll.rerollsLeft} restantes`;
     } else {
       rollBtn.style.display = 'none';
     }
     confirmBtn.style.display = '';
     confirmBtn.disabled = false;
-    confirmBtn.textContent = '⚡ FORJAR';
+    confirmBtn.textContent = 'FORJAR';
   }
 }
 
@@ -4148,11 +4148,11 @@ function renderItemPopup(){
   const canUp = curLvl < maxLvl && arena.carrots >= cost;
   if(curLvl >= maxLvl){
     upBtn.disabled = true;
-    upBtn.textContent = '✦ MAX';
+    upBtn.textContent = '✦ MÁX';
     upX10Btn.style.display = 'none';
   } else {
     upBtn.disabled = !canUp;
-    upBtn.textContent = `⬆ UPGRADE (${cost} 🥕)`;
+    upBtn.textContent = `⬆ MELHORAR (${cost} 🥕)`;
     // x10: custo agregado dos próximos 10 levels (cap em maxLvl)
     upX10Btn.style.display = '';
     const target10 = Math.min(maxLvl, curLvl + 10);
