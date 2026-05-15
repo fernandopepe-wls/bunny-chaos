@@ -2926,12 +2926,22 @@ function drawArenaHUD(){
     const col = it ? RARITY[it.rarity].color : '#241a44';
     // slots vazios ficam apagados (visualmente menos chamativos)
     if(!it) ctx.globalAlpha = 0.4;
-    // borda colorida pela raridade
+    // borda colorida pela raridade (mais clara)
     ctx.fillStyle = col;
     ctx.fillRect(sx, sy, slotW, slotH);
-    // miolo escuro
-    ctx.fillStyle = '#0d0a1a';
-    ctx.fillRect(sx+2, sy+2, slotW-4, slotH-4);
+    // miolo: cor da era se equipado (mesma cor da borda mas com um tom escurecido
+    // por baixo de uma camada semi-transparente pra dar profundidade); escuro se vazio
+    if(it){
+      // background colorido na cor do tier
+      ctx.fillStyle = col;
+      ctx.fillRect(sx+2, sy+2, slotW-4, slotH-4);
+      // overlay escuro semi-transparente pro icone "respirar" e level ficar legivel
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(sx+2, sy+2, slotW-4, slotH-4);
+    } else {
+      ctx.fillStyle = '#0d0a1a';
+      ctx.fillRect(sx+2, sy+2, slotW-4, slotH-4);
+    }
     // divisória sutil entre ícone e stat
     ctx.fillStyle = col;
     ctx.fillRect(sx+4, sy+slotH-18, slotW-8, 1);
