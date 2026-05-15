@@ -1949,10 +1949,7 @@ function killArenaEnemy(idx, e){
     if(idx < 0) return;
   }
   arena.gems.push({ x:e.x, y:e.y, vx:0, vy:0, xp:e.xp, age:0 });
-  const dropChance = e.isBoss ? 1 : 0.06;
-  if(Math.random() < dropChance){
-    arena.gems.push({ x:e.x+8, y:e.y+8, vx:0, vy:0, item: rollItem(), isItem:true, age:0 });
-  }
+  // (item drop removido — items só são obtidos via forge dice)
   // dropa cenouras como gem coletável
   // alface = fuel da forja (era a antiga "carrots") — drop 1 por inimigo normal, 10 boss
   const lettuceAmt = e.isBoss ? 10 : 1;
@@ -2442,12 +2439,8 @@ function updateArena(){
         e.y += (dy3/dist) * 3;
       }
       if(e.hp <= 0){
-        // drop XP gem
+        // drop XP gem (item drop removido — items só são obtidos via forge dice)
         arena.gems.push({ x:e.x, y:e.y, vx:0, vy:0, xp:e.xp, age:0 });
-        const dropChance = e.isBoss ? 1 : 0.06;
-        if(Math.random() < dropChance){
-          arena.gems.push({ x:e.x+8, y:e.y+8, vx:0, vy:0, item: rollItem(), isItem:true, age:0 });
-        }
         arena.killCount++;
         if(e.isBoss){
           arena.regions++;
