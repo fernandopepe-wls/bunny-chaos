@@ -1998,7 +1998,9 @@ function onWaveClear(){
     // boss derrotado → stage clear, avança
     arena.waveState = 'stage_clear';
     arena.stageClearBannerTimer = 120;
-    arena.lettuce += 5 + arena.stage;
+    // bônus de stage clear: cenouras escalando com a stage (era alface, mudado
+    // pra cenoura — boss/inimigos não dropam mais alface, ela só vem do ZZZ)
+    arena.carrots += (5 + arena.stage) * 5;
     spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 36);
     arena.regions++;
   } else if(arena.wave === 4){
@@ -2162,11 +2164,8 @@ function killArenaEnemy(idx, e){
   }
   arena.gems.push({ x:e.x, y:e.y, vx:0, vy:0, xp:e.xp, age:0 });
   // (item drop removido — items só são obtidos via forge dice)
-  // dropa cenouras como gem coletável
-  // alface = fuel da forja (era a antiga "carrots") — drop 1 por inimigo normal, 10 boss
-  const lettuceAmt = e.isBoss ? 10 : 1;
-  arena.gems.push({ x:e.x-6, y:e.y-6, vx:0, vy:0, lettuce:lettuceAmt, isLettuce:true, age:0 });
-  // cenoura = currency pra upgrade de item level — bosses dão muito mais
+  // (alface NÃO é mais drop de inimigo — só vem do offline reward via ZZZ)
+  // cenoura = currency pra upgrade de item — bosses dão muito mais
   const carrotAmt = e.isBoss ? 20 : 1;
   arena.gems.push({ x:e.x+6, y:e.y-4, vx:0, vy:0, carrot:carrotAmt, isCarrot:true, age:0 });
   arena.killCount++;
