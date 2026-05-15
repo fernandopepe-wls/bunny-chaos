@@ -2765,25 +2765,25 @@ function drawArenaHUD(){
 
   // === LAYOUT CONSTANTS ===
   const HUD_TOP_PAD = 20;        // buffer adicional pra notch/camera
+  // largura pela metade do anterior (170 → 85) pra ocupar menos espaço horizontal
   const colX = 8;
-  const colW = 170;
-  const pillH = 22;
-  const pillGap = 4;
+  const colW = 85;
+  const pillH = 20;
+  const pillGap = 3;
 
   // === HP pill (topo) ===
   let cy = HUD_TOP_PAD;
-  drawPillBg(colX, cy, colW, pillH, 'rgba(13,10,26,0.7)', '#5a4499', 11);
-  // heart cap
+  drawPillBg(colX, cy, colW, pillH, 'rgba(13,10,26,0.7)', '#5a4499', 10);
   ctx.fillStyle = '#ff5fa2';
   ctx.beginPath();
-  ctx.arc(colX+11, cy+pillH/2, 8, 0, Math.PI*2);
+  ctx.arc(colX+10, cy+pillH/2, 7, 0, Math.PI*2);
   ctx.fill();
   ctx.fillStyle = '#fff7e0';
-  ctx.font = 'bold 10px monospace';
+  ctx.font = 'bold 9px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('♥', colX+11, cy+pillH/2+1);
+  ctx.fillText('♥', colX+10, cy+pillH/2+1);
   // hp bar interno
-  const hpBarX = colX+22, hpBarY = cy+5, hpBarW = colW-30, hpBarH = 12;
+  const hpBarX = colX+20, hpBarY = cy+4, hpBarW = colW-26, hpBarH = 12;
   drawPillBg(hpBarX, hpBarY, hpBarW, hpBarH, '#3b1a2a', null, 6);
   ctx.fillStyle = '#ff5252';
   const hpPct = Math.max(0, arena.hp)/arena.maxHp;
@@ -2792,22 +2792,21 @@ function drawArenaHUD(){
     ctx.fill();
   }
   ctx.fillStyle = '#fff7e0';
-  ctx.font = 'bold 9px monospace';
+  ctx.font = 'bold 8px monospace';
   ctx.fillText(`${Math.max(0,Math.ceil(arena.hp))}/${Math.round(arena.maxHp)}`, hpBarX + hpBarW/2, hpBarY+hpBarH/2+1);
 
-  // === LV + XP pill (logo abaixo, mesma largura) ===
+  // === LV + XP pill ===
   cy += pillH + pillGap;
-  drawPillBg(colX, cy, colW, pillH, 'rgba(13,10,26,0.7)', '#2a6f95', 11);
-  // LV badge (substituindo o "XP" label antigo)
+  drawPillBg(colX, cy, colW, pillH, 'rgba(13,10,26,0.7)', '#2a6f95', 10);
   ctx.fillStyle = '#88daf0';
   ctx.beginPath();
-  ctx.arc(colX+11, cy+pillH/2, 8, 0, Math.PI*2);
+  ctx.arc(colX+10, cy+pillH/2, 7, 0, Math.PI*2);
   ctx.fill();
   ctx.fillStyle = '#0d2a3a';
-  ctx.font = 'bold 9px monospace';
-  ctx.fillText(`${arena.level}`, colX+11, cy+pillH/2+1);
+  ctx.font = 'bold 8px monospace';
+  ctx.fillText(`${arena.level}`, colX+10, cy+pillH/2+1);
   // XP bar interno
-  const xpBarX = colX+22, xpBarY = cy+5, xpBarW = colW-30, xpBarH = 12;
+  const xpBarX = colX+20, xpBarY = cy+4, xpBarW = colW-26, xpBarH = 12;
   drawPillBg(xpBarX, xpBarY, xpBarW, xpBarH, '#1a4a7a', null, 6);
   ctx.fillStyle = '#88daf0';
   const xpPct = Math.max(0, Math.min(1, arena.xp/arena.xpToNext));
@@ -2816,61 +2815,44 @@ function drawArenaHUD(){
     ctx.fill();
   }
   ctx.fillStyle = '#fff7e0';
-  ctx.font = 'bold 9px monospace';
-  // valor de XP (formato cur/next) — o "LV N" já está no badge circular à esquerda
+  ctx.font = 'bold 8px monospace';
   ctx.fillText(`${Math.floor(arena.xp)}/${arena.xpToNext}`, xpBarX + xpBarW/2, xpBarY+xpBarH/2+1);
 
-  // === Power pill (⚔️ no lugar do raio, mesma largura) ===
+  // === Power pill (⚔️) ===
   cy += pillH + pillGap;
-  drawPillBg(colX, cy, colW, pillH, 'rgba(255,180,40,0.95)', '#ffcc3d', 11);
+  drawPillBg(colX, cy, colW, pillH, 'rgba(255,180,40,0.95)', '#ffcc3d', 10);
   const pulse = arena.powerPulseTimer > 0
     ? 1 + Math.sin(arena.powerPulseTimer*0.45)*0.10 : 1;
-  // ícone das duas espadinhas à esquerda (junto do "quadrado de XP" acima)
   ctx.fillStyle = '#3a230b';
-  ctx.font = 'bold 13px monospace';
+  ctx.font = 'bold 11px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('⚔️', colX+6, cy+pillH/2+1);
-  // valor de power
-  ctx.font = `bold ${Math.round(11*pulse)}px monospace`;
+  ctx.fillText('⚔️', colX+4, cy+pillH/2+1);
+  ctx.font = `bold ${Math.round(10*pulse)}px monospace`;
   ctx.textAlign = 'center';
   ctx.fillText(`${arena.power}`, colX+colW/2+6, cy+pillH/2+1);
-  // label "POWER" tiny
-  ctx.font = 'bold 7px monospace';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(58,35,11,0.7)';
-  ctx.fillText('POWER', colX+colW-8, cy+pillH/2+1);
-  // var pra power delta (precisa depois)
   const pwY = cy;
 
-  // === Kills pill (💀, mesma largura) ===
+  // === Kills pill (💀) ===
   cy += pillH + pillGap;
-  drawPillBg(colX, cy, colW, pillH, 'rgba(122,95,196,0.95)', '#a86bff', 11);
+  drawPillBg(colX, cy, colW, pillH, 'rgba(122,95,196,0.95)', '#a86bff', 10);
   ctx.fillStyle = '#0d0a1a';
-  ctx.font = 'bold 13px monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText('💀', colX+6, cy+pillH/2+1);
   ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('💀', colX+4, cy+pillH/2+1);
+  ctx.font = 'bold 10px monospace';
   ctx.textAlign = 'center';
   ctx.fillText(`${arena.killCount}`, colX+colW/2+6, cy+pillH/2+1);
-  ctx.font = 'bold 7px monospace';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(13,10,26,0.6)';
-  ctx.fillText('KILLS', colX+colW-8, cy+pillH/2+1);
 
-  // === Essences pill (💎, mesma largura) ===
+  // === Essences pill (💎) ===
   cy += pillH + pillGap;
-  drawPillBg(colX, cy, colW, pillH, 'rgba(95,176,216,0.95)', '#88daf0', 11);
+  drawPillBg(colX, cy, colW, pillH, 'rgba(95,176,216,0.95)', '#88daf0', 10);
   ctx.fillStyle = '#0d2a3a';
-  ctx.font = 'bold 13px monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText('💎', colX+6, cy+pillH/2+1);
   ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('💎', colX+4, cy+pillH/2+1);
+  ctx.font = 'bold 10px monospace';
   ctx.textAlign = 'center';
   ctx.fillText(`${arena.essences || 0}`, colX+colW/2+6, cy+pillH/2+1);
-  ctx.font = 'bold 7px monospace';
-  ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(13,42,58,0.6)';
-  ctx.fillText('ESS', colX+colW-8, cy+pillH/2+1);
 
   // === STAGE pill (canto superior direito, separado da player column) ===
   const stageW = 96, stageH = 26;
