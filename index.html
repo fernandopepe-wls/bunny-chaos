@@ -804,7 +804,7 @@
       </div>
       <div class="forge-info-row">
         <span id="forgeComboInline">—</span>
-        <span id="arenaCarrotsCount">🥕 50</span>
+        <span id="arenaCarrotsCount">🥬 50</span>
       </div>
     </div>
 
@@ -1123,7 +1123,7 @@ const LEVEL_CURVE_EXP   = 1.4;   // expoente da curva (back-loaded)
 const SUBSTAT_LEVEL_FLOOR = 0.4; // Lv.1 mostra 40% do roll
 const SUBSTAT_LEVEL_RANGE = 0.6; // ganha +60% até Lv.100
 
-// Upgrade cost (§5.2) — essences gastas pra subir item de level
+// Upgrade cost (§5.2) — cenouras gastas pra subir item de level
 const BASE_ESSENCE        = 10;
 const ESSENCE_ERA_MULT    = 1.6;
 const COST_LEVEL_FACTOR   = 9;
@@ -1230,10 +1230,10 @@ function tryUpgradeItem(item){
     return { success:false, reason:'MAX_LEVEL' };
   }
   const cost = upgradeCost(item.eraIdx, item.currentLevel);
-  if(arena.essences < cost){
+  if(arena.carrots < cost){
     return { success:false, reason:'INSUFFICIENT_ESSENCES', needed: cost };
   }
-  arena.essences -= cost;
+  arena.carrots -= cost;
   item.currentLevel += 1;
   return { success:true, costPaid: cost, newLevel: item.currentLevel };
 }
@@ -1521,7 +1521,7 @@ const SUBSTAT_TO_ARENA = {
 // Custo da forja em hammers (carrots reaproveitados como hammers)
 const FORGE_BASE_COST = 1;   // hammers pra rolagem inicial
 const FORGE_REROLL_COST = 0; // hammers por reroll (grátis)
-const FORGE_MAX_REROLLS = 3;
+const FORGE_MAX_REROLLS = 1;
 // alias antigo (alguns lugares ainda chamam FORGE_COST)
 const FORGE_COST = FORGE_BASE_COST;
 // stats por slot
@@ -1689,8 +1689,8 @@ function initArena(){
   arena.forgeLevel = 1;
   arena.forgeInterval = 900;
   arena.autoForge = false;
-  arena.carrots = 50; // saldo inicial pra forjar 10 vezes
-  arena.essences = 50; // novo recurso pra upar level de itens (design-level-scaling §5)
+  arena.lettuce = 50; // saldo inicial pra forjar 10 vezes
+  arena.carrots = 50; // novo recurso pra upar level de itens (design-level-scaling §5)
   arena.power = arenaPower();
   arena.powerDelta = 0;
   arena.powerDeltaTimer = 0;
@@ -1786,7 +1786,7 @@ function onWaveClear(){
     // boss derrotado → stage clear, avança
     arena.waveState = 'stage_clear';
     arena.stageClearBannerTimer = 120;
-    arena.carrots += 5 + arena.stage;
+    arena.lettuce += 5 + arena.stage;
     spawnArenaParticle(arena.bx, arena.by, '#ffcc3d', 36);
     arena.regions++;
   } else if(arena.wave === 4){
@@ -1954,11 +1954,12 @@ function killArenaEnemy(idx, e){
     arena.gems.push({ x:e.x+8, y:e.y+8, vx:0, vy:0, item: rollItem(), isItem:true, age:0 });
   }
   // dropa cenouras como gem coletável
-  const carrotAmt = e.isBoss ? 10 : 1;
-  arena.gems.push({ x:e.x-6, y:e.y-6, vx:0, vy:0, carrot:carrotAmt, isCarrot:true, age:0 });
-  // dropa essences (novo recurso pra upar item level) — bosses dão muito mais
-  const essenceAmt = e.isBoss ? 20 : 1;
-  arena.gems.push({ x:e.x+6, y:e.y-4, vx:0, vy:0, essence:essenceAmt, isEssence:true, age:0 });
+  // alface = fuel da forja (era a antiga "carrots") — drop 1 por inimigo normal, 10 boss
+  const lettuceAmt = e.isBoss ? 10 : 1;
+  arena.gems.push({ x:e.x-6, y:e.y-6, vx:0, vy:0, lettuce:lettuceAmt, isLettuce:true, age:0 });
+  // cenoura = currency pra upgrade de item level — bosses dão muito mais
+  const carrotAmt = e.isBoss ? 20 : 1;
+  arena.gems.push({ x:e.x+6, y:e.y-4, vx:0, vy:0, carrot:carrotAmt, isCarrot:true, age:0 });
   arena.killCount++;
   if(e.isBoss){
     arena.regions++;
@@ -2373,7 +2374,7 @@ function updateArena(){
   if(arena.powerPulseTimer > 0) arena.powerPulseTimer--;
   bumpArenaPower();
   // auto-forge: desabilitado temporariamente (bug nas waves seguintes)
-  // if(arena.autoForge && arena.carrots >= FORGE_COST){
+  // if(arena.autoForge && arena.lettuce >= FORGE_COST){
   //   autoForgeStep();
   // }
 
@@ -2482,12 +2483,12 @@ function updateArena(){
           arena.xp += 1;
           spawnArenaParticle(arena.bx, arena.by, '#9b8fc4', 6);
         }
+      } else if(g.isLettuce){
+        arena.lettuce += g.lettuce || 1;
+        spawnArenaParticle(arena.bx, arena.by, '#4cf08e', 5);
       } else if(g.isCarrot){
         arena.carrots += g.carrot || 1;
         spawnArenaParticle(arena.bx, arena.by, '#ff7a1a', 5);
-      } else if(g.isEssence){
-        arena.essences += g.essence || 1;
-        spawnArenaParticle(arena.bx, arena.by, '#88daf0', 5);
       } else {
         const xpGain = g.xp * arenaTotalStat('xpMult');
         arena.xp += xpGain;
@@ -2697,10 +2698,28 @@ function drawArenaEnemy(e){
 }
 
 function drawArenaGem(g){
-  if(g.isCarrot){
+  if(g.isLettuce){
+    // alface — fuel da forja (era a antiga "cenoura"), totalmente verde
     const t = performance.now()/200;
     const bob = Math.sin(t + g.age*0.05)*1.5;
-    // corpo da cenoura
+    // folhas grandes (verde claro outside, verde escuro center)
+    ctx.fillStyle = '#2aa860';
+    ctx.fillRect(g.x-4, g.y-3+bob, 8, 6);
+    ctx.fillStyle = '#4cf08e';
+    ctx.fillRect(g.x-3, g.y-2+bob, 6, 4);
+    // brilho central
+    ctx.fillStyle = '#88f0a8';
+    ctx.fillRect(g.x-1, g.y-1+bob, 2, 2);
+    // mini folhas no topo
+    ctx.fillStyle = '#2aa860';
+    ctx.fillRect(g.x-2, g.y-5+bob, 4, 2);
+    return;
+  }
+  if(g.isCarrot){
+    // cenoura — currency pra upgrade de item (era a antiga "essence")
+    const t = performance.now()/200;
+    const bob = Math.sin(t + g.age*0.05)*1.5;
+    // corpo da cenoura (laranja)
     ctx.fillStyle = '#ff7a1a';
     ctx.fillRect(g.x-3, g.y-3+bob, 6, 7);
     ctx.fillStyle = '#ff9b3a';
@@ -2709,18 +2728,6 @@ function drawArenaGem(g){
     ctx.fillStyle = '#4cf08e';
     ctx.fillRect(g.x-2, g.y-6+bob, 4, 2);
     ctx.fillRect(g.x-1, g.y-7+bob, 2, 1);
-    return;
-  }
-  if(g.isEssence){
-    // essência ciano cristalina (recurso pra upar item level)
-    const t = performance.now()/220;
-    const bob = Math.sin(t + g.age*0.07)*1.5;
-    ctx.fillStyle = 'rgba(136,218,240,0.4)';
-    ctx.fillRect(g.x-4, g.y-4+bob, 8, 8);
-    ctx.fillStyle = '#88daf0';
-    ctx.fillRect(g.x-3, g.y-3+bob, 6, 6);
-    ctx.fillStyle = '#cdebf5';
-    ctx.fillRect(g.x-1, g.y-2+bob, 2, 2);
     return;
   }
   if(g.isItem){
@@ -2850,17 +2857,17 @@ function drawArenaHUD(){
   ctx.textAlign = 'center';
   ctx.fillText(`${arena.killCount}`, killsX+killsW/2+6, killsY+killsH/2+1);
 
-  // === Essences pill (💎) — canto superior DIREITO, recurso global tipo Forge Master ===
+  // === Cenouras pill (🥕) — canto superior DIREITO, recurso pra upgrade de item ===
   const essW = 80, essH = 31;
   const essX = W - essW - 8, essY = HUD_TOP_PAD;
-  drawPillBg(essX, essY, essW, essH, 'rgba(95,176,216,0.95)', '#88daf0', 10);
-  ctx.fillStyle = '#0d2a3a';
+  drawPillBg(essX, essY, essW, essH, 'rgba(255,154,58,0.95)', '#ffcc3d', 10);
+  ctx.fillStyle = '#3a230b';
   ctx.font = 'bold 16px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('💎', essX+6, essY+essH/2+1);
+  ctx.fillText('🥕', essX+6, essY+essH/2+1);
   ctx.font = 'bold 13px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(`${arena.essences || 0}`, essX+essW/2+8, essY+essH/2+1);
+  ctx.fillText(`${arena.carrots || 0}`, essX+essW/2+8, essY+essH/2+1);
 
   // === STAGE pill (centralizado no topo, +20% tamanho vs versão anterior) ===
   const stageW = 115, stageH = 31;
@@ -3278,8 +3285,8 @@ function upgradeForgeLevel(){
 }
 
 function autoForgeStep(){
-  if(arena.carrots < FORGE_COST) return; // não auto-forja sem cenoura
-  arena.carrots -= FORGE_COST;
+  if(arena.lettuce < FORGE_COST) return; // não auto-forja sem cenoura
+  arena.lettuce -= FORGE_COST;
   const newItem = rollItem();
   const equipped = arenaEquipItem(newItem);
   if(equipped){
@@ -3421,10 +3428,10 @@ function renderForgeDice(){
   // combo + cenoura inline
   const comboEl = document.getElementById('forgeComboInline');
   const carrotsEl = document.getElementById('arenaCarrotsCount');
-  if(carrotsEl) carrotsEl.textContent = `🥕 ${arena.carrots}`;
+  if(carrotsEl) carrotsEl.textContent = `🥬 ${arena.lettuce}`;
   if(comboEl){
     if(forgeRoll.phase === 'idle'){
-      comboEl.textContent = `Pronto · ${FORGE_BASE_COST}🥕`;
+      comboEl.textContent = `Pronto · ${FORGE_BASE_COST}🥬`;
       comboEl.style.color = '#9b8fc4';
     } else if(forgeRoll.phase === 'rolling'){
       comboEl.textContent = '…rolando';
@@ -3442,8 +3449,8 @@ function renderForgeDice(){
   if(!rollBtn || !confirmBtn) return;
   if(forgeRoll.phase === 'idle'){
     rollBtn.style.display = '';
-    rollBtn.disabled = arena.carrots < FORGE_BASE_COST;
-    rollBtn.textContent = `🎲 ROLL FORGE (${FORGE_BASE_COST}🥕)`;
+    rollBtn.disabled = arena.lettuce < FORGE_BASE_COST;
+    rollBtn.textContent = `🎲 ROLL FORGE (${FORGE_BASE_COST}🥬)`;
     confirmBtn.style.display = 'none';
   } else if(forgeRoll.phase === 'rolling'){
     rollBtn.style.display = '';
@@ -3452,7 +3459,7 @@ function renderForgeDice(){
     confirmBtn.style.display = 'none';
   } else if(forgeRoll.phase === 'after-roll'){
     // Botão de reroll só aparece se há rerolls disponíveis (design §14)
-    const canReroll = forgeRoll.rerollsLeft > 0 && arena.carrots >= FORGE_REROLL_COST;
+    const canReroll = forgeRoll.rerollsLeft > 0 && arena.lettuce >= FORGE_REROLL_COST;
     if(canReroll){
       rollBtn.style.display = '';
       rollBtn.disabled = false;
@@ -3512,15 +3519,15 @@ function animateForgeRoll(onDone){
 function forgeMainAction(){
   if(state !== STATE.ARENA_PLAY) return;
   if(forgeRoll.phase === 'idle'){
-    if(arena.carrots < FORGE_BASE_COST) return;
-    arena.carrots -= FORGE_BASE_COST;
+    if(arena.lettuce < FORGE_BASE_COST) return;
+    arena.lettuce -= FORGE_BASE_COST;
     forgeRoll.held = [false,false,false,false,false];
     forgeRoll.rerollsLeft = FORGE_MAX_REROLLS;
     animateForgeRoll();
   } else if(forgeRoll.phase === 'after-roll'){
     if(forgeRoll.rerollsLeft <= 0) return;
-    if(arena.carrots < FORGE_REROLL_COST) return;
-    arena.carrots -= FORGE_REROLL_COST;
+    if(arena.lettuce < FORGE_REROLL_COST) return;
+    arena.lettuce -= FORGE_REROLL_COST;
     forgeRoll.rerollsLeft--;
     animateForgeRoll();
   }
@@ -3628,7 +3635,7 @@ for(const el of document.querySelectorAll('#arenaDiceRow .forge-die')){
   });
 }
 
-// Item popup: upgrade buttons (sobe nível do item gastando essences)
+// Item popup: upgrade buttons (sobe nível do item gastando cenouras)
 document.getElementById('itemPopupUpgradeBtn').addEventListener('click', (e)=>{
   e.stopPropagation();
   if(!_currentPopupSlot) return;
@@ -3645,7 +3652,7 @@ document.getElementById('itemPopupUpgradeX10Btn').addEventListener('click', (e)=
   if(!_currentPopupSlot) return;
   const it = arena.items[_currentPopupSlot];
   if(!it) return;
-  // tenta upar até 10x ou até morrer de essences/atingir max
+  // tenta upar até 10x ou até morrer de cenouras/atingir max
   for(let i=0; i<10; i++){
     const r = tryUpgradeItem(it);
     if(!r.success) break;
@@ -3746,20 +3753,20 @@ function renderItemPopup(){
   // upgrade buttons
   upRow.classList.remove('hidden');
   const cost = upgradeCost(it.eraIdx, curLvl);
-  const canUp = curLvl < maxLvl && arena.essences >= cost;
+  const canUp = curLvl < maxLvl && arena.carrots >= cost;
   if(curLvl >= maxLvl){
     upBtn.disabled = true;
     upBtn.textContent = '✦ MAX';
     upX10Btn.style.display = 'none';
   } else {
     upBtn.disabled = !canUp;
-    upBtn.textContent = `⬆ UPGRADE (${cost} 💎)`;
+    upBtn.textContent = `⬆ UPGRADE (${cost} 🥕)`;
     // x10: custo agregado dos próximos 10 levels (cap em maxLvl)
     upX10Btn.style.display = '';
     const target10 = Math.min(maxLvl, curLvl + 10);
     const cost10 = totalUpgradeCost(it.eraIdx, curLvl, target10);
-    upX10Btn.disabled = !(arena.essences >= cost10) || target10 === curLvl;
-    upX10Btn.textContent = `×${target10 - curLvl}\n${cost10}💎`;
+    upX10Btn.disabled = !(arena.carrots >= cost10) || target10 === curLvl;
+    upX10Btn.textContent = `×${target10 - curLvl}\n${cost10}🥕`;
     upX10Btn.style.whiteSpace = 'pre-line';
     upX10Btn.style.lineHeight = '1.1';
   }
@@ -3887,8 +3894,9 @@ function buildArenaTabContent(key){
     for(let i=0;i<probs.length;i++){ if(probs[i] > bestP){ bestP = probs[i]; bestIdx = i; } }
     const bestEra = ERAS[bestIdx];
     return `<div class="stats">
+      <div class="row"><span>🥬 Alface</span><span style="color:#4cf08e">${arena.lettuce}</span></div>
       <div class="row"><span>🥕 Cenouras</span><span style="color:#ff9b3a">${arena.carrots}</span></div>
-      <div class="row"><span>Custo da forja</span><span style="color:#ffcc3d">${FORGE_BASE_COST} 🥕 · ${FORGE_MAX_REROLLS} rerolls grátis</span></div>
+      <div class="row"><span>Custo da forja</span><span style="color:#ffcc3d">${FORGE_BASE_COST} 🥬 · ${FORGE_MAX_REROLLS} rerolls grátis</span></div>
       <div class="row"><span>Era mais provável (forge lv ${arena.forgeLevel})</span><span style="color:${bestEra.color}">${bestEra.name} ${(bestP*100).toFixed(0)}%</span></div>
     </div>
     <p class="em-breve">Cenouras dropam de cada inimigo (bosses dão +10).<br/>Use no botão FORGE pra rolar os dados e forjar.</p>`;
