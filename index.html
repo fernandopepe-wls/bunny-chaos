@@ -47,8 +47,13 @@
   }
   #frame{
     position:relative;
-    width:  min(100vw, calc(100vh * 9 / 20));
-    height: min(100vh, calc(100vw * 20 / 9));
+    /* Frame respeita as safe-area do iOS (notch/dynamic island em cima,
+       home indicator embaixo). Usa 100dvh pra acompanhar a toolbar do
+       Safari quando ela aparece/some. */
+    --frame-avail-w: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right));
+    --frame-avail-h: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    width:  min(var(--frame-avail-w), calc(var(--frame-avail-h) * 9 / 20));
+    height: min(var(--frame-avail-h), calc(var(--frame-avail-w) * 20 / 9));
     background:#0a0716;
     overflow:hidden;
   }
