@@ -3424,8 +3424,8 @@ function renderForgeDice(){
   if(carrotsEl) carrotsEl.textContent = `🥬 ${arena.lettuce}`;
   if(comboEl){
     if(forgeRoll.phase === 'idle'){
-      comboEl.textContent = `Pronto · ${FORGE_BASE_COST}🥬`;
-      comboEl.style.color = '#9b8fc4';
+      // idle: sem texto de "Pronto" — o botão ROLL FORGE já comunica isso
+      comboEl.textContent = '';
     } else if(forgeRoll.phase === 'rolling'){
       comboEl.textContent = '…rolando';
       comboEl.style.color = '#9b8fc4';
