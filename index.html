@@ -2627,6 +2627,18 @@ function drawArenaBunny(){
   ctx.fillRect(x-4, y-2, 2, 2);
   ctx.fillRect(x+2, y-2, 2, 2);
   ctx.globalAlpha = 1;
+
+  // barra de HP pequena acima do bunny (mesmo estilo dos inimigos)
+  const bw = 20, bh = 3, by_ = y - 18;
+  const pct = Math.max(0, Math.min(1, arena.hp / arena.maxHp));
+  // fundo escuro
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x - bw/2, by_, bw, bh);
+  // fill (verde→amarelo→vermelho conforme HP cai)
+  ctx.fillStyle = pct > 0.5 ? '#4cf08e'
+                : pct > 0.25 ? '#ffcc3d'
+                : '#ff5252';
+  ctx.fillRect(x - bw/2, by_, bw * pct, bh);
 }
 
 function drawArenaEnemy(e){
@@ -2776,32 +2788,9 @@ function drawArenaHUD(){
   const pillH = 20;
   const pillGap = 3;
 
-  // === HP pill (topo) ===
+  // HP bar foi movida pra cima do bunny no grid (ver drawArenaBunny).
+  // === LV + XP pill (primeira da player column agora) ===
   let cy = HUD_TOP_PAD;
-  drawPillBg(colX, cy, colW, pillH, 'rgba(13,10,26,0.7)', '#5a4499', 10);
-  ctx.fillStyle = '#ff5fa2';
-  ctx.beginPath();
-  ctx.arc(colX+10, cy+pillH/2, 7, 0, Math.PI*2);
-  ctx.fill();
-  ctx.fillStyle = '#fff7e0';
-  ctx.font = 'bold 9px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('♥', colX+10, cy+pillH/2+1);
-  // hp bar interno
-  const hpBarX = colX+20, hpBarY = cy+4, hpBarW = colW-26, hpBarH = 12;
-  drawPillBg(hpBarX, hpBarY, hpBarW, hpBarH, '#3b1a2a', null, 6);
-  ctx.fillStyle = '#ff5252';
-  const hpPct = Math.max(0, arena.hp)/arena.maxHp;
-  if(hpPct > 0){
-    _pillPath(hpBarX, hpBarY, Math.max(4, hpBarW*hpPct), hpBarH, 6);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#fff7e0';
-  ctx.font = 'bold 8px monospace';
-  ctx.fillText(`${Math.max(0,Math.ceil(arena.hp))}/${Math.round(arena.maxHp)}`, hpBarX + hpBarW/2, hpBarY+hpBarH/2+1);
-
-  // === LV + XP pill ===
-  cy += pillH + pillGap;
   drawPillBg(colX, cy, colW, pillH, 'rgba(13,10,26,0.7)', '#2a6f95', 10);
   ctx.fillStyle = '#88daf0';
   ctx.beginPath();
