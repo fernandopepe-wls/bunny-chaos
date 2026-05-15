@@ -2837,16 +2837,18 @@ function drawArenaHUD(){
   ctx.fillText(`${arena.power}`, colX+colW/2+6, cy+pillH/2+1);
   const pwY = cy;
 
-  // === Kills pill (💀) ===
-  cy += pillH + pillGap;
-  drawPillBg(colX, cy, colW, pillH, 'rgba(122,95,196,0.95)', '#a86bff', 10);
+  // === Kills pill (💀) — centralizada no BOTTOM do play grid (estilo Forge Master) ===
+  const killsW = 70, killsH = 22;
+  const killsX = (W - killsW) / 2;
+  const killsY = ARENA.BOT_Y - killsH - 4;
+  drawPillBg(killsX, killsY, killsW, killsH, 'rgba(122,95,196,0.95)', '#a86bff', 11);
   ctx.fillStyle = '#0d0a1a';
-  ctx.font = 'bold 11px monospace';
+  ctx.font = 'bold 13px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('💀', colX+4, cy+pillH/2+1);
-  ctx.font = 'bold 10px monospace';
+  ctx.fillText('💀', killsX+6, killsY+killsH/2+1);
+  ctx.font = 'bold 11px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(`${arena.killCount}`, colX+colW/2+6, cy+pillH/2+1);
+  ctx.fillText(`${arena.killCount}`, killsX+killsW/2+6, killsY+killsH/2+1);
 
   // === Essences pill (💎) — canto superior DIREITO, recurso global tipo Forge Master ===
   const essW = 80, essH = 31;
