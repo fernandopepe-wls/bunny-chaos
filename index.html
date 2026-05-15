@@ -1901,8 +1901,8 @@ function initArena(){
       if(isForgeUpgradeReady()) applyForgeUpgradeIfReady();
     }
   }
-  arena.lettuce = 50; // saldo inicial pra forjar 10 vezes
-  arena.carrots = 50; // novo recurso pra upar level de itens (design-level-scaling §5)
+  arena.lettuce = 100; // saldo inicial — 100 alfaces (~100 forjas)
+  arena.carrots = 0;   // começa sem cenouras (vai acumulando offline + matando inimigos)
   arena.power = arenaPower();
   arena.powerDelta = 0;
   arena.powerDeltaTimer = 0;
