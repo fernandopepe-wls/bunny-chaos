@@ -1,0 +1,256 @@
+{
+  "$schema": "./node_modules/@laststand/asset-studio/config.schema.json",
+  "title": "Bunny Chaos",
+  "subtitle": "Loot Arena — Asset Studio",
+  "assetsDir": "./assets",
+  "lintTargets": ["index.html"],
+  "categories": [
+    { "id": "ui",          "label": "UI" },
+    { "id": "hero",        "label": "Hero" },
+    { "id": "enemies",     "label": "Enemies" },
+    { "id": "bosses",      "label": "Bosses" },
+    { "id": "weapons",     "label": "Weapons" },
+    { "id": "armor",       "label": "Armor" },
+    { "id": "environment", "label": "Environments (Eras)" },
+    { "id": "fx",          "label": "FX / Drops" }
+  ],
+  "slots": [
+    {
+      "id": "ui_dice_sprite",
+      "label": "Dice Spritesheet (1-6)",
+      "category": "ui",
+      "kind": "image",
+      "fills": ["dice-sprite.png"],
+      "criticality": "blocker",
+      "usedInGame": "asset",
+      "note": "Horizontal 6-frame d6 spritesheet (1692×288). Each frame is one die face used by the forge dice UI. background-size: 600% 100% in CSS."
+    },
+
+    {
+      "id": "hero_bunny",
+      "label": "Bunny (Hero)",
+      "category": "hero",
+      "kind": "image",
+      "fills": ["bunny.png"],
+      "criticality": "important",
+      "usedInGame": "proc",
+      "note": "Top-down pixel art sprite of the bunny hero. 4-direction walk + idle. Currently procedural."
+    },
+
+    {
+      "id": "enemy_slime",
+      "label": "Enemy — Slime",
+      "category": "enemies",
+      "kind": "image",
+      "fills": ["enemy-slime.png"],
+      "criticality": "important",
+      "usedInGame": "proc",
+      "note": "Era 1-2 basic enemy. Currently procedural circle."
+    },
+    {
+      "id": "enemy_bat",
+      "label": "Enemy — Bat",
+      "category": "enemies",
+      "kind": "image",
+      "fills": ["enemy-bat.png"],
+      "criticality": "important",
+      "usedInGame": "proc",
+      "note": "Era 3-4 fast flying enemy. Currently procedural."
+    },
+    {
+      "id": "enemy_skeleton",
+      "label": "Enemy — Skeleton",
+      "category": "enemies",
+      "kind": "image",
+      "fills": ["enemy-skeleton.png"],
+      "criticality": "important",
+      "usedInGame": "proc",
+      "note": "Era 5-6 mid-tier enemy. Currently procedural."
+    },
+    {
+      "id": "enemy_knight",
+      "label": "Enemy — Knight",
+      "category": "enemies",
+      "kind": "image",
+      "fills": ["enemy-knight.png"],
+      "criticality": "important",
+      "usedInGame": "proc",
+      "note": "Era 7-8 armored enemy. Currently procedural."
+    },
+
+    {
+      "id": "boss_default",
+      "label": "Boss (Default)",
+      "category": "bosses",
+      "kind": "image",
+      "fills": ["boss.png"],
+      "criticality": "important",
+      "usedInGame": "proc",
+      "note": "Stage-end boss. Will expand to 5 era-specific bosses (per Items and Era Design)."
+    },
+
+    {
+      "id": "weapon_sword_t1",
+      "label": "Sword — Tier 1",
+      "category": "weapons",
+      "kind": "image",
+      "fills": ["weapon-sword-t1.png"],
+      "criticality": "optional",
+      "usedInGame": "none",
+      "note": "Melee archetype. 5 archetypes × 3 tiers (15 weapons total) per Items and Era Design."
+    },
+    {
+      "id": "weapon_bow_t1",
+      "label": "Bow — Tier 1",
+      "category": "weapons",
+      "kind": "image",
+      "fills": ["weapon-bow-t1.png"],
+      "criticality": "optional",
+      "usedInGame": "none",
+      "note": "Ranged archetype."
+    },
+    {
+      "id": "weapon_staff_t1",
+      "label": "Staff — Tier 1",
+      "category": "weapons",
+      "kind": "image",
+      "fills": ["weapon-staff-t1.png"],
+      "criticality": "optional",
+      "usedInGame": "none",
+      "note": "Magic archetype."
+    },
+    {
+      "id": "weapon_dagger_t1",
+      "label": "Dagger — Tier 1",
+      "category": "weapons",
+      "kind": "image",
+      "fills": ["weapon-dagger-t1.png"],
+      "criticality": "optional",
+      "usedInGame": "none",
+      "note": "Crit/fast archetype."
+    },
+    {
+      "id": "weapon_hammer_t1",
+      "label": "Hammer — Tier 1",
+      "category": "weapons",
+      "kind": "image",
+      "fills": ["weapon-hammer-t1.png"],
+      "criticality": "optional",
+      "usedInGame": "none",
+      "note": "Heavy archetype."
+    },
+
+    {
+      "id": "armor_light",
+      "label": "Armor — Light",
+      "category": "armor",
+      "kind": "image",
+      "fills": ["armor-light.png"],
+      "criticality": "optional",
+      "usedInGame": "none",
+      "note": "Light variation. 3 variations × 7 slots × 10 eras planned."
+    },
+    {
+      "id": "armor_medium",
+      "label": "Armor — Medium",
+      "category": "armor",
+      "kind": "image",
+      "fills": ["armor-medium.png"],
+      "criticality": "optional",
+      "usedInGame": "none",
+      "note": "Medium variation."
+    },
+    {
+      "id": "armor_heavy",
+      "label": "Armor — Heavy",
+      "category": "armor",
+      "kind": "image",
+      "fills": ["armor-heavy.png"],
+      "criticality": "optional",
+      "usedInGame": "none",
+      "note": "Heavy variation."
+    },
+
+    {
+      "id": "env_era1_forest",
+      "label": "Era 1 — Forest",
+      "category": "environment",
+      "kind": "image",
+      "fills": ["env-era1-forest.png"],
+      "criticality": "optional",
+      "usedInGame": "proc",
+      "note": "Background tile/floor for the Forest era. Currently procedural grass."
+    },
+    {
+      "id": "env_era2_cave",
+      "label": "Era 2 — Cave",
+      "category": "environment",
+      "kind": "image",
+      "fills": ["env-era2-cave.png"],
+      "criticality": "optional",
+      "usedInGame": "proc",
+      "note": "Cave era backdrop."
+    },
+    {
+      "id": "env_era3_ruins",
+      "label": "Era 3 — Ruins",
+      "category": "environment",
+      "kind": "image",
+      "fills": ["env-era3-ruins.png"],
+      "criticality": "optional",
+      "usedInGame": "proc",
+      "note": "Ancient ruins."
+    },
+    {
+      "id": "env_era4_desert",
+      "label": "Era 4 — Desert",
+      "category": "environment",
+      "kind": "image",
+      "fills": ["env-era4-desert.png"],
+      "criticality": "optional",
+      "usedInGame": "proc",
+      "note": "Desert era."
+    },
+    {
+      "id": "env_era5_castle",
+      "label": "Era 5 — Castle",
+      "category": "environment",
+      "kind": "image",
+      "fills": ["env-era5-castle.png"],
+      "criticality": "optional",
+      "usedInGame": "proc",
+      "note": "Castle era."
+    },
+
+    {
+      "id": "fx_carrot",
+      "label": "Drop — Carrot",
+      "category": "fx",
+      "kind": "image",
+      "fills": ["drop-carrot.png"],
+      "criticality": "optional",
+      "usedInGame": "proc",
+      "note": "Carrot resource drop. Currently procedural orange shape."
+    },
+    {
+      "id": "fx_lettuce",
+      "label": "Drop — Lettuce",
+      "category": "fx",
+      "kind": "image",
+      "fills": ["drop-lettuce.png"],
+      "criticality": "optional",
+      "usedInGame": "proc",
+      "note": "Lettuce resource (forge fuel). Currently shown as 🥬 emoji."
+    },
+    {
+      "id": "fx_xp_orb",
+      "label": "Drop — XP Orb",
+      "category": "fx",
+      "kind": "image",
+      "fills": ["drop-xp.png"],
+      "criticality": "optional",
+      "usedInGame": "proc",
+      "note": "XP orb drop. Currently procedural blue circle."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+# Node / asset-studio
+node_modules/
+.asset-studio/
+assets/.history/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

@@ -1,0 +1,13 @@
+{
+  "name": "bunny-chaos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bunny Chaos! Loot Arena — pixel-art top-down arena survivor + idle RPG (HTML/CSS/JS puro).",
+  "type": "module",
+  "scripts": {
+    "asset-studio": "asset-studio"
+  },
+  "devDependencies": {
+    "@laststand/asset-studio": "file:./asset-studio-bundle-v0.1.0/laststand-asset-studio-0.1.0.tgz"
+  }
+}
