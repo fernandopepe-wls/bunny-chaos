@@ -714,6 +714,134 @@
   }
   #arenaAutoBtn:active{transform:translateY(1px);}
 
+  /* SLEEP/offline-rewards toggle (esquerda, simetrico ao AUTO) */
+  #arenaSleepBtn{
+    position:absolute;
+    bottom:calc(50% + 6px);
+    left:10px;
+    width:70px;
+    height:24px;
+    padding:0;
+    background:#3b2a70;
+    color:var(--ink);
+    border:2px solid #7a5fc4;
+    border-radius:11px;
+    font-size:10px;font-weight:bold;
+    letter-spacing:2px;
+    cursor:pointer;
+    display:none;
+    z-index:6;
+    box-shadow:0 2px 0 #2a1a55;
+    line-height:1;
+  }
+  #arenaSleepBtn.show{display:block;}
+  #arenaSleepBtn.has-rewards{
+    background:linear-gradient(180deg,#5fb0d8,#2a6f95);
+    border-color:#88daf0;
+    color:#fff7e0;
+    animation:zzzPulse 1.5s infinite;
+  }
+  @keyframes zzzPulse{
+    0%,100%{box-shadow:0 2px 0 #1a4a6a, 0 0 6px rgba(95,176,216,.4);}
+    50%    {box-shadow:0 2px 0 #1a4a6a, 0 0 14px rgba(95,176,216,.85);}
+  }
+  #arenaSleepBtn:active{transform:translateY(1px);}
+
+  /* Offline rewards popup */
+  #offlinePopup{
+    position:absolute;
+    inset:0;
+    background:rgba(0,0,0,0.6);
+    display:none;
+    flex-direction:column;
+    align-items:center;justify-content:center;
+    z-index:30;
+    padding:14px;
+    box-sizing:border-box;
+    gap:14px;
+  }
+  #offlinePopup.show{display:flex;}
+  .offline-card{
+    width:100%;
+    max-width:340px;
+    display:flex;
+    flex-direction:column;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 12px 32px rgba(0,0,0,0.55);
+  }
+  .offline-header{
+    background:linear-gradient(180deg,#5a4a8a,#3b2a70);
+    padding:16px 14px 14px;
+    color:#fff7e0;
+    text-align:center;
+  }
+  .offline-header h3{
+    font-size:17px;
+    font-weight:bold;
+    letter-spacing:.6px;
+    margin-bottom:4px;
+  }
+  .offline-time{
+    font-size:13px;
+    color:#fff7e0;
+  }
+  .offline-time span{color:#4cf08e;font-weight:bold;}
+  .offline-rates{
+    display:flex;justify-content:center;gap:34px;
+    margin-top:12px;
+  }
+  .offline-rate{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+  }
+  .offline-rate .ico{
+    width:42px;height:42px;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,0.18);
+    border-radius:50%;
+    font-size:22px;
+  }
+  .offline-rate .lbl{font-size:12px;font-weight:bold;}
+  .offline-rate.carrot .lbl{color:#ffcc3d;}
+  .offline-rate.lettuce .lbl{color:#4cf08e;}
+
+  .offline-body{
+    background:#fff7e0;
+    color:#0d0a1a;
+    padding:24px 16px 20px;
+    text-align:center;
+  }
+  .offline-rewards{
+    display:flex;justify-content:center;gap:20px;
+    font-size:24px;font-weight:bold;
+    margin-bottom:18px;
+    color:#0d0a1a;
+  }
+  .offline-rewards .rwd{display:flex;align-items:center;gap:6px;}
+  .offline-rewards .ico{font-size:28px;}
+  .btn-collect{
+    width:100%;
+    padding:14px;
+    background:linear-gradient(180deg,#5fb0d8,#3a8db8);
+    border:0;
+    border-radius:12px;
+    color:#fff7e0;
+    font-size:18px;font-weight:bold;letter-spacing:1px;
+    cursor:pointer;
+    box-shadow:0 4px 0 #2a6f95;
+  }
+  .btn-collect:active{transform:translateY(2px);box-shadow:0 2px 0 #2a6f95;}
+  .offline-close-x{
+    width:48px;height:48px;
+    border:0;cursor:pointer;
+    border-radius:50%;
+    background:linear-gradient(180deg,#ff5252,#b53030);
+    color:#fff;
+    font-size:24px;font-weight:bold;line-height:1;
+    box-shadow:0 3px 0 #6b1414;
+  }
+  .offline-close-x:active{transform:translateY(1px);box-shadow:0 1px 0 #6b1414;}
+
   /* pause button (combo sheet) */
   #pauseBtn{
     position:absolute;
@@ -778,8 +906,39 @@
     <!-- arena AUTO toggle -->
     <button id="arenaAutoBtn" title="Auto-movimento">AUTO</button>
 
+    <!-- arena SLEEP/offline rewards toggle (esquerda, simetrico ao AUTO) -->
+    <button id="arenaSleepBtn" title="Recompensa offline">ZZZ</button>
+
     <!-- arena BOSS challenge button -->
     <button id="arenaBossBtn" title="Desafiar o boss da stage">⚔ DESAFIAR BOSS</button>
+
+    <!-- popup de recompensa offline -->
+    <div id="offlinePopup">
+      <div class="offline-card">
+        <div class="offline-header">
+          <h3>Recompensa offline</h3>
+          <div class="offline-time">Tempo de coleta: <span id="offlineTime">--</span></div>
+          <div class="offline-rates">
+            <div class="offline-rate carrot">
+              <span class="ico">🥕</span>
+              <span class="lbl">1/s</span>
+            </div>
+            <div class="offline-rate lettuce">
+              <span class="ico">🥬</span>
+              <span class="lbl">1/m</span>
+            </div>
+          </div>
+        </div>
+        <div class="offline-body">
+          <div class="offline-rewards">
+            <span class="rwd"><span class="ico">🥕</span><span id="offlineCarrots">0</span></span>
+            <span class="rwd"><span class="ico">🥬</span><span id="offlineLettuce">0</span></span>
+          </div>
+          <button id="offlineCollectBtn" class="btn-collect">Coletar</button>
+        </div>
+      </div>
+      <button id="offlineCloseBtn" class="offline-close-x">×</button>
+    </div>
 
     <!-- arena forge inline: 5 dados + ROLL/REROLL/FORJAR + LV + AUTO -->
     <div id="arenaForgeInline">
@@ -3950,6 +4109,94 @@ document.getElementById('arenaAutoBtn').addEventListener('click', ()=>{
   ab.textContent = 'AUTO'; // estado ON/OFF é só pela cor do botão (active class)
 });
 
+// ============ OFFLINE REWARDS ============
+// O jogador acumula recursos enquanto o jogo está fechado:
+//   - 🥕 cenoura: 1 por segundo
+//   - 🥬 alface: 1 por minuto
+// Persistido em localStorage via timestamp do "lastSeen". Tem cap pra evitar
+// abuso (12h). Recompensa fica disponível até o jogador clicar em Coletar.
+const OFFLINE_CARROT_PER_SEC  = 1;
+const OFFLINE_LETTUCE_PER_SEC = 1/60;
+const OFFLINE_KEY = 'bunnyChaos.lastSeen';
+const OFFLINE_CAP_MS = 12 * 3600 * 1000; // 12h cap
+let _offlinePending = null;
+
+function saveLastSeen(){
+  try { localStorage.setItem(OFFLINE_KEY, String(Date.now())); } catch(e){}
+}
+function loadLastSeen(){
+  try { return parseInt(localStorage.getItem(OFFLINE_KEY) || '0', 10) || 0; }
+  catch(e){ return 0; }
+}
+function calcOfflineRewards(){
+  const last = loadLastSeen();
+  if(!last) return { elapsedSec: 0, carrots: 0, lettuce: 0 };
+  let elapsedMs = Date.now() - last;
+  if(elapsedMs < 5000) return { elapsedSec: 0, carrots: 0, lettuce: 0 };
+  if(elapsedMs > OFFLINE_CAP_MS) elapsedMs = OFFLINE_CAP_MS;
+  const elapsedSec = Math.floor(elapsedMs / 1000);
+  return {
+    elapsedSec,
+    carrots: Math.floor(elapsedSec * OFFLINE_CARROT_PER_SEC),
+    lettuce: Math.floor(elapsedSec * OFFLINE_LETTUCE_PER_SEC),
+  };
+}
+function formatOfflineTime(sec){
+  if(sec <= 0) return '0s';
+  if(sec < 60) return `${sec}s`;
+  if(sec < 3600){
+    const m = Math.floor(sec/60), s = sec%60;
+    return `${m}m ${s}s`;
+  }
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
+  return `${h}h ${m}m`;
+}
+function updateSleepBtnGlow(){
+  const r = calcOfflineRewards();
+  const btn = document.getElementById('arenaSleepBtn');
+  if(!btn) return;
+  if(r.carrots > 0 || r.lettuce > 0) btn.classList.add('has-rewards');
+  else btn.classList.remove('has-rewards');
+}
+function openOfflinePopup(){
+  const r = calcOfflineRewards();
+  _offlinePending = r;
+  document.getElementById('offlineTime').textContent = formatOfflineTime(r.elapsedSec);
+  document.getElementById('offlineCarrots').textContent = r.carrots;
+  document.getElementById('offlineLettuce').textContent = r.lettuce;
+  document.getElementById('offlinePopup').classList.add('show');
+}
+function closeOfflinePopup(){
+  document.getElementById('offlinePopup').classList.remove('show');
+}
+function collectOfflineRewards(){
+  if(_offlinePending){
+    arena.carrots += _offlinePending.carrots;
+    arena.lettuce += _offlinePending.lettuce;
+    _offlinePending = null;
+  }
+  saveLastSeen(); // reseta o timer (mesmo se o user fechar sem coletar, ja tinha ganho — só nao recebeu)
+  updateSleepBtnGlow();
+  closeOfflinePopup();
+}
+
+document.getElementById('arenaSleepBtn').addEventListener('click', openOfflinePopup);
+document.getElementById('offlineCollectBtn').addEventListener('click', collectOfflineRewards);
+document.getElementById('offlineCloseBtn').addEventListener('click', ()=>{
+  // ao fechar sem coletar: mantém o reward acumulado (não reseta lastSeen)
+  closeOfflinePopup();
+});
+
+// Salva lastSeen periodicamente e quando a aba esconde
+setInterval(saveLastSeen, 5000);
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden) saveLastSeen();
+});
+window.addEventListener('pagehide', saveLastSeen);
+window.addEventListener('beforeunload', saveLastSeen);
+// atualiza o glow do botão ZZZ uma vez por segundo
+setInterval(updateSleepBtnGlow, 1000);
+
 // ============ MAIN LOOP (fixed 60Hz timestep) ============
 const FIXED_DT = 1000/60;
 let last = performance.now();
@@ -3983,6 +4230,13 @@ function loop(now){
   const autoEl = document.getElementById('arenaAutoBtn');
   if(state === STATE.ARENA_PLAY) autoEl.classList.add('show');
   else autoEl.classList.remove('show');
+
+  // ZZZ (offline rewards) — mesma visibilidade do AUTO
+  const sleepEl = document.getElementById('arenaSleepBtn');
+  if(sleepEl){
+    if(state === STATE.ARENA_PLAY) sleepEl.classList.add('show');
+    else sleepEl.classList.remove('show');
+  }
 
   // BOSS challenge button: só aparece DEPOIS que o player perdeu pra esse boss pelo menos uma vez
   const bossBtn = document.getElementById('arenaBossBtn');
