@@ -1670,7 +1670,7 @@ function initArena(){
   arena.hurtTimer = 0; arena.shootTimer = 0;
   arena.enemies = []; arena.swings = []; arena.effects = [];
   arena.gems = []; arena.particles = [];
-  arena.autoMove = false;
+  arena.autoMove = true; // começa com AUTO ligado por padrão
   arena._aiFrame = 0;
   arena._aiLastX = arena.bx; arena._aiLastY = arena.by;
   arena._aiStuckTimer = 0;
@@ -1690,7 +1690,7 @@ function initArena(){
   const afb = document.getElementById('arenaForgeAutoBtn');
   if(afb) afb.classList.remove('active');
   const ab = document.getElementById('arenaAutoBtn');
-  if(ab){ ab.classList.remove('active'); ab.textContent = 'AUTO'; }
+  if(ab){ ab.classList.add('active'); ab.textContent = 'AUTO'; }
   arena.items = { weapon:null, helmet:null, armor:null, gloves:null, belt:null, boots:null, amulet:null, ring:null };
   // arma inicial: galho (a pior arma do jogo, melee) — schema novo com currentLevel
   arena.items.weapon = {
@@ -3921,7 +3921,7 @@ document.getElementById('arenaAutoBtn').addEventListener('click', ()=>{
   arena.autoMove = !arena.autoMove;
   const ab = document.getElementById('arenaAutoBtn');
   ab.classList.toggle('active', arena.autoMove);
-  ab.textContent = arena.autoMove ? 'AUTO ✓' : 'AUTO';
+  ab.textContent = 'AUTO'; // estado ON/OFF é só pela cor do botão (active class)
 });
 
 // ============ MAIN LOOP (fixed 60Hz timestep) ============
