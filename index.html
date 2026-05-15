@@ -1883,9 +1883,24 @@ function initArena(){
   arena._aiEscapeDir = {x:0,y:0};
   arena.forgeCooldown = 0;
   arena.pendingForgeItem = null;
-  arena.forgeLevel = 1;
+  // Forge level: restaura do localStorage (persistido entre sessoes)
+  arena.forgeLevel = (typeof loadForgeLevel === 'function') ? loadForgeLevel() : 1;
   arena.forgeInterval = 900;
   arena.autoForge = false;
+  // Forge upgrade timer em andamento (se houver)
+  arena.forgeUpgradeStartedAt = null;
+  arena.forgeUpgradeTargetLevel = null;
+  arena.forgeUpgradeTimeSec = null;
+  if(typeof loadForgeProgress === 'function'){
+    const p = loadForgeProgress();
+    if(p){
+      arena.forgeUpgradeStartedAt = p.startedAt;
+      arena.forgeUpgradeTargetLevel = p.target;
+      arena.forgeUpgradeTimeSec = p.timeSec;
+      // se ja completou offline, aplica imediatamente
+      if(isForgeUpgradeReady()) applyForgeUpgradeIfReady();
+    }
+  }
   arena.lettuce = 50; // saldo inicial pra forjar 10 vezes
   arena.carrots = 50; // novo recurso pra upar level de itens (design-level-scaling §5)
   arena.power = arenaPower();
@@ -3354,27 +3369,130 @@ function renderArena(){
   drawArenaHUD();
 }
 
-// ============== FORGE ==============
-// 35 níveis de forja (design.md §5.1, §10). Kills por nível com crescimento ~exponencial.
-function buildForgeThresholds(){
-  const arr = [0];
-  // crescimento moderado: cada nível precisa ~30% mais kills que o anterior, base 10
-  let acc = 10;
-  for(let i=1; i<=34; i++){
-    arr.push(Math.round(acc));
-    acc = acc * 1.32 + 4;
-  }
-  return arr; // length = 35 (indices 0..34, onde index i = kills pra alcançar nível i+1)
-}
-const FORGE_THRESHOLDS = buildForgeThresholds();
-const FORGE_MAX_LEVEL = FORGE_THRESHOLDS.length; // 35
+// ============== FORGE — UPGRADE (design-forge-upgrade.md) ==============
+// Cada nivel agora custa cenouras + tempo (cooldown). Substitui o sistema
+// anterior baseado em kills.
+const FORGE_UPGRADES = [
+  { from: 1,  to: 2,  cost: 10,      timeSec: 5,    branches: 1  },
+  { from: 2,  to: 3,  cost: 25,      timeSec: 10,   branches: 1  },
+  { from: 3,  to: 4,  cost: 50,      timeSec: 20,   branches: 1  },
+  { from: 4,  to: 5,  cost: 100,     timeSec: 40,   branches: 1  },
+  { from: 5,  to: 6,  cost: 250,     timeSec: 60,   branches: 1  },
+  { from: 6,  to: 7,  cost: 600,     timeSec: 90,   branches: 1  },
+  { from: 7,  to: 8,  cost: 1200,    timeSec: 120,  branches: 1  },
+  { from: 8,  to: 9,  cost: 1000,    timeSec: 150,  branches: 3  },
+  { from: 9,  to: 10, cost: 1500,    timeSec: 180,  branches: 3  },
+  { from: 10, to: 11, cost: 2500,    timeSec: 210,  branches: 3  },
+  { from: 11, to: 12, cost: 3500,    timeSec: 240,  branches: 3  },
+  { from: 12, to: 13, cost: 4000,    timeSec: 270,  branches: 4  },
+  { from: 13, to: 14, cost: 5500,    timeSec: 300,  branches: 4  },
+  { from: 14, to: 15, cost: 6000,    timeSec: 330,  branches: 5  },
+  { from: 15, to: 16, cost: 8000,    timeSec: 360,  branches: 5  },
+  { from: 16, to: 17, cost: 9000,    timeSec: 390,  branches: 6  },
+  { from: 17, to: 18, cost: 10500,   timeSec: 420,  branches: 7  },
+  { from: 18, to: 19, cost: 12000,   timeSec: 450,  branches: 8  },
+  { from: 19, to: 20, cost: 14000,   timeSec: 480,  branches: 9  },
+  { from: 20, to: 21, cost: 17000,   timeSec: 510,  branches: 10 },
+  { from: 21, to: 22, cost: 23000,   timeSec: 540,  branches: 10 },
+  { from: 22, to: 23, cost: 30000,   timeSec: 570,  branches: 10 },
+  { from: 23, to: 24, cost: 40000,   timeSec: 600,  branches: 10 },
+  { from: 24, to: 25, cost: 55000,   timeSec: 630,  branches: 10 },
+  { from: 25, to: 26, cost: 65000,   timeSec: 660,  branches: 10 },
+  { from: 26, to: 27, cost: 78000,   timeSec: 690,  branches: 10 },
+  { from: 27, to: 28, cost: 95000,   timeSec: 720,  branches: 10 },
+  { from: 28, to: 29, cost: 115000,  timeSec: 780,  branches: 10 },
+  { from: 29, to: 30, cost: 140000,  timeSec: 840,  branches: 10 },
+  { from: 30, to: 31, cost: 170000,  timeSec: 900,  branches: 10 },
+  { from: 31, to: 32, cost: 200000,  timeSec: 960,  branches: 10 },
+  { from: 32, to: 33, cost: 240000,  timeSec: 1020, branches: 10 },
+  { from: 33, to: 34, cost: 290000,  timeSec: 1080, branches: 10 },
+  { from: 34, to: 35, cost: 350000,  timeSec: 1200, branches: 10 },
+];
+const FORGE_MAX_LEVEL = 35;
+
+const FORGE_LEVEL_KEY    = 'bunnyChaos.forgeLevel';
+const FORGE_PROGRESS_KEY = 'bunnyChaos.forgeUpgradeProgress';
+
 function forgeIntervalAtLevel(lvl){
   // L1=15s, decresce até mínimo 3s no level 25+
   return Math.max(180, Math.round(900 - (lvl-1) * 30));
 }
+function getForgeUpgradeInfo(level){
+  return FORGE_UPGRADES.find(u => u.from === level) || null;
+}
+function saveForgeLevel(){
+  try { localStorage.setItem(FORGE_LEVEL_KEY, String(arena.forgeLevel)); } catch(e){}
+}
+function loadForgeLevel(){
+  try {
+    const v = parseInt(localStorage.getItem(FORGE_LEVEL_KEY) || '1', 10);
+    return isFinite(v) && v >= 1 && v <= FORGE_MAX_LEVEL ? v : 1;
+  } catch(e){ return 1; }
+}
+function saveForgeProgress(){
+  try {
+    if(arena.forgeUpgradeStartedAt && arena.forgeUpgradeTargetLevel){
+      localStorage.setItem(FORGE_PROGRESS_KEY, JSON.stringify({
+        startedAt: arena.forgeUpgradeStartedAt,
+        target: arena.forgeUpgradeTargetLevel,
+        timeSec: arena.forgeUpgradeTimeSec,
+      }));
+    } else {
+      localStorage.removeItem(FORGE_PROGRESS_KEY);
+    }
+  } catch(e){}
+}
+function loadForgeProgress(){
+  try {
+    const raw = localStorage.getItem(FORGE_PROGRESS_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  } catch(e){ return null; }
+}
+function getForgeUpgradeRemainingSec(){
+  if(!arena.forgeUpgradeStartedAt) return 0;
+  const elapsed = (Date.now() - arena.forgeUpgradeStartedAt) / 1000;
+  return Math.max(0, (arena.forgeUpgradeTimeSec || 0) - elapsed);
+}
+function isForgeUpgradeReady(){
+  return !!arena.forgeUpgradeStartedAt && getForgeUpgradeRemainingSec() <= 0;
+}
+function isForgeUpgradeInProgress(){
+  return !!arena.forgeUpgradeStartedAt && !isForgeUpgradeReady();
+}
+function canStartForgeUpgrade(){
+  if(arena.forgeLevel >= FORGE_MAX_LEVEL) return { ok: false, reason: 'MAX' };
+  if(arena.forgeUpgradeStartedAt) return { ok: false, reason: 'IN_PROGRESS' };
+  const info = getForgeUpgradeInfo(arena.forgeLevel);
+  if(!info) return { ok: false, reason: 'NO_INFO' };
+  if(arena.carrots < info.cost) return { ok: false, reason: 'NOT_ENOUGH_CARROTS', needed: info.cost };
+  return { ok: true, info };
+}
+// Compat: alguns trechos antigos chamavam canUpgradeForge() pra saber se da
+// pra subir (visual). Mantemos pra mostrar o glow no botao LV.
 function canUpgradeForge(){
-  return arena.forgeLevel < FORGE_MAX_LEVEL
-      && arena.killCount >= FORGE_THRESHOLDS[arena.forgeLevel]; // próximo threshold
+  return canStartForgeUpgrade().ok || isForgeUpgradeReady();
+}
+function tryStartForgeUpgrade(){
+  const r = canStartForgeUpgrade();
+  if(!r.ok) return false;
+  arena.carrots -= r.info.cost;
+  arena.forgeUpgradeTargetLevel = r.info.to;
+  arena.forgeUpgradeStartedAt = Date.now();
+  arena.forgeUpgradeTimeSec = r.info.timeSec;
+  saveForgeProgress();
+  return true;
+}
+function applyForgeUpgradeIfReady(){
+  if(!isForgeUpgradeReady()) return false;
+  arena.forgeLevel = arena.forgeUpgradeTargetLevel || (arena.forgeLevel + 1);
+  arena.forgeUpgradeStartedAt = null;
+  arena.forgeUpgradeTargetLevel = null;
+  arena.forgeUpgradeTimeSec = null;
+  saveForgeLevel();
+  saveForgeProgress();
+  spawnArenaParticle(arena.bx, arena.by, '#5fb0d8', 24);
+  return true;
 }
 
 // Ícones por era pra exibição no popup
@@ -3434,46 +3552,93 @@ function buildForgeLevelInfo(){
       </div>`;
   }
 
-  // status do upgrade (kills necessárias)
+  // status do upgrade (cost de cenouras + tempo do timer)
   let footer = '';
   if(!atMax){
-    const reqKills = FORGE_THRESHOLDS[lvl];
-    const enough = arena.killCount >= reqKills;
-    footer = `<p style="text-align:center;margin-top:10px;font-size:11px;color:#9b8fc4">
-      Kills: <b style="color:${enough?'#4cf08e':'#ff5252'}">${arena.killCount} / ${reqKills}</b>
-    </p>`;
+    const info = getForgeUpgradeInfo(lvl);
+    if(isForgeUpgradeInProgress()){
+      const rem = Math.ceil(getForgeUpgradeRemainingSec());
+      const total = arena.forgeUpgradeTimeSec || info.timeSec;
+      const pct = Math.max(0, Math.min(100, (1 - rem/total) * 100));
+      footer = `<p style="text-align:center;margin-top:10px;font-size:11px;color:#88daf0">
+        ⏳ Forjando... <b>${formatOfflineTime(rem)}</b> restantes
+      </p>
+      <div style="margin:6px 10% 0;height:8px;border-radius:4px;background:rgba(0,0,0,0.4);overflow:hidden;">
+        <div style="height:100%;width:${pct.toFixed(1)}%;background:linear-gradient(90deg,#88daf0,#5fb0d8);transition:width .25s"></div>
+      </div>`;
+    } else if(info){
+      const enough = arena.carrots >= info.cost;
+      footer = `<p style="text-align:center;margin-top:10px;font-size:11px;color:#9b8fc4">
+        Custo: <b style="color:${enough?'#ffcc3d':'#ff5252'}">🥕 ${info.cost.toLocaleString('pt-BR')}</b> · Tempo: <b style="color:#88daf0">${formatOfflineTime(info.timeSec)}</b>
+      </p>`;
+    }
   }
 
   return header + `<div class="forge-prob-list">${rows}</div>` + footer;
 }
 
-function openForgeLevel(){
+let _forgeLevelRefreshInterval = null;
+function refreshForgeLevelPopup(){
   document.getElementById('forgeLevelInfo').innerHTML = buildForgeLevelInfo();
   const upBtn = document.getElementById('forgeLevelUpgradeBtn');
-  if(canUpgradeForge()){
-    upBtn.disabled = false;
-    upBtn.style.opacity = '1';
-    upBtn.textContent = '⚡ Melhorar';
-  } else if(arena.forgeLevel >= FORGE_MAX_LEVEL){
+  if(arena.forgeLevel >= FORGE_MAX_LEVEL){
     upBtn.disabled = true;
     upBtn.style.opacity = '0.5';
-    upBtn.textContent = 'MAX';
+    upBtn.textContent = '✦ MAX';
+    return;
+  }
+  if(isForgeUpgradeReady()){
+    // timer terminou — botão vira "Coletar" (aplica o upgrade)
+    upBtn.disabled = false;
+    upBtn.style.opacity = '1';
+    upBtn.textContent = '⚡ Coletar upgrade';
+    return;
+  }
+  if(isForgeUpgradeInProgress()){
+    upBtn.disabled = true;
+    upBtn.style.opacity = '0.5';
+    upBtn.textContent = `⏳ ${formatOfflineTime(Math.ceil(getForgeUpgradeRemainingSec()))}`;
+    return;
+  }
+  const r = canStartForgeUpgrade();
+  if(r.ok){
+    upBtn.disabled = false;
+    upBtn.style.opacity = '1';
+    upBtn.textContent = `🥕 Iniciar (${r.info.cost.toLocaleString('pt-BR')})`;
   } else {
     upBtn.disabled = true;
     upBtn.style.opacity = '0.5';
-    upBtn.textContent = '⚡ Melhorar';
+    const info = getForgeUpgradeInfo(arena.forgeLevel);
+    upBtn.textContent = info ? `🥕 ${info.cost.toLocaleString('pt-BR')}` : 'Indisponível';
   }
+}
+
+function openForgeLevel(){
+  refreshForgeLevelPopup();
   state = STATE.ARENA_TAB;
   showLayer('forgeLevelLayer');
+  // re-render cada 500ms enquanto popup aberto (pra timer atualizar)
+  if(_forgeLevelRefreshInterval) clearInterval(_forgeLevelRefreshInterval);
+  _forgeLevelRefreshInterval = setInterval(refreshForgeLevelPopup, 500);
+}
+
+function closeForgeLevel(){
+  if(_forgeLevelRefreshInterval){
+    clearInterval(_forgeLevelRefreshInterval);
+    _forgeLevelRefreshInterval = null;
+  }
 }
 
 function upgradeForgeLevel(){
-  if(!canUpgradeForge()) return;
-  arena.forgeLevel++;
-  arena.forgeInterval = forgeIntervalAtLevel(arena.forgeLevel);
-  spawnArenaParticle(arena.bx, arena.by, '#5fb0d8', 24);
-  // re-render popup
-  openForgeLevel();
+  // Botão Iniciar / Coletar — comportamento depende do estado atual
+  if(isForgeUpgradeReady()){
+    applyForgeUpgradeIfReady();
+  } else if(canStartForgeUpgrade().ok){
+    tryStartForgeUpgrade();
+  } else {
+    return;
+  }
+  refreshForgeLevelPopup();
 }
 
 function autoForgeStep(){
@@ -3493,10 +3658,20 @@ document.getElementById('arenaForgeLevelBtn').addEventListener('click', ()=>{
   openForgeLevel();
 });
 document.getElementById('forgeLevelCloseBtn').addEventListener('click', ()=>{
+  closeForgeLevel();
   hideAllLayers();
   state = STATE.ARENA_PLAY;
 });
 document.getElementById('forgeLevelUpgradeBtn').addEventListener('click', upgradeForgeLevel);
+
+// Tick periodico (1Hz) pra auto-aplicar o upgrade quando o timer expira,
+// mesmo se o popup esta fechado. Tambem cobre o caso de o player reabrir
+// o app depois do timer ja ter completado offline.
+setInterval(()=>{
+  if(isForgeUpgradeReady()){
+    applyForgeUpgradeIfReady();
+  }
+}, 1000);
 document.getElementById('arenaForgeAutoBtn').addEventListener('click', ()=>{
   arena.autoForge = !arena.autoForge;
   document.getElementById('arenaForgeAutoBtn').classList.toggle('active', arena.autoForge);
