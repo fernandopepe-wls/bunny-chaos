@@ -3417,8 +3417,33 @@ function forgeIntervalAtLevel(lvl){
   // L1=15s, decresce até mínimo 3s no level 25+
   return Math.max(180, Math.round(900 - (lvl-1) * 30));
 }
+
+// === MULTIPLICADORES GLOBAIS DE BALANCEAMENTO ===
+// Ajuste estes dois valores pra calibrar TODA a curva da forja em um lugar.
+// Valores < 1 deixam o jogo mais barato/rápido; valores > 1 mais caro/lento.
+//
+// Modos sugeridos (design-forge-upgrade §9):
+//   EXPRESS   (testes/QA):     COST = 0.1,  TIME = 0.1   → ~25 min, ~200k
+//   STANDARD  (padrão atual):  COST = 1.0,  TIME = 1.0   → ~4h, ~2M
+//   LONG_BURN (pré-launch):    COST = 5.0,  TIME = 10.0  → ~40h, ~10M
+const FORGE_COST_MULT = 1.0;
+const FORGE_TIME_MULT = 1.0;
+
 function getForgeUpgradeInfo(level){
-  return FORGE_UPGRADES.find(u => u.from === level) || null;
+  const raw = FORGE_UPGRADES.find(u => u.from === level);
+  if(!raw) return null;
+  // Aplica multiplicadores na hora da leitura — toda a UI/economia herda
+  // automaticamente (cost no botão, timer, balanceamento, etc).
+  return {
+    from: raw.from,
+    to: raw.to,
+    branches: raw.branches,
+    cost:    Math.max(1, Math.round(raw.cost    * FORGE_COST_MULT)),
+    timeSec: Math.max(1, Math.round(raw.timeSec * FORGE_TIME_MULT)),
+    // raw mantido pra debug / display de "valor base"
+    rawCost: raw.cost,
+    rawTimeSec: raw.timeSec,
+  };
 }
 function saveForgeLevel(){
   try { localStorage.setItem(FORGE_LEVEL_KEY, String(arena.forgeLevel)); } catch(e){}
