@@ -2928,6 +2928,7 @@ function drawArenaHUD(){
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if(it){
+      // slot equipado: mantém ícone colorido (emoji nativo) com tint da era
       ctx.fillStyle = col;
       ctx.font = 'bold 26px monospace';
       ctx.fillText(it.icon, sx+slotW/2, sy + 26);
@@ -2936,9 +2937,12 @@ function drawArenaHUD(){
       ctx.font = 'bold 10px monospace';
       ctx.fillText(`Lv ${it.currentLevel || it.level || 1}`, sx+slotW/2, sy+slotH-9);
     } else {
-      ctx.fillStyle = '#3b2a70';
+      // slot vazio: ícone em cor única chapada (filter monocromático)
+      ctx.save();
+      ctx.filter = 'grayscale(1) brightness(0.45)';
       ctx.font = '26px monospace';
       ctx.fillText(ARENA_SLOT_ICONS[slot], sx+slotW/2, sy + 26);
+      ctx.restore();
       // label do slot embaixo (vazio)
       ctx.fillStyle = '#5a4499';
       ctx.font = 'bold 8px monospace';
