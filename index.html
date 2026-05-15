@@ -2756,64 +2756,134 @@ function drawPillBg(x, y, w, h, fillColor, borderColor, radius){
 
 function drawArenaHUD(){
   // ===== HUD flutuante (pills) sobreposto ao grid =====
+  // Player column UNIFICADA na esquerda: HP, LV+XP, Power, Kills e Essences
+  // empilhados com a MESMA largura. STAGE pill na direita.
+  // O frame já tem padding pra safe-area-inset-top (notch); aqui adicionamos
+  // ainda um buffer lógico extra pra deixar a área superior visualmente "vazia"
+  // garantindo respiro em celulares com câmera/notch central.
   ctx.textBaseline = 'middle';
 
-  // --- HP pill (top-left) ---
-  const hpX = 8, hpY = 8, hpW = 140, hpH = 22;
-  drawPillBg(hpX, hpY, hpW, hpH, 'rgba(13,10,26,0.7)', '#5a4499', 11);
-  // heart cap (círculo vermelho à esquerda dentro do pill)
+  // === LAYOUT CONSTANTS ===
+  const HUD_TOP_PAD = 20;        // buffer adicional pra notch/camera
+  const colX = 8;
+  const colW = 170;
+  const pillH = 22;
+  const pillGap = 4;
+
+  // === HP pill (topo) ===
+  let cy = HUD_TOP_PAD;
+  drawPillBg(colX, cy, colW, pillH, 'rgba(13,10,26,0.7)', '#5a4499', 11);
+  // heart cap
   ctx.fillStyle = '#ff5fa2';
   ctx.beginPath();
-  ctx.arc(hpX+11, hpY+hpH/2, 8, 0, Math.PI*2);
+  ctx.arc(colX+11, cy+pillH/2, 8, 0, Math.PI*2);
   ctx.fill();
   ctx.fillStyle = '#fff7e0';
   ctx.font = 'bold 10px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('♥', hpX+11, hpY+hpH/2+1);
+  ctx.fillText('♥', colX+11, cy+pillH/2+1);
   // hp bar interno
-  const barX = hpX+22, barY = hpY+5, barW = hpW-30, barH = 12;
-  drawPillBg(barX, barY, barW, barH, '#3b1a2a', null, 6);
+  const hpBarX = colX+22, hpBarY = cy+5, hpBarW = colW-30, hpBarH = 12;
+  drawPillBg(hpBarX, hpBarY, hpBarW, hpBarH, '#3b1a2a', null, 6);
   ctx.fillStyle = '#ff5252';
   const hpPct = Math.max(0, arena.hp)/arena.maxHp;
   if(hpPct > 0){
-    _pillPath(barX, barY, Math.max(4, barW*hpPct), barH, 6);
+    _pillPath(hpBarX, hpBarY, Math.max(4, hpBarW*hpPct), hpBarH, 6);
     ctx.fill();
   }
   ctx.fillStyle = '#fff7e0';
   ctx.font = 'bold 9px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`HP ${Math.max(0,Math.ceil(arena.hp))}/${Math.round(arena.maxHp)}`, barX + barW/2, barY+barH/2+1);
+  ctx.fillText(`${Math.max(0,Math.ceil(arena.hp))}/${Math.round(arena.maxHp)}`, hpBarX + hpBarW/2, hpBarY+hpBarH/2+1);
 
-  // --- XP pill (logo abaixo do HP) ---
-  const xpX = hpX, xpY = hpY + hpH + 4, xpW = 110, xpH = 16;
-  drawPillBg(xpX, xpY, xpW, xpH, 'rgba(13,10,26,0.7)', '#2a6f95', 8);
-  // XP label
-  ctx.fillStyle = '#5fb0d8';
+  // === LV + XP pill (logo abaixo, mesma largura) ===
+  cy += pillH + pillGap;
+  drawPillBg(colX, cy, colW, pillH, 'rgba(13,10,26,0.7)', '#2a6f95', 11);
+  // LV badge (substituindo o "XP" label antigo)
+  ctx.fillStyle = '#88daf0';
+  ctx.beginPath();
+  ctx.arc(colX+11, cy+pillH/2, 8, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#0d2a3a';
   ctx.font = 'bold 9px monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText('XP', xpX+6, xpY+xpH/2+1);
+  ctx.fillText(`${arena.level}`, colX+11, cy+pillH/2+1);
   // XP bar interno
-  const xpBarX = xpX+22, xpBarY = xpY+3, xpBarW = xpW-28, xpBarH = 10;
-  drawPillBg(xpBarX, xpBarY, xpBarW, xpBarH, '#1a4a7a', null, 5);
+  const xpBarX = colX+22, xpBarY = cy+5, xpBarW = colW-30, xpBarH = 12;
+  drawPillBg(xpBarX, xpBarY, xpBarW, xpBarH, '#1a4a7a', null, 6);
   ctx.fillStyle = '#88daf0';
   const xpPct = Math.max(0, Math.min(1, arena.xp/arena.xpToNext));
   if(xpPct > 0){
-    _pillPath(xpBarX, xpBarY, Math.max(3, xpBarW*xpPct), xpBarH, 5);
+    _pillPath(xpBarX, xpBarY, Math.max(3, xpBarW*xpPct), xpBarH, 6);
     ctx.fill();
   }
+  ctx.fillStyle = '#fff7e0';
+  ctx.font = 'bold 9px monospace';
+  // valor de XP (formato cur/next) — o "LV N" já está no badge circular à esquerda
+  ctx.fillText(`${Math.floor(arena.xp)}/${arena.xpToNext}`, xpBarX + xpBarW/2, xpBarY+xpBarH/2+1);
 
-  // --- STAGE pill (top-center) com wave dots embaixo ---
+  // === Power pill (⚔️ no lugar do raio, mesma largura) ===
+  cy += pillH + pillGap;
+  drawPillBg(colX, cy, colW, pillH, 'rgba(255,180,40,0.95)', '#ffcc3d', 11);
+  const pulse = arena.powerPulseTimer > 0
+    ? 1 + Math.sin(arena.powerPulseTimer*0.45)*0.10 : 1;
+  // ícone das duas espadinhas à esquerda (junto do "quadrado de XP" acima)
+  ctx.fillStyle = '#3a230b';
+  ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('⚔️', colX+6, cy+pillH/2+1);
+  // valor de power
+  ctx.font = `bold ${Math.round(11*pulse)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText(`${arena.power}`, colX+colW/2+6, cy+pillH/2+1);
+  // label "POWER" tiny
+  ctx.font = 'bold 7px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(58,35,11,0.7)';
+  ctx.fillText('POWER', colX+colW-8, cy+pillH/2+1);
+  // var pra power delta (precisa depois)
+  const pwY = cy;
+
+  // === Kills pill (💀, mesma largura) ===
+  cy += pillH + pillGap;
+  drawPillBg(colX, cy, colW, pillH, 'rgba(122,95,196,0.95)', '#a86bff', 11);
+  ctx.fillStyle = '#0d0a1a';
+  ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('💀', colX+6, cy+pillH/2+1);
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${arena.killCount}`, colX+colW/2+6, cy+pillH/2+1);
+  ctx.font = 'bold 7px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(13,10,26,0.6)';
+  ctx.fillText('KILLS', colX+colW-8, cy+pillH/2+1);
+
+  // === Essences pill (💎, mesma largura) ===
+  cy += pillH + pillGap;
+  drawPillBg(colX, cy, colW, pillH, 'rgba(95,176,216,0.95)', '#88daf0', 11);
+  ctx.fillStyle = '#0d2a3a';
+  ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('💎', colX+6, cy+pillH/2+1);
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${arena.essences || 0}`, colX+colW/2+6, cy+pillH/2+1);
+  ctx.font = 'bold 7px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(13,42,58,0.6)';
+  ctx.fillText('ESS', colX+colW-8, cy+pillH/2+1);
+
+  // === STAGE pill (canto superior direito, separado da player column) ===
   const stageW = 96, stageH = 26;
-  const stageX = (W-stageW)/2, stageY = 8;
+  const stageX = W - stageW - 8, stageY = HUD_TOP_PAD;
   drawPillBg(stageX, stageY, stageW, stageH, 'rgba(13,10,26,0.78)', '#7a5fc4', 8);
   ctx.fillStyle = '#fff7e0';
   ctx.font = 'bold 12px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(`STAGE ${stageLabel(arena.stage)}`, W/2, stageY+stageH/2+1);
-  // wave dots embaixo
+  ctx.fillText(`STAGE ${stageLabel(arena.stage)}`, stageX + stageW/2, stageY+stageH/2+1);
+  // wave dots embaixo do STAGE
   const dotR = 3;
   const dotsTotalW = WAVES_PER_STAGE*8;
-  const dotsX0 = W/2 - dotsTotalW/2 + 4;
+  const dotsX0 = stageX + stageW/2 - dotsTotalW/2 + 4;
   for(let i=0;i<WAVES_PER_STAGE;i++){
     const isCur = (i+1) === arena.wave;
     const isPast = (i+1) < arena.wave;
@@ -2826,47 +2896,7 @@ function drawArenaHUD(){
     ctx.fill();
   }
 
-  // --- LV badge (top-right, square) ---
-  const lvW = 30, lvH = 30;
-  const lvX = W - lvW - 8, lvY = 8;
-  drawPillBg(lvX, lvY, lvW, lvH, '#5fb0d8', '#88daf0', 7);
-  ctx.fillStyle = '#0d2a3a';
-  ctx.font = 'bold 8px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('LV', lvX+lvW/2, lvY+9);
-  ctx.font = 'bold 12px monospace';
-  ctx.fillText(`${arena.level}`, lvX+lvW/2, lvY+22);
-
-  // --- Power pill (energy ⚡, abaixo do LV) ---
-  const pwW = 70, pwH = 20;
-  const pwX = W - pwW - 8, pwY = lvY + lvH + 4;
-  drawPillBg(pwX, pwY, pwW, pwH, 'rgba(255,180,40,0.95)', '#ffcc3d', 10);
-  const pulse = arena.powerPulseTimer > 0
-    ? 1 + Math.sin(arena.powerPulseTimer*0.45)*0.10 : 1;
-  ctx.fillStyle = '#3a230b';
-  ctx.font = `bold ${Math.round(11*pulse)}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillText(`⚡ ${arena.power}`, pwX+pwW/2, pwY+pwH/2+1);
-
-  // --- Kills pill (💀, abaixo do Power) ---
-  const klW = 70, klH = 20;
-  const klX = W - klW - 8, klY = pwY + pwH + 4;
-  drawPillBg(klX, klY, klW, klH, 'rgba(122,95,196,0.95)', '#a86bff', 10);
-  ctx.fillStyle = '#0d0a1a';
-  ctx.font = 'bold 11px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`💀 ${arena.killCount}`, klX+klW/2, klY+klH/2+1);
-
-  // --- Essences pill (💎, abaixo do Kills) — recurso pra upar item level ---
-  const esW = 70, esH = 20;
-  const esX = W - esW - 8, esY = klY + klH + 4;
-  drawPillBg(esX, esY, esW, esH, 'rgba(95,176,216,0.95)', '#88daf0', 10);
-  ctx.fillStyle = '#0d2a3a';
-  ctx.font = 'bold 11px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`💎 ${arena.essences || 0}`, esX+esW/2, esY+esH/2+1);
-
-  // delta de power flutuante (sobe e desaparece em ~1.5s) — emerge do power pill
+  // delta de power flutuante — emerge do power pill
   if(arena.powerDeltaTimer > 0){
     const lifeT = arena.powerDeltaTimer / 90;
     const yOff = (1-lifeT) * 24;
@@ -2878,9 +2908,9 @@ function drawArenaHUD(){
     ctx.fillStyle = '#000';
     ctx.font = 'bold 12px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(txt, pwX+pwW/2+1, pwY+pwH/2-yOff+1);
+    ctx.fillText(txt, colX+colW/2+6+1, pwY+pillH/2-yOff+1);
     ctx.fillStyle = col;
-    ctx.fillText(txt, pwX+pwW/2, pwY+pwH/2-yOff);
+    ctx.fillText(txt, colX+colW/2+6, pwY+pillH/2-yOff);
     ctx.globalAlpha = 1;
   }
 
