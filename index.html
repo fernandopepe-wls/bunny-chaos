@@ -2667,17 +2667,32 @@ function updateArena(){
     if(sw.frame >= sw.lifeFrames) arena.swings.splice(i,1);
   }
 
-  // gems: atrai pro player quando dentro do raio + coleta
+  // gems: items continuam usando pickup range. XP/Cenouras/Alface caem no
+  // chão e após 1s (60 frames @ 60fps) são puxados magneticamente pro player
+  // (independente do pickup range), acelerando até serem coletados.
   const pickupR = arena.basePickupRange + arenaTotalStat('pickupRange');
+  const MAGNETIC_DELAY = 60; // 1s @ 60fps
   for(let i=arena.gems.length-1;i>=0;i--){
     const g = arena.gems[i];
     g.age++;
     const dxg = arena.bx - g.x, dyg = arena.by - g.y;
     const dg = Math.hypot(dxg, dyg) || 1;
-    if(dg < pickupR){
-      g.vx += (dxg/dg) * 0.6;
-      g.vy += (dyg/dg) * 0.6;
-      g.vx *= 0.88; g.vy *= 0.88;
+
+    if(g.isItem){
+      // Items mantêm o pickup tradicional (pickupRange)
+      if(dg < pickupR){
+        g.vx += (dxg/dg) * 0.6;
+        g.vy += (dyg/dg) * 0.6;
+        g.vx *= 0.88; g.vy *= 0.88;
+      }
+    } else if(g.age >= MAGNETIC_DELAY){
+      // Magnetic: voa direto pro player, acelerando com o tempo (cap em 8)
+      const speed = Math.min(8, 2 + (g.age - MAGNETIC_DELAY) * 0.15);
+      g.vx = (dxg/dg) * speed;
+      g.vy = (dyg/dg) * speed;
+    } else {
+      // Durante o delay (1s), gem fica parado com leve bob/dissipação
+      g.vx *= 0.85; g.vy *= 0.85;
     }
     g.x += g.vx; g.y += g.vy;
     if(dg < ARENA.BUNNY_R + 6){
