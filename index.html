@@ -2628,16 +2628,13 @@ function drawArenaBunny(){
   ctx.fillRect(x+2, y-2, 2, 2);
   ctx.globalAlpha = 1;
 
-  // barra de HP pequena acima do bunny (mesmo estilo dos inimigos)
+  // barra de HP pequena acima do bunny — sempre vermelha
   const bw = 20, bh = 3, by_ = y - 18;
   const pct = Math.max(0, Math.min(1, arena.hp / arena.maxHp));
   // fundo escuro
   ctx.fillStyle = '#000';
   ctx.fillRect(x - bw/2, by_, bw, bh);
-  // fill (verde→amarelo→vermelho conforme HP cai)
-  ctx.fillStyle = pct > 0.5 ? '#4cf08e'
-                : pct > 0.25 ? '#ffcc3d'
-                : '#ff5252';
+  ctx.fillStyle = '#ff5252';
   ctx.fillRect(x - bw/2, by_, bw * pct, bh);
 }
 
