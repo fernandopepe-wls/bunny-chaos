@@ -367,14 +367,38 @@
     font-size:17px;
     letter-spacing:1px;
   }
-  /* cenouras flutuam à direita sem disputar espaço com o combo */
+  /* counter de alface flutua à direita com ring de progress no icone */
   #arenaCarrotsCount{
     position:absolute;
     right:6px;top:50%;
     transform:translateY(-50%);
-    color:#ff9b3a;
-    font-size:11px;
+    color:#4cf08e;
+    font-size:12px;font-weight:bold;
+    display:inline-flex;align-items:center;gap:5px;
   }
+  /* ring-icon: anel conic-gradient ao redor do icone, preenche conforme
+     --lp (0..100). Mostra progresso da proxima alface (1 por minuto). */
+  .ring-icon{
+    --lp: 0;
+    display:inline-flex;
+    align-items:center;justify-content:center;
+    width:22px;height:22px;
+    border-radius:50%;
+    background:
+      conic-gradient(#fff7e0 calc(var(--lp) * 1%), rgba(0,0,0,0.45) 0);
+    font-size:13px;
+    line-height:1;
+    position:relative;
+  }
+  /* miolo escurinho atras do emoji pra contraste */
+  .ring-icon::before{
+    content:'';
+    position:absolute;
+    inset:3px;
+    background:rgba(13,10,26,0.55);
+    border-radius:50%;
+  }
+  .ring-icon > * { position:relative; z-index:1; }
 
   /* LV e AUTO compactos (lado direito da strip de dados) */
   #arenaForgeLevelBtn, #arenaForgeAutoBtn{
@@ -963,7 +987,10 @@
       </div>
       <div class="forge-info-row">
         <span id="forgeComboInline">—</span>
-        <span id="arenaCarrotsCount">🥬 50</span>
+        <span id="arenaCarrotsCount">
+          <span id="lettuceRing" class="ring-icon">🥬</span>
+          <span id="lettuceCount">50</span>
+        </span>
       </div>
     </div>
 
@@ -1849,6 +1876,10 @@ function initArena(){
   arena.forgeInterval = 900;
   arena.autoForge = false;
   arena.lettuce = 50; // saldo inicial pra forjar 10 vezes
+  // accumulators de idle income (1/s cenoura, 1/min alface) — visualizados
+  // como anel progresso em volta dos icones (cenoura HUD + alface forge)
+  arena.passiveCarrotAccum = 0;
+  arena.passiveLettuceAccum = 0;
   arena.carrots = 50; // novo recurso pra upar level de itens (design-level-scaling §5)
   arena.power = arenaPower();
   arena.powerDelta = 0;
@@ -2529,6 +2560,23 @@ function updateArena(){
   if(arena.powerDeltaTimer > 0) arena.powerDeltaTimer--;
   if(arena.powerPulseTimer > 0) arena.powerPulseTimer--;
   bumpArenaPower();
+
+  // Idle income passivo enquanto joga (mesmo ritmo do offline):
+  //   - 1 cenoura por segundo (passiveCarrotAccum += 1/60 por frame)
+  //   - 1 alface por minuto   (passiveLettuceAccum += 1/3600 por frame)
+  // Quando o accumulator ≥ 1, soma o inteiro no recurso e mantém o resto.
+  arena.passiveCarrotAccum  = (arena.passiveCarrotAccum  || 0) + 1/60;
+  arena.passiveLettuceAccum = (arena.passiveLettuceAccum || 0) + 1/3600;
+  if(arena.passiveCarrotAccum >= 1){
+    const n = Math.floor(arena.passiveCarrotAccum);
+    arena.carrots += n;
+    arena.passiveCarrotAccum -= n;
+  }
+  if(arena.passiveLettuceAccum >= 1){
+    const n = Math.floor(arena.passiveLettuceAccum);
+    arena.lettuce += n;
+    arena.passiveLettuceAccum -= n;
+  }
   // auto-forge: desabilitado temporariamente (bug nas waves seguintes)
   // if(arena.autoForge && arena.lettuce >= FORGE_COST){
   //   autoForgeStep();
@@ -3013,6 +3061,24 @@ function drawArenaHUD(){
   const essW = 80, essH = 31;
   const essX = W - essW - 8, essY = HUD_TOP_PAD;
   drawPillBg(essX, essY, essW, essH, 'rgba(255,154,58,0.95)', '#ffcc3d', 10);
+  // Progress ring atrás do icone — gira 1x por segundo (1 cenoura/s passivo).
+  // Anel base cinza escuro; preenchimento clareia (branco-creme) conforme acumula.
+  const ccx = essX + 14;
+  const ccy = essY + essH/2;
+  const cR = 11;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(0,0,0,0.40)';
+  ctx.beginPath();
+  ctx.arc(ccx, ccy, cR, 0, Math.PI*2);
+  ctx.stroke();
+  const cPct = Math.min(1, arena.passiveCarrotAccum || 0);
+  if(cPct > 0){
+    ctx.strokeStyle = '#fff7e0';
+    ctx.beginPath();
+    ctx.arc(ccx, ccy, cR, -Math.PI/2, -Math.PI/2 + cPct * Math.PI*2);
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
   ctx.fillStyle = '#3a230b';
   ctx.font = 'bold 16px monospace';
   ctx.textAlign = 'left';
@@ -3577,10 +3643,15 @@ function renderForgeDice(){
       el.style.removeProperty('--combo-color');
     }
   }
-  // combo + cenoura inline
+  // combo + alface inline (counter + ring de progress)
   const comboEl = document.getElementById('forgeComboInline');
-  const carrotsEl = document.getElementById('arenaCarrotsCount');
-  if(carrotsEl) carrotsEl.textContent = `🥬 ${arena.lettuce}`;
+  const lettuceCountEl = document.getElementById('lettuceCount');
+  const lettuceRingEl  = document.getElementById('lettuceRing');
+  if(lettuceCountEl) lettuceCountEl.textContent = arena.lettuce;
+  if(lettuceRingEl){
+    const pct = Math.min(100, (arena.passiveLettuceAccum || 0) * 100);
+    lettuceRingEl.style.setProperty('--lp', pct.toFixed(1));
+  }
   if(comboEl){
     if(forgeRoll.phase === 'idle'){
       // idle: sem texto de "Pronto" — o botão ROLL FORGE já comunica isso
