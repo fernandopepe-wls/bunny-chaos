@@ -4007,6 +4007,10 @@ function hideItemPopup(){
     if(state !== STATE.ARENA_PLAY && state !== STATE.ARENA_TAB) return;
     // se a popup já está aberta, o gate acima já tratou — nada a fazer
     if(popupEl.classList.contains('show')) return;
+    // Se o click vem de dentro do popup offline (ou do botão X), ignora —
+    // o handler do botão pode ter FECHADO o popup antes do bubble chegar aqui,
+    // então checamos pelo TARGET ancestor, não pelo estado .show atual.
+    if(e.target && e.target.closest && e.target.closest('#offlinePopup, #offlineCloseBtn')) return;
 
     // Verifica se o clique caiu na região do items strip (canvas)
     const rect = frame.getBoundingClientRect();
@@ -4158,8 +4162,9 @@ document.getElementById('arenaAutoBtn').addEventListener('click', ()=>{
 const OFFLINE_CARROT_PER_SEC  = 1;
 const OFFLINE_LETTUCE_PER_SEC = 1/60;
 const OFFLINE_KEY = 'bunnyChaos.lastSeen';
+const OFFLINE_PENDING_KEY = 'bunnyChaos.offlinePending';
+const OFFLINE_PENDING_TIME_KEY = 'bunnyChaos.offlinePendingSec'; // tempo acumulado nao coletado
 const OFFLINE_CAP_MS = 12 * 3600 * 1000; // 12h cap
-let _offlinePending = null;
 
 function saveLastSeen(){
   try { localStorage.setItem(OFFLINE_KEY, String(Date.now())); } catch(e){}
@@ -4168,7 +4173,26 @@ function loadLastSeen(){
   try { return parseInt(localStorage.getItem(OFFLINE_KEY) || '0', 10) || 0; }
   catch(e){ return 0; }
 }
-function calcOfflineRewards(){
+function loadPending(){
+  try {
+    const raw = localStorage.getItem(OFFLINE_PENDING_KEY);
+    if(!raw) return { carrots: 0, lettuce: 0 };
+    return JSON.parse(raw);
+  } catch(e){ return { carrots: 0, lettuce: 0 }; }
+}
+function savePending(p){
+  try { localStorage.setItem(OFFLINE_PENDING_KEY, JSON.stringify(p)); } catch(e){}
+}
+function loadPendingSec(){
+  try { return parseInt(localStorage.getItem(OFFLINE_PENDING_TIME_KEY) || '0', 10) || 0; }
+  catch(e){ return 0; }
+}
+function savePendingSec(s){
+  try { localStorage.setItem(OFFLINE_PENDING_TIME_KEY, String(s)); } catch(e){}
+}
+
+// Calcula o que acumulou desde lastSeen. NÃO atualiza state — só retorna.
+function calcOfflineDelta(){
   const last = loadLastSeen();
   if(!last) return { elapsedSec: 0, carrots: 0, lettuce: 0 };
   let elapsedMs = Date.now() - last;
@@ -4181,6 +4205,21 @@ function calcOfflineRewards(){
     lettuce: Math.floor(elapsedSec * OFFLINE_LETTUCE_PER_SEC),
   };
 }
+
+// Drena o delta acumulado pro pending pool persistido. Chamado em momentos
+// estratégicos (load, abertura do popup, save periódico). Garante que NUNCA
+// se perde acumulo offline — fica esperando ser coletado.
+function accruePendingFromLastSeen(){
+  const d = calcOfflineDelta();
+  if(d.elapsedSec <= 0) return;
+  const p = loadPending();
+  p.carrots += d.carrots;
+  p.lettuce += d.lettuce;
+  savePending(p);
+  savePendingSec(loadPendingSec() + d.elapsedSec);
+  saveLastSeen(); // reset baseline pra próxima chamada não duplicar
+}
+
 function formatOfflineTime(sec){
   if(sec <= 0) return '0s';
   if(sec < 60) return `${sec}s`;
@@ -4191,19 +4230,25 @@ function formatOfflineTime(sec){
   const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
   return `${h}h ${m}m`;
 }
+
 function updateSleepBtnGlow(){
-  const r = calcOfflineRewards();
   const btn = document.getElementById('arenaSleepBtn');
   if(!btn) return;
-  if(r.carrots > 0 || r.lettuce > 0) btn.classList.add('has-rewards');
+  // mostra glow se há pending OU se passou tempo suficiente desde lastSeen
+  const p = loadPending();
+  const d = calcOfflineDelta();
+  if(p.carrots + p.lettuce + d.carrots + d.lettuce > 0) btn.classList.add('has-rewards');
   else btn.classList.remove('has-rewards');
 }
+
 function openOfflinePopup(){
-  const r = calcOfflineRewards();
-  _offlinePending = r;
-  document.getElementById('offlineTime').textContent = formatOfflineTime(r.elapsedSec);
-  document.getElementById('offlineCarrots').textContent = r.carrots;
-  document.getElementById('offlineLettuce').textContent = r.lettuce;
+  // Drena o acumulo desde lastSeen pro pending antes de mostrar
+  accruePendingFromLastSeen();
+  const p = loadPending();
+  const sec = loadPendingSec();
+  document.getElementById('offlineTime').textContent = formatOfflineTime(sec);
+  document.getElementById('offlineCarrots').textContent = p.carrots;
+  document.getElementById('offlineLettuce').textContent = p.lettuce;
   document.getElementById('offlinePopup').classList.add('show');
   startPopupRings();
 }
@@ -4236,12 +4281,14 @@ function stopPopupRings(){
   if(_popupRingRAF){ cancelAnimationFrame(_popupRingRAF); _popupRingRAF = null; }
 }
 function collectOfflineRewards(){
-  if(_offlinePending){
-    arena.carrots += _offlinePending.carrots;
-    arena.lettuce += _offlinePending.lettuce;
-    _offlinePending = null;
-  }
-  saveLastSeen(); // reseta o timer (mesmo se o user fechar sem coletar, ja tinha ganho — só nao recebeu)
+  // Garante que o ultimo pedacinho de tempo acumulado tambem entra no pending
+  accruePendingFromLastSeen();
+  const p = loadPending();
+  arena.carrots += p.carrots;
+  arena.lettuce += p.lettuce;
+  // zera o pending pool (já foi pago)
+  savePending({ carrots: 0, lettuce: 0 });
+  savePendingSec(0);
   updateSleepBtnGlow();
   closeOfflinePopup();
 }
@@ -4249,19 +4296,23 @@ function collectOfflineRewards(){
 document.getElementById('arenaSleepBtn').addEventListener('click', openOfflinePopup);
 document.getElementById('offlineCollectBtn').addEventListener('click', collectOfflineRewards);
 document.getElementById('offlineCloseBtn').addEventListener('click', ()=>{
-  // ao fechar sem coletar: mantém o reward acumulado (não reseta lastSeen)
+  // ao fechar sem coletar: pending pool persiste pra proxima abertura
   closeOfflinePopup();
 });
 
-// Salva lastSeen periodicamente e quando a aba esconde
-setInterval(saveLastSeen, 5000);
+// Drena tempo offline pro pending a cada 5s + quando a aba esconde / fecha.
+// Isso NUNCA perde o acumulo: lastSeen vira o ultimo "snapshot" e o ganho
+// vira pending, esperando coleta.
+setInterval(accruePendingFromLastSeen, 5000);
 document.addEventListener('visibilitychange', ()=>{
-  if(document.hidden) saveLastSeen();
+  if(document.hidden) accruePendingFromLastSeen();
 });
-window.addEventListener('pagehide', saveLastSeen);
-window.addEventListener('beforeunload', saveLastSeen);
+window.addEventListener('pagehide', accruePendingFromLastSeen);
+window.addEventListener('beforeunload', accruePendingFromLastSeen);
 // atualiza o glow do botão ZZZ uma vez por segundo
 setInterval(updateSleepBtnGlow, 1000);
+// roda uma vez no boot pra adicionar o que acumulou desde a ultima sessao
+accruePendingFromLastSeen();
 
 // ============ MAIN LOOP (fixed 60Hz timestep) ============
 const FIXED_DT = 1000/60;
