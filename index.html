@@ -677,22 +677,25 @@
   }
 
   /* AUTO toggle (arena) — dentro do play grid, no canto inferior direito.
-     Grid trava em 50% → AUTO fica logo acima do items strip (bottom: 50% + margem). */
+     Mesmas dimensões da pill de Kills (💀) no bottom-center do grid. */
   #arenaAutoBtn{
     position:absolute;
     bottom:calc(50% + 6px);
     right:10px;
-    padding:7px 10px;
+    width:70px;
+    height:24px;
+    padding:0;
     background:#3b2a70;
     color:var(--ink);
     border:2px solid #7a5fc4;
-    border-radius:8px;
-    font-size:11px;font-weight:bold;
+    border-radius:11px;
+    font-size:10px;font-weight:bold;
     letter-spacing:1px;
     cursor:pointer;
     display:none;
     z-index:6;
     box-shadow:0 2px 0 #2a1a55;
+    line-height:1;
   }
   #arenaAutoBtn.show{display:block;}
   #arenaAutoBtn.active{
