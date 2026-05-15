@@ -818,13 +818,27 @@
   .offline-rate{
     display:flex;flex-direction:column;align-items:center;gap:3px;
   }
+  /* Ring de "relogio" no icone: conic-gradient gira em loop (cinza→branco)
+     pra mostrar a velocidade que o jogador ganha esse recurso offline.
+     Carrot: 1 ciclo/segundo (1/s). Lettuce: 1 ciclo/minuto (1/m). */
   .offline-rate .ico{
-    width:42px;height:42px;
+    --lp: 0;
+    position:relative;
+    width:46px;height:46px;
     display:flex;align-items:center;justify-content:center;
-    background:rgba(255,255,255,0.18);
     border-radius:50%;
+    background:
+      conic-gradient(#fff7e0 calc(var(--lp) * 1%), rgba(255,255,255,0.18) 0);
     font-size:22px;
   }
+  .offline-rate .ico::before{
+    content:'';
+    position:absolute;
+    inset:4px;
+    background:#3b2a70;
+    border-radius:50%;
+  }
+  .offline-rate .ico > * { position:relative; z-index:1; }
   .offline-rate .lbl{font-size:12px;font-weight:bold;}
   .offline-rate.carrot .lbl{color:#ffcc3d;}
   .offline-rate.lettuce .lbl{color:#4cf08e;}
@@ -944,11 +958,11 @@
           <div class="offline-time">Tempo de coleta: <span id="offlineTime">--</span></div>
           <div class="offline-rates">
             <div class="offline-rate carrot">
-              <span class="ico">🥕</span>
+              <span class="ico" id="rateCarrotRing"><span>🥕</span></span>
               <span class="lbl">1/s</span>
             </div>
             <div class="offline-rate lettuce">
-              <span class="ico">🥬</span>
+              <span class="ico" id="rateLettuceRing"><span>🥬</span></span>
               <span class="lbl">1/m</span>
             </div>
           </div>
@@ -987,10 +1001,7 @@
       </div>
       <div class="forge-info-row">
         <span id="forgeComboInline">—</span>
-        <span id="arenaCarrotsCount">
-          <span id="lettuceRing" class="ring-icon">🥬</span>
-          <span id="lettuceCount">50</span>
-        </span>
+        <span id="arenaCarrotsCount">🥬 50</span>
       </div>
     </div>
 
@@ -1876,10 +1887,6 @@ function initArena(){
   arena.forgeInterval = 900;
   arena.autoForge = false;
   arena.lettuce = 50; // saldo inicial pra forjar 10 vezes
-  // accumulators de idle income (1/s cenoura, 1/min alface) — visualizados
-  // como anel progresso em volta dos icones (cenoura HUD + alface forge)
-  arena.passiveCarrotAccum = 0;
-  arena.passiveLettuceAccum = 0;
   arena.carrots = 50; // novo recurso pra upar level de itens (design-level-scaling §5)
   arena.power = arenaPower();
   arena.powerDelta = 0;
@@ -2560,23 +2567,8 @@ function updateArena(){
   if(arena.powerDeltaTimer > 0) arena.powerDeltaTimer--;
   if(arena.powerPulseTimer > 0) arena.powerPulseTimer--;
   bumpArenaPower();
-
-  // Idle income passivo enquanto joga (mesmo ritmo do offline):
-  //   - 1 cenoura por segundo (passiveCarrotAccum += 1/60 por frame)
-  //   - 1 alface por minuto   (passiveLettuceAccum += 1/3600 por frame)
-  // Quando o accumulator ≥ 1, soma o inteiro no recurso e mantém o resto.
-  arena.passiveCarrotAccum  = (arena.passiveCarrotAccum  || 0) + 1/60;
-  arena.passiveLettuceAccum = (arena.passiveLettuceAccum || 0) + 1/3600;
-  if(arena.passiveCarrotAccum >= 1){
-    const n = Math.floor(arena.passiveCarrotAccum);
-    arena.carrots += n;
-    arena.passiveCarrotAccum -= n;
-  }
-  if(arena.passiveLettuceAccum >= 1){
-    const n = Math.floor(arena.passiveLettuceAccum);
-    arena.lettuce += n;
-    arena.passiveLettuceAccum -= n;
-  }
+  // (idle income só acumula OFFLINE — via lastSeen timestamp. Não tem tick
+  //  passivo enquanto joga; recompensa é coletada pelo botão ZZZ)
   // auto-forge: desabilitado temporariamente (bug nas waves seguintes)
   // if(arena.autoForge && arena.lettuce >= FORGE_COST){
   //   autoForgeStep();
@@ -3061,24 +3053,6 @@ function drawArenaHUD(){
   const essW = 80, essH = 31;
   const essX = W - essW - 8, essY = HUD_TOP_PAD;
   drawPillBg(essX, essY, essW, essH, 'rgba(255,154,58,0.95)', '#ffcc3d', 10);
-  // Progress ring atrás do icone — gira 1x por segundo (1 cenoura/s passivo).
-  // Anel base cinza escuro; preenchimento clareia (branco-creme) conforme acumula.
-  const ccx = essX + 14;
-  const ccy = essY + essH/2;
-  const cR = 11;
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(0,0,0,0.40)';
-  ctx.beginPath();
-  ctx.arc(ccx, ccy, cR, 0, Math.PI*2);
-  ctx.stroke();
-  const cPct = Math.min(1, arena.passiveCarrotAccum || 0);
-  if(cPct > 0){
-    ctx.strokeStyle = '#fff7e0';
-    ctx.beginPath();
-    ctx.arc(ccx, ccy, cR, -Math.PI/2, -Math.PI/2 + cPct * Math.PI*2);
-    ctx.stroke();
-  }
-  ctx.lineWidth = 1;
   ctx.fillStyle = '#3a230b';
   ctx.font = 'bold 16px monospace';
   ctx.textAlign = 'left';
@@ -3643,15 +3617,10 @@ function renderForgeDice(){
       el.style.removeProperty('--combo-color');
     }
   }
-  // combo + alface inline (counter + ring de progress)
+  // combo + alface inline
   const comboEl = document.getElementById('forgeComboInline');
-  const lettuceCountEl = document.getElementById('lettuceCount');
-  const lettuceRingEl  = document.getElementById('lettuceRing');
-  if(lettuceCountEl) lettuceCountEl.textContent = arena.lettuce;
-  if(lettuceRingEl){
-    const pct = Math.min(100, (arena.passiveLettuceAccum || 0) * 100);
-    lettuceRingEl.style.setProperty('--lp', pct.toFixed(1));
-  }
+  const carrotsEl = document.getElementById('arenaCarrotsCount');
+  if(carrotsEl) carrotsEl.textContent = `🥬 ${arena.lettuce}`;
   if(comboEl){
     if(forgeRoll.phase === 'idle'){
       // idle: sem texto de "Pronto" — o botão ROLL FORGE já comunica isso
@@ -4236,9 +4205,35 @@ function openOfflinePopup(){
   document.getElementById('offlineCarrots').textContent = r.carrots;
   document.getElementById('offlineLettuce').textContent = r.lettuce;
   document.getElementById('offlinePopup').classList.add('show');
+  startPopupRings();
 }
 function closeOfflinePopup(){
   document.getElementById('offlinePopup').classList.remove('show');
+  stopPopupRings();
+}
+
+// Anima os rings (conic-gradient) em cima dos icones 1/s e 1/m dentro do
+// popup offline. Eles ciclam baseado no tempo real:
+//   - Cenoura 🥕: 1 ciclo por SEGUNDO  (now mod 1000 / 1000)
+//   - Alface  🥬: 1 ciclo por MINUTO   (now mod 60000 / 60000)
+// O ring fica cinza no inicio do ciclo e vai clareando até completar.
+let _popupRingRAF = null;
+function startPopupRings(){
+  if(_popupRingRAF) cancelAnimationFrame(_popupRingRAF);
+  const carrotRing = document.getElementById('rateCarrotRing');
+  const lettuceRing = document.getElementById('rateLettuceRing');
+  function tick(){
+    const now = performance.now();
+    const cPct  = (now % 1000)  / 1000 * 100;   // 1s cycle
+    const lPct  = (now % 60000) / 60000 * 100;  // 1min cycle
+    if(carrotRing)  carrotRing.style.setProperty('--lp', cPct.toFixed(1));
+    if(lettuceRing) lettuceRing.style.setProperty('--lp', lPct.toFixed(1));
+    _popupRingRAF = requestAnimationFrame(tick);
+  }
+  tick();
+}
+function stopPopupRings(){
+  if(_popupRingRAF){ cancelAnimationFrame(_popupRingRAF); _popupRingRAF = null; }
 }
 function collectOfflineRewards(){
   if(_offlinePending){
