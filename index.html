@@ -799,7 +799,7 @@
         </div>
       </div>
       <div class="forge-action-row">
-        <button id="arenaForgeRollBtn" class="forge-main-btn">🎲 ROLL FORGE</button>
+        <button id="arenaForgeRollBtn" class="forge-main-btn">ROLL FORGE</button>
         <button id="arenaForgeConfirmBtn" class="forge-main-btn confirm">⚡ FORJAR</button>
       </div>
       <div class="forge-info-row">
@@ -868,8 +868,8 @@
       </div>
       <div id="forgeSubstats"></div>
       <div class="forge-actions">
-        <button class="btn secondary" id="forgeDiscardBtn">🗑 Descartar</button>
-        <button class="btn" id="forgeEquipBtn">⚡ Equipar</button>
+        <button class="btn secondary" id="forgeDiscardBtn">Descartar</button>
+        <button class="btn" id="forgeEquipBtn">Equipar</button>
       </div>
     </div>
 
@@ -3450,7 +3450,7 @@ function renderForgeDice(){
   if(forgeRoll.phase === 'idle'){
     rollBtn.style.display = '';
     rollBtn.disabled = arena.lettuce < FORGE_BASE_COST;
-    rollBtn.textContent = `🎲 ROLL FORGE (${FORGE_BASE_COST}🥬)`;
+    rollBtn.textContent = `ROLL FORGE (${FORGE_BASE_COST}🥬)`;
     confirmBtn.style.display = 'none';
   } else if(forgeRoll.phase === 'rolling'){
     rollBtn.style.display = '';
